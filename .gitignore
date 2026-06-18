@@ -1,0 +1,81 @@
+# Build output
+build/
+out/
+dist/
+tmp/
+
+# Compiled objects / binaries
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dll
+*.exe
+*.out
+*.bin
+*.img
+*.iso
+*.elf
+*.map
+
+# Debug / symbols
+*.pdb
+*.dSYM/
+
+# Logs
+*.log
+
+# Archives
+*.zip
+*.7z
+*.tar
+*.gz
+*.tar.gz
+
+# IDE/editor
+.vscode/
+.idea/
+*.code-workspace
+*.swp
+*.swo
+*~
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Rust
+rust/target/
+Cargo.lock
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node
+node_modules/
+
+# VMware
+*.vmdk
+*.vmem
+*.vmsd
+*.vmsn
+*.vmss
+*.nvram
+*.vmx
+*.vmxf
+*.lck/
+*.scoreboard
+vmware.log
+mksSandbox.log
+
+# QEMU / emulator disks
+*.qcow2
+
+# Temporary files
+*.tmp
+*.bak

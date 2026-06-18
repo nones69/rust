@@ -1,0 +1,16 @@
+new thesis/
+├── thesis/
+│    ├── chapters/           # Contains individual chapter files (e.g., chapter1.docx, chapter2.docx)
+│    ├── figures/            # Stores all images, diagrams, and figures used in the thesis
+│    ├── tables/             # Contains tables or spreadsheets referenced in the thesis
+│    ├── references/         # Bibliography files, citation databases, or reference management exports
+│    └── thesis_master.docx  # The main thesis document compiling all chapters and content
+├── prototypes/
+│    ├── file_broker/        # Prototype code or resources related to file broker system
+│    ├── network_gateway/    # Prototype code or resources related to network gateway
+│    ├── camera_intent_model/# Prototype code or resources related to camera intent model
+├── scripts/                 # Scripts for data processing, automation, or thesis-related tasks
+├── data/                    # Raw data, processed data, or datasets used in your research
+├── README.md                # Project overview, instructions, or notes about the thesis project
+├── LICENSE                  # License file describing usage rights for your project
+└── .gitignore               # Git ignore file to exclude unnecessary files from version control

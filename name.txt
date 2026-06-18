@@ -1,0 +1,26 @@
+  - name: Look for MS Word temporary/lock files
+    id: wordcheck
+    run: |
+      found=$(find . -type f -name '~\$*' -print || true)
+      if [ -n "$found" ]; then
+        echo "ERROR: MS Word temporary / lock files found:"
+        echo "$found"
+        exit 1
+      fi
+      echo "No MS Word temp files found."
+
+  - name: Check required root files
+    id: health
+    run: |
+      required=(README.md LICENSE CITATION.cff CONTRIBUTING.md .gitignore)
+      missing=()
+      for f in "${required[@]}"; do
+        if [ ! -f "$f" ]; then
+          missing+=("$f")
+        fi
+      done
+      if [ ${#missing[@]} -gt 0 ]; then
+        echo "ERROR: Missing required files in repo root: ${missing[*]}"
+        exit 1
+      fi
+      echo "All required root files present."

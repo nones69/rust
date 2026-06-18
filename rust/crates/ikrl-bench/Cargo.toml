@@ -1,0 +1,21 @@
+[package]
+name = "ikrl-bench"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "ikrl-bench"
+path = "src/main.rs"
+
+[dependencies]
+intentkernel-core = { workspace = true }
+intentkernel-crypto = { workspace = true }
+ikrl-transport = { workspace = true }
+tokio = { workspace = true }
+serde_json = { workspace = true }
+clap = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

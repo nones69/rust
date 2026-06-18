@@ -1,0 +1,23 @@
+[package]
+name = "ikrl-linux"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+intentkernel-core = { workspace = true }
+ikrl-transport = { workspace = true }
+nix = { workspace = true }
+libc = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+clap = { workspace = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+# seccomp-notify support will be added here in a future iteration.

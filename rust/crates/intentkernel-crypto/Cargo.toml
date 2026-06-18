@@ -1,0 +1,21 @@
+[package]
+name = "intentkernel-crypto"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+sha3 = { workspace = true }
+aes-gcm = { workspace = true }
+rand = { workspace = true }
+thiserror = { workspace = true }
+hex = { workspace = true }
+
+# Production PQC backend. Install liboqs on the host, then build with
+# --features oqs. Until then, ML-DSA-87 and ML-KEM-1024 are mocked.
+oqs = { version = "0.2", optional = true }
+
+[features]
+default = []
+oqs = ["dep:oqs"]

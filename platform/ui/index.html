@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IntentOS Control Surface</title>
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ================================================================
+       TOP BAR
+       ================================================================ -->
+  <header id="topbar">
+    <div class="logo">
+      <div class="logo-icon">⚡</div>
+      <div>
+        IntentOS<span class="logo-sub">Control Surface v1.0</span>
+      </div>
+    </div>
+
+    <div id="dev-badge">⚠ DEVELOPER MODE</div>
+    <div class="spacer"></div>
+
+    <div id="system-status" style="display:flex;align-items:center;gap:8px;margin-right:16px;font-size:12px;color:var(--text-muted);">
+      <div class="status-dot" id="status-dot"></div>
+      <span id="status-text">Ready</span>
+    </div>
+
+    <div class="mode-toggle">
+      <button id="btn-simple"   class="active" onclick="setMode('simple')">Simple</button>
+      <button id="btn-advanced"            onclick="setMode('advanced')">Advanced</button>
+    </div>
+  </header>
+
+  <!-- ================================================================
+       SIMPLE MODE
+       ================================================================ -->
+  <div id="simple-mode" class="active">
+    <div class="simple-hero">
+      <h1>IntentOS Execution Engine</h1>
+      <p>Enter a prompt to run the agent pipeline. Evidence is analysed
+         with chain-of-custody and persona-gated reasoning.</p>
+
+      <div class="simple-input-row">
+        <input id="simple-prompt" type="text"
+               placeholder="Describe what you need the agent to do…"
+               onkeydown="if(event.key==='Enter') simpleRun()">
+        <button class="btn btn-primary btn-large" onclick="simpleRun()">▶ Run</button>
+      </div>
+
+      <div class="simple-status-cards" id="simple-cards">
+        <div class="status-card">
+          <span class="sc-value" id="sc-agents">4</span>
+          <div class="sc-label">Active Agents</div>
+        </div>
+        <div class="status-card">
+          <span class="sc-value" id="sc-skills">—</span>
+          <div class="sc-label">Enabled Skills</div>
+        </div>
+        <div class="status-card">
+          <span class="sc-value" id="sc-det">strict</span>
+          <div class="sc-label">Determinism</div>
+        </div>
+        <div class="status-card">
+          <span class="sc-value" id="sc-runs">0</span>
+          <div class="sc-label">Runs Today</div>
+        </div>
+      </div>
+
+      <div class="simple-output" id="simple-output">
+        <div class="simple-output-title">Result</div>
+        <div class="simple-output-body" id="simple-output-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       ADVANCED MODE
+       ================================================================ -->
+  <div id="advanced-mode" style="display:none;flex:1;overflow:hidden;flex-direction:row;">
+    <div id="main" style="display:flex;flex:1;overflow:hidden;">
+
+      <!-- ---- SIDEBAR ---- -->
+      <nav id="sidebar">
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">Control Surface</div>
+          <div class="sidebar-item active" data-panel="persona" onclick="showPanel('persona',this)">
+            <span class="item-icon">🎭</span>
+            <span class="item-label">Persona</span>
+            <span class="item-badge on" id="badge-persona">ON</span>
+          </div>
+          <div class="sidebar-item" data-panel="agents" onclick="showPanel('agents',this)">
+            <span class="item-icon">🤖</span>
+            <span class="item-label">Agents</span>
+            <span class="item-badge on" id="badge-agents">4/4</span>
+          </div>
+          <div class="sidebar-item" data-panel="skills" onclick="showPanel('skills',this)">
+            <span class="item-icon">⚡</span>
+            <span class="item-label">Skills</span>
+            <span class="item-badge on" id="badge-skills">—</span>
+          </div>
+          <div class="sidebar-item" data-panel="determinism" onclick="showPanel('determinism',this)">
+            <span class="item-icon">🔒</span>
+            <span class="item-label">Determinism</span>
+            <span class="item-badge on" id="badge-det">strict</span>
+          </div>
+          <div class="sidebar-item" data-panel="evidence" onclick="showPanel('evidence',this)">
+            <span class="item-icon">📋</span>
+            <span class="item-label">Evidence</span>
+            <span class="item-badge on" id="badge-evidence">safe</span>
+          </div>
+          <div class="sidebar-item" data-panel="logging" onclick="showPanel('logging',this)">
+            <span class="item-icon">📝</span>
+            <span class="item-label">Logging</span>
+            <span class="item-badge" id="badge-logging">std</span>
+          </div>
+          <div class="sidebar-item" data-panel="execution-ctrl" onclick="showPanel('execution-ctrl',this)">
+            <span class="item-icon">⚙️</span>
+            <span class="item-label">Execution</span>
+            <span class="item-badge" id="badge-exec">normal</span>
+          </div>
+        </div>
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">System</div>
+          <div class="sidebar-item" data-panel="developer" onclick="showPanel('developer',this)">
+            <span class="item-icon">🔑</span>
+            <span class="item-label">Developer Mode</span>
+            <span class="item-badge warn" id="badge-dev">OFF</span>
+          </div>
+          <div class="sidebar-item" data-panel="safety" onclick="showPanel('safety',this)">
+            <span class="item-icon">🛡️</span>
+            <span class="item-label">Safety Rules</span>
+            <span class="item-badge on">ACTIVE</span>
+          </div>
+        </div>
+      </nav>
+
+      <!-- ---- CONTROL PANEL ---- -->
+      <div id="control-panel">
+
+        <!-- PERSONA -->
+        <div id="panel-persona" class="panel-section" style="display:block">
+          <div class="panel-title"><span class="icon">🎭</span> Persona Controls</div>
+          <div class="control-row">
+            <div class="control-label">
+              <strong>Enforcement Enabled</strong>
+              <small>Master switch — all persona rules active</small>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="persona-enforcement" checked
+                     onchange="patchPersona({enforcement_enabled: this.checked})">
+              <div class="toggle-track"></div>
+            </label>
+          </div>
+          <div class="control-row">
+            <div class="control-label">
+              <strong>Boundary Strictness</strong>
+              <small>1 = loose &nbsp; 5 = strict</small>
+            </div>
+            <div class="slider-wrapper">
+              <input type="range" id="persona-strictness" min="1" max="5" value="3"
+                     oninput="document.getElementById('sv-strict').textContent=this.value"
+                     onchange="patchPersona({boundary_strictness: parseInt(this.value)})">
+              <span class="slider-value" id="sv-strict">3</span>
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label">
+              <strong>Speculation Block</strong>
+              <small>Block speculative / uncertain statements</small>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="persona-speculation" checked
+                     onchange="patchPersona({speculation_block: this.checked})">
+              <div class="toggle-track"></div>
+            </label>
+          </div>
+          <div class="control-row">
+            <div class="control-label">
+              <strong>Evidence-Only Mode</strong>
+              <small>Restrict output to evidence-backed claims</small>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="persona-evidence-only"
+                     onchange="patchPersona({evidence_only_mode: this.checked})">
+              <div class="toggle-track"></div>
+            </label>
+          </div>
+          <div class="control-row">
+            <div class="control-label">
+              <strong>Emotional Content Block</strong>
+              <small>Block emotionally charged language</small>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="persona-emotional"
+                     onchange="patchPersona({emotional_content_block: this.checked})">
+              <div class="toggle-track"></div>
+            </label>
+          </div>
+          <div class="control-row">
+            <div class="control-label">
+              <strong>Creativity Block</strong>
+              <small>Block creative / hypothetical reasoning</small>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="persona-creativity"
+                     onchange="patchPersona({creativity_block: this.checked})">
+              <div class="toggle-track"></div>
+            </label>
+          </div>
+          <div class="control-row">
+            <div class="control-label">
+              <strong>Persona Override</strong>
+              <small><span class="dev-only-label">🔑 DEV ONLY</span> Allow per-request persona override</small>
+            </div>
+            <label class="toggle dev-locked" id="persona-override-wrap">
+              <input type="checkbox" id="persona-override"
+                     onchange="patchPersona({override_enabled: this.checked})">
+              <div class="toggle-track"></div>
+            </label>
+          </div>
+        </div>
+
+        <!-- AGENTS -->
+        <div id="panel-agents" class="panel-section" style="display:none">
+          <div class="panel-title"><span class="icon">🤖</span> Agent Controls</div>
+          <div id="agent-grid" class="agent-grid"></div>
+        </div>
+
+        <!-- SKILLS -->
+        <div id="panel-skills" class="panel-section" style="display:none">
+          <div class="panel-title"><span class="icon">⚡</span> Skill Controls</div>
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">
+            Click a skill chip to toggle it. Skills marked <em>evidence</em> require
+            evidence to be loaded.
+          </p>
+          <div id="skill-grid" class="skill-grid"></div>
+        </div>
+
+        <!-- DETERMINISM -->
+        <div id="panel-determinism" class="panel-section" style="display:none">
+          <div class="panel-title"><span class="icon">🔒</span> Determinism Controls</div>
+          <div class="control-row">
+            <div class="control-label">
+              <strong>Execution Mode</strong>
+              <small>Controls reproducibility guarantees</small>
+            </div>
+            <div class="radio-group" id="det-mode-group">
+              <label>
+                <input type="radio" name="det-mode" value="strict" checked
+                       onchange="patchDeterminism({mode:'strict'})"> Strict
+              </label>
+              <label>
+                <input type="radio" name="det-mode" value="relaxed"
+                       onchange="patchDeterminism({mode:'relaxed'})">
+                Relaxed
+              </label>
+              <label class="dev-locked" id="det-sandbox-label">
+                <input type="radio" name="det-mode" value="sandbox"
+                       onchange="patchSandbox()"> Sandbox
+                <span class="dev-only-label">DEV</span>
+              </label>
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label">
+              <strong>Reproducibility Enforcement</strong>
+              <small>Same inputs always produce same outputs</small>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="det-repro" checked
+                     onchange="patchDeterminism({reproducibility_enforcement:this.checked})">
+              <div class="toggle-track"></div>
+            </label>
+          </div>
+          <div class="control-row">
+            <div class="control-label">
+              <strong>Hash-Based Execution Locking</strong>
+              <small>Reject runs whose input hash doesn't match</small>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="det-hash" checked
+                     onchange="patchDeterminism({hash_locking:this.checked})">
+              <div class="toggle-track"></div>
+            </label>
+          </div>
+        </div>
+
+        <!-- EVIDENCE CONFIG -->
+        <div id="panel-evidence" class="panel-section" style="display:none">
+          <div class="panel-title"><span class="icon">📋</span> Evidence Controls</div>
+          <div class="control-row">
+            <div class="control-label"><strong>Safe Mode</strong><small>Read-only evidence access</small></div>
+            <label class="toggle">
+              <input type="checkbox" id="ev-safe" checked
+                     onchange="patchEvidence({safe_mode:this.checked})">
+              <div class="toggle-track"></div>
+            </label>
+          </div>
+          <div class="control-row">
+            <div class="control-label">
+              <strong>Transformation Mode</strong>
+              <small><span class="dev-only-label">DEV</span> Allow evidence transformation</small>
+            </div>
+            <label class="toggle dev-locked" id="ev-transform-wrap">
+              <input type="checkbox" id="ev-transform"
+                     onchange="patchEvidence({transformation_mode:this.checked})">
+              <div class="toggle-track"></div>
+            </label>
+          </div>
+          <div class="control-row">
+            <div class="control-label"><strong>Chain of Custody</strong><small>Log every evidence access</small></div>
+            <label class="toggle">
+              <input type="checkbox" id="ev-coc" checked
+                     onchange="patchEvidence({chain_of_custody:this.checked})">
+              <div class="toggle-track"></div>
+            </label>
+          </div>
+          <div class="control-row">
+            <div class="control-label"><strong>Metadata Extraction</strong><small>Extract file metadata on ingest</small></div>
+            <label class="toggle">
+              <input type="checkbox" id="ev-meta" checked
+                     onchange="patchEvidence({metadata_extraction:this.checked})">
+              <div class="toggle-track"></div>
+            </label>
+          </div>
+          <div class="control-row">
+            <div class="control-label"><strong>OCR</strong><small>Extract text from documents / images</small></div>
+            <label class="toggle">
+              <input type="checkbox" id="ev-ocr" checked
+                     onchange="patchEvidence({ocr_enabled:this.checked})">
+              <div class="toggle-track"></div>
+            </label>
+          </div>
+          <div class="control-row">
+            <div class="control-label"><strong>Chronology Inference</strong><small>Build event timelines from text</small></div>
+            <label class="toggle">
+              <input type="checkbox" id="ev-chrono" checked
+                     onchange="patchEvidence({chronology_inference:this.checked})">
+              <div class="toggle-track"></div>
+            </label>
+          </div>
+        </div>
+
+        <!-- LOGGING -->
+        <div id="panel-logging" class="panel-section" style="display:none">
+          <div class="panel-title"><span class="icon">📝</span> Logging Controls</div>
+          <div class="control-row">
+            <div class="control-label">
+              <strong>Log Mode</strong>
+              <small>Controls verbosity and integrity guarantees</small>
+            </div>
+            <div class="radio-group" id="log-mode-group">
+              <label><input type="radio" name="log-mode" value="judicial"
+                            onchange="patchLogging({mode:'judicial'})"> Judicial (full trace + hashes)</label>
+              <label><input type="radio" name="log-mode" value="standard" checked
+                            onchange="patchLogging({mode:'standard'})"> Standard</label>
+              <label><input type="radio" name="log-mode" value="minimal"
+                            onchange="patchLogging({mode:'minimal'})"> Minimal</label>
+              <label class="dev-locked" id="log-none-label">
+                <input type="radio" name="log-mode" value="none"
+                       onchange="patchLogNone()">
+                None <span class="dev-only-label">DEV</span>
+              </label>
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label"><strong>Export Enabled</strong><small>Allow log file download</small></div>
+            <label class="toggle">
+              <input type="checkbox" id="log-export" checked
+                     onchange="patchLogging({export_enabled:this.checked})">
+              <div class="toggle-track"></div>
+            </label>
+          </div>
+          <div class="control-row">
+            <div class="control-label"><strong>Redaction</strong><small>Manual redaction mode (judicial)</small></div>
+            <label class="toggle">
+              <input type="checkbox" id="log-redact"
+                     onchange="patchLogging({redaction_enabled:this.checked})">
+              <div class="toggle-track"></div>
+            </label>
+          </div>
+          <div style="margin-top:12px;">
+            <button class="btn btn-ghost" onclick="exportLogs()">⬇ Export Logs</button>
+            <button class="btn btn-danger" style="margin-left:8px" onclick="clearLogs()">🗑 Clear Logs</button>
+          </div>
+        </div>
+
+        <!-- EXECUTION CONTROLS -->
+        <div id="panel-execution-ctrl" class="panel-section" style="display:none">
+          <div class="panel-title"><span class="icon">⚙️</span> Execution Controls</div>
+          <div class="control-row">
+            <div class="control-label">
+              <strong>Step-Through Mode</strong>
+              <small>Pause before each agent step</small>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="exec-step"
+                     onchange="patchExecution({step_through:this.checked})">
+              <div class="toggle-track"></div>
+            </label>
+          </div>
+          <div class="control-row">
+            <div class="control-label">
+              <strong>Sandbox Execution</strong>
+              <small><span class="dev-only-label">DEV</span> Isolated execution environment</small>
+            </div>
+            <label class="toggle dev-locked" id="exec-sandbox-wrap">
+              <input type="checkbox" id="exec-sandbox"
+                     onchange="patchExecution({sandbox_mode:this.checked})">
+              <div class="toggle-track"></div>
+            </label>
+          </div>
+        </div>
+
+        <!-- DEVELOPER MODE -->
+        <div id="panel-developer" class="panel-section" style="display:none">
+          <div class="panel-title"><span class="icon">🔑</span> Developer Mode</div>
+          <p style="font-size:12px;color:var(--text-secondary);margin-bottom:16px;line-height:1.7;">
+            Developer mode unlocks advanced features that bypass normal safety guardrails.
+            All changes made in developer mode are logged at AUDIT level.
+          </p>
+          <div style="background:var(--bg-panel);border:1px solid var(--yellow);border-radius:var(--radius);padding:14px;margin-bottom:16px;">
+            <p style="font-size:12px;color:var(--yellow);">
+              ⚠ Enabling developer mode will:<br>
+              • Allow non-deterministic sandbox execution<br>
+              • Allow log suppression<br>
+              • Allow evidence transformation<br>
+              • Allow persona override<br>
+              All actions are still logged.
+            </p>
+          </div>
+          <div id="dev-enable-section">
+            <button class="btn btn-danger" onclick="confirmDevMode(true)">🔓 Enable Developer Mode</button>
+          </div>
+          <div id="dev-disable-section" style="display:none">
+            <p style="font-size:12px;color:var(--green);margin-bottom:12px;">✓ Developer mode is active.</p>
+            <button class="btn btn-ghost" onclick="confirmDevMode(false)">🔒 Disable Developer Mode</button>
+          </div>
+        </div>
+
+        <!-- SAFETY RULES -->
+        <div id="panel-safety" class="panel-section" style="display:none">
+          <div class="panel-title"><span class="icon">🛡️</span> Safety Rules</div>
+          <p style="font-size:12px;color:var(--text-secondary);margin-bottom:16px;line-height:1.7;">
+            These rules are <strong>hard-coded</strong> and cannot be disabled by any
+            configuration, including developer mode.
+          </p>
+          <div id="safety-rules-list"></div>
+        </div>
+
+      </div><!-- /control-panel -->
+
+      <!-- ---- OUTPUT PANEL ---- -->
+      <div id="output-panel">
+        <div class="output-tabs">
+          <div class="output-tab active" onclick="showTab('run',this)">▶ Run</div>
+          <div class="output-tab"        onclick="showTab('logs',this)">📝 Logs</div>
+          <div class="output-tab"        onclick="showTab('evidence-view',this)">📋 Evidence</div>
+        </div>
+
+        <div class="output-body">
+
+          <!-- RUN TAB -->
+          <div id="tab-run" class="output-pane active">
+            <div class="run-toolbar">
+              <input class="prompt-input" id="prompt-input" type="text"
+                     placeholder="Enter prompt and press Run…"
+                     onkeydown="if(event.key==='Enter') doRun()">
+              <button class="btn btn-primary" id="btn-run" onclick="doRun()">▶ Run</button>
+              <button class="btn btn-ghost"   onclick="loadRuns()">↺ Refresh</button>
+            </div>
+            <div id="trace-area">
+              <div class="trace-empty" id="trace-empty">
+                <div class="icon">⚡</div>
+                <div>No runs yet. Enter a prompt above to start.</div>
+              </div>
+              <div id="run-list"></div>
+            </div>
+          </div>
+
+          <!-- LOGS TAB -->
+          <div id="tab-logs" class="output-pane">
+            <div class="log-toolbar">
+              <select class="log-filter" id="log-level-filter" onchange="loadLogs()">
+                <option value="">All levels</option>
+                <option value="DEBUG">DEBUG</option>
+                <option value="INFO">INFO</option>
+                <option value="WARN">WARN</option>
+                <option value="ERROR">ERROR</option>
+                <option value="AUDIT">AUDIT</option>
+              </select>
+              <input class="log-filter" id="log-source-filter" type="text"
+                     placeholder="Filter by source…" style="width:140px"
+                     oninput="loadLogs()">
+              <button class="btn btn-ghost" onclick="loadLogs()">↺</button>
+              <span class="log-count" id="log-count">0 entries</span>
+            </div>
+            <div id="log-list"></div>
+          </div>
+
+          <!-- EVIDENCE TAB -->
+          <div id="tab-evidence-view" class="output-pane">
+            <div class="evidence-toolbar">
+              <div class="upload-area">
+                📎 Drop a file or click to upload evidence
+                <input type="file" id="ev-upload" multiple onchange="uploadEvidence(this)">
+              </div>
+              <button class="btn btn-ghost" onclick="loadEvidence()">↺ Refresh</button>
+            </div>
+            <div id="evidence-list">
+              <div style="padding:40px;text-align:center;color:var(--text-muted);">
+                No evidence loaded. Upload a file above.
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /output-body -->
+      </div><!-- /output-panel -->
+
+    </div><!-- /main -->
+  </div><!-- /advanced-mode -->
+
+</div><!-- /app -->
+
+<!-- Confirmation dialog -->
+<div id="confirm-overlay">
+  <div class="confirm-box">
+    <h3 id="confirm-title">Confirm action</h3>
+    <p id="confirm-msg">Are you sure?</p>
+    <div class="confirm-actions">
+      <button class="btn btn-ghost" onclick="closeConfirm(false)">Cancel</button>
+      <button class="btn btn-danger" id="confirm-ok-btn" onclick="closeConfirm(true)">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<script src="/js/api-client.js"></script>
+<script src="/js/app.js"></script>
+</body>
+</html>

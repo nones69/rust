@@ -1,0 +1,25 @@
+============================================================
+  MANUAL REVIEW CHECKLIST
+============================================================
+  These files had generic names and need you to:
+  1. Open each one
+  2. Identify what it actually contains
+  3. Rename it descriptively
+  4. Move it to the correct subfolder
+
+  Suggested naming convention:
+    [Section##]_[DescriptiveName].docx
+    Example: 05_Formal_Verification_Framework.docx
+
+  Files to review:
+------------------------------------------------------------
+  [ ] Absolutely.docx -> rename to: _______________
+  [ ] Below is a 1.docx -> rename to: _______________
+  [ ] Below is a.docx -> rename to: _______________
+  [ ] Continuation of.docx -> rename to: _______________
+  [ ] Doc3.xml -> rename to: _______________
+------------------------------------------------------------
+  Also review 07_pasted_content/ — those "Pasted markdown"
+  files likely contain thesis sections that should be renamed
+  and moved to 02_sections/ once identified.
+============================================================

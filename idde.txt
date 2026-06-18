@@ -1,0 +1,33 @@
+  - id: detect-docx
+    run: |
+      shopt -s nullglob || true
+      docs=(thesis/*.docx thesis/research/*.docx)
+      count=0
+      for d in "${docs[@]}"; do
+        if [ -f "$d" ]; then count=$((count+1)); fi
+      done
+      echo "docs_found=$count" >> $GITHUB_OUTPUT
+
+  - name: Install LibreOffice
+    if: steps.detect-docx.outputs.docs_found != '0'
+    run: |
+      sudo apt-get update
+      sudo apt-get install -y libreoffice
+
+  - name: Convert DOCX to PDF
+    if: steps.detect-docx.outputs.docs_found != '0'
+    run: |
+      mkdir -p exports
+      for f in thesis/*.docx thesis/research/*.docx; do
+        if [ -f "$f" ]; then
+          libreoffice --headless --convert-to pdf --outdir exports "$f"
+        fi
+      done
+      ls -la exports || true
+
+  - name: Upload generated PDFs
+    if: steps.detect-docx.outputs.docs_found != '0'
+    uses: actions/upload-artifact@v4
+    with:
+      name: thesis-pdfs
+      path: exports/*.pdf

@@ -1,0 +1,8 @@
+  - name: Prepare artifacts
+    run: |
+      echo "Add steps to build or gather artifacts you want to deploy here."
+
+  - name: Deploy placeholder
+    run: |
+      echo "Replace this with your real deploy steps (publish to pages, upload to storage, create release assets, push to Zenodo via API, etc.)."
+    # If you need to use secrets for deployment, configure repository secrets and reference them as ${{ secrets.MY_SECRET }}

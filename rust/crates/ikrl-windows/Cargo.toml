@@ -1,0 +1,22 @@
+[package]
+name = "ikrl-windows"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+intentkernel-core = { workspace = true }
+ikrl-transport = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+clap = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+windows-service = "0.7"
+winapi = { version = "0.3", features = ["winsvc", "winbase", "handleapi", "processthreadsapi"] }

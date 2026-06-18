@@ -1,0 +1,78 @@
+[2026-03-31 18:07:24] Starting thesis reorganization...
+[2026-03-31 18:07:24] [MKDIR] Created: 00_master\
+[2026-03-31 18:07:24] [MKDIR] Created: 01_whitepaper\
+[2026-03-31 18:07:24] [MKDIR] Created: 02_sections\
+[2026-03-31 18:07:24] [MKDIR] Created: 03_preface_epilogue\
+[2026-03-31 18:07:24] [MKDIR] Created: 04_notes\
+[2026-03-31 18:07:24] [MKDIR] Created: 05_commercialization\
+[2026-03-31 18:07:24] [MKDIR] Created: 06_drafts_unsorted\
+[2026-03-31 18:07:24] [MKDIR] Created: 07_pasted_content\
+[2026-03-31 18:07:24] [MKDIR] Created: 08_xml_exports\
+[2026-03-31 18:07:24] [MKDIR] Created: 09_archive\
+[2026-03-31 18:07:24] 
+--- Processing mapped files ---
+[2026-03-31 18:07:24] [MOVED] Master.docx -> 00_master\UCCS_Master_Thesis.docx
+[2026-03-31 18:07:24] [MOVED] Master Thesis.xml -> 00_master\UCCS_Master_Thesis.xml
+[2026-03-31 18:07:24] [MOVED] Master Thesis.xps -> 09_archive\UCCS_Master_Thesis.xps
+[2026-03-31 18:07:24] [MOVED] UNIVERSAL CAPABILITY COMPUTING SUBSTRATE.xml -> 00_master\UCCS_Full_Specification.xml
+[2026-03-31 18:07:24] [MOVED] Whitepaper_v1.docx.docx -> 01_whitepaper\UCCS_Whitepaper_v1.docx
+[2026-03-31 18:07:24] [MOVED] Whitepaper_v1_Alternate.docx.docx -> 01_whitepaper\UCCS_Whitepaper_v1_Alt.docx
+[2026-03-31 18:07:24] [MOVED] 08_Limitations_Mitigations_Future_Work.docx.docx -> 02_sections\08_Limitations_Mitigations_Future_Work.docx
+[2026-03-31 18:07:24] [MOVED] 09_Conclusion.docx.docx -> 02_sections\09_Conclusion.docx
+[2026-03-31 18:07:24] [MOVED] 21_Enterprise_Deployment_Framework.docx.docx -> 02_sections\21_Enterprise_Deployment_Framework.docx
+[2026-03-31 18:07:24] [MOVED] Preface_Scholarly_Reflection.docx.docx -> 03_preface_epilogue\Preface_Scholarly_Reflection.docx
+[2026-03-31 18:07:24] [MOVED] Preface_Scholarly_Reflection_Alternate.docx.docx -> 03_preface_epilogue\Preface_Scholarly_Reflection_Alt.docx
+[2026-03-31 18:07:24] [MOVED] Epilogue_Post_Permission_Civilization.docx.docx -> 03_preface_epilogue\Epilogue_Post_Permission_Civilization.docx
+[2026-03-31 18:07:24] [MOVED] Reflection_Synthesis_1.docx.docx -> 03_preface_epilogue\Reflection_Synthesis_1.docx
+[2026-03-31 18:07:24] [MOVED] Reflection_Synthesis_2.docx.docx -> 03_preface_epilogue\Reflection_Synthesis_2.docx
+[2026-03-31 18:07:24] [MOVED] Conclusion_Refinement_Notes.docx.docx -> 04_notes\Conclusion_Refinement_Notes.docx
+[2026-03-31 18:07:24] [MOVED] General_Editorial_Notes.docx.docx -> 04_notes\General_Editorial_Notes.docx
+[2026-03-31 18:07:24] [MOVED] Philosophical_Framing_Notes.docx.docx -> 04_notes\Philosophical_Framing_Notes.docx
+[2026-03-31 18:07:24] [MOVED] Strategic_Bifurcation_Notes.docx.docx -> 04_notes\Strategic_Bifurcation_Notes.docx
+[2026-03-31 18:07:24] [MOVED] Commercial_Addendum.docx.docx -> 05_commercialization\Commercial_Addendum_v1.docx
+[2026-03-31 18:07:24] [MOVED] Commercial_Addendum_2.docx.docx -> 05_commercialization\Commercial_Addendum_v2.docx
+[2026-03-31 18:07:24] [MOVED] Commercialization_Outline_Refined.docx.docx -> 05_commercialization\Commercialization_Outline_Refined.docx
+[2026-03-31 18:07:24] [MOVED] IntentKernel_Commercialization_Package.docx.docx -> 05_commercialization\IntentKernel_Commercialization_Package.docx
+[2026-03-31 18:07:24] [MOVED] Absolutely.docx -> 06_drafts_unsorted\Absolutely.docx
+[2026-03-31 18:07:24] [MOVED] Below is a 1.docx -> 06_drafts_unsorted\Below is a 1.docx
+[2026-03-31 18:07:24] [MOVED] Below is a.docx -> 06_drafts_unsorted\Below is a.docx
+[2026-03-31 18:07:24] [MOVED] Continuation of.docx -> 06_drafts_unsorted\Continuation of.docx
+[2026-03-31 18:07:24] [MOVED] Doc3.xml -> 06_drafts_unsorted\Doc3.xml
+[2026-03-31 18:07:24] [MOVED] new idea (3).docm -> 09_archive\Draft_Idea_v3.docm
+[2026-03-31 18:07:24] [MOVED] new idea (3).xml -> 08_xml_exports\Draft_Idea_v3.xml
+[2026-03-31 18:07:24] [MOVED] new idea (5).docm -> 09_archive\Draft_Idea_v5.docm
+[2026-03-31 18:07:24] [MOVED] new idea (5).xml -> 08_xml_exports\Draft_Idea_v5.xml
+[2026-03-31 18:07:24] 
+--- Processing Pasted markdown files ---
+[2026-03-31 18:07:24] [MOVED] Pasted markdown (11).md -> 07_pasted_content\Pasted markdown (11).md
+[2026-03-31 18:07:24] [MOVED] Pasted markdown (11).xml -> 08_xml_exports\Pasted markdown (11).xml
+[2026-03-31 18:07:24] [MOVED] Pasted markdown (13).md -> 07_pasted_content\Pasted markdown (13).md
+[2026-03-31 18:07:24] [MOVED] Pasted markdown (13).xml -> 08_xml_exports\Pasted markdown (13).xml
+[2026-03-31 18:07:24] [MOVED] Pasted markdown (14).md -> 07_pasted_content\Pasted markdown (14).md
+[2026-03-31 18:07:24] [MOVED] Pasted markdown (14).xml -> 08_xml_exports\Pasted markdown (14).xml
+[2026-03-31 18:07:24] [MOVED] Pasted markdown (3).md -> 07_pasted_content\Pasted markdown (3).md
+[2026-03-31 18:07:24] [MOVED] Pasted markdown (5).md -> 07_pasted_content\Pasted markdown (5).md
+[2026-03-31 18:07:24] [MOVED] Pasted markdown (7).md -> 07_pasted_content\Pasted markdown (7).md
+[2026-03-31 18:07:24] [MOVED] Pasted markdown (7).txt -> 07_pasted_content\Pasted markdown (7).txt
+[2026-03-31 18:07:24] [MOVED] Pasted markdown (8).md -> 07_pasted_content\Pasted markdown (8).md
+[2026-03-31 18:07:24] [MOVED] Pasted markdown (8).txt -> 07_pasted_content\Pasted markdown (8).txt
+[2026-03-31 18:07:24] [MOVED] Pasted markdown.md -> 07_pasted_content\Pasted markdown.md
+[2026-03-31 18:07:24] [MOVED] Pasted markdown1.md -> 07_pasted_content\Pasted markdown1.md
+[2026-03-31 18:07:24] [MOVED] Pasted markdown1.xml -> 08_xml_exports\Pasted markdown1.xml
+[2026-03-31 18:07:24] [MOVED] Pasted markdown10.md -> 07_pasted_content\Pasted markdown10.md
+[2026-03-31 18:07:24] [MOVED] Pasted markdown10.xml -> 08_xml_exports\Pasted markdown10.xml
+[2026-03-31 18:07:24] [MOVED] Pasted markdown11.txt -> 07_pasted_content\Pasted markdown11.txt
+[2026-03-31 18:07:24] [MOVED] Pasted markdown12.md -> 07_pasted_content\Pasted markdown12.md
+[2026-03-31 18:07:24] [MOVED] Pasted markdown12.pdf -> 09_archive\Pasted markdown12.pdf
+[2026-03-31 18:07:24] [MOVED] Pasted markdown12.xml -> 08_xml_exports\Pasted markdown12.xml
+[2026-03-31 18:07:24] [MOVED] Pasted markdown12.xps -> 09_archive\Pasted markdown12.xps
+[2026-03-31 18:07:24] [MOVED] Pasted markdown15.md -> 07_pasted_content\Pasted markdown15.md
+[2026-03-31 18:07:24] [MOVED] Pasted markdown15.xml -> 08_xml_exports\Pasted markdown15.xml
+[2026-03-31 18:07:24] [MOVED] Pasted markdown2.md -> 07_pasted_content\Pasted markdown2.md
+[2026-03-31 18:07:24] [MOVED] Pasted markdown2.xml -> 08_xml_exports\Pasted markdown2.xml
+[2026-03-31 18:07:24] [MOVED] Pasted markdown4.md -> 07_pasted_content\Pasted markdown4.md
+[2026-03-31 18:07:24] [MOVED] Pasted markdown4.xml -> 08_xml_exports\Pasted markdown4.xml
+[2026-03-31 18:07:24] [MOVED] Pasted markdown6.md -> 07_pasted_content\Pasted markdown6.md
+[2026-03-31 18:07:24] [MOVED] Pasted markdown9.md -> 07_pasted_content\Pasted markdown9.md
+[2026-03-31 18:07:24] [MOVED] Pasted markdown9.xml -> 08_xml_exports\Pasted markdown9.xml
+[2026-03-31 18:07:24] [CREATED] Review checklist at: 06_drafts_unsorted\_REVIEW_CHECKLIST.txt
