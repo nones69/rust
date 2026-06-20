@@ -9,7 +9,8 @@ use anyhow::Result;
 use async_trait::async_trait;
 use clap::Parser;
 use ikrl_transport::{Channel, Listener};
-use intentkernel_core::{token_from_cbor, CapabilityTable};
+use intentkernel_core::{ai_prompt_ip_allowed, token_from_cbor, CapabilityTable};
+use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -133,6 +134,10 @@ async fn handle_client(ch: &mut Channel, state: Arc<Mutex<State>>) -> Result<()>
 
     let resp = match req {
         Request::Infer(p) => {
+            let meta = BTreeMap::new();
+            if let Err(reason) = ai_prompt_ip_allowed(&p.prompt, &meta) {
+                return respond_denied(ch, &reason).await;
+            }
             let token = token_from_cbor(&p.token_cbor)?;
             let s = state.lock().await;
             match s.table.register_full_token(&token) {
@@ -181,6 +186,14 @@ async fn handle_client(ch: &mut Channel, state: Arc<Mutex<State>>) -> Result<()>
     };
 
     ch.send_json(&resp).await?;
+    Ok(())
+}
+
+async fn respond_denied(ch: &mut Channel, reason: &str) -> Result<()> {
+    ch.send_json(&Response::Denied {
+        reason: reason.to_string(),
+    })
+    .await?;
     Ok(())
 }
 

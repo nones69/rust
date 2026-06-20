@@ -6,7 +6,9 @@
 use anyhow::Result;
 use clap::Parser;
 use ikrl_transport::{rpc, Channel, Listener};
-use intentkernel_core::{context_hash, default_policy, wall_epoch_ms, IntentEvent};
+use intentkernel_core::{
+    context_hash, default_policy, evaluate_ip, wall_epoch_ms, IntentEvent,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use tracing::{info, warn};
@@ -28,6 +30,7 @@ enum Request {
     SubmitIntent(IntentEvent),
     ConfirmIntent { jti: String },
     GetPolicy(IntentEvent),
+    AnalyzeIp { ip: String },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -96,6 +99,12 @@ async fn handle_client(ch: &mut Channel, capd_addr: &str) -> Result<()> {
             info!("confirmed intent for token {}", jti);
             Response::Ok {
                 data: serde_json::json!({"confirmed": true}),
+            }
+        }
+        Request::AnalyzeIp { ip } => {
+            let verdict = evaluate_ip(&ip);
+            Response::Ok {
+                data: serde_json::to_value(verdict)?,
             }
         }
     };

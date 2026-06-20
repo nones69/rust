@@ -92,6 +92,7 @@ async fn main() -> Result<()> {
                 resource: resource.clone(),
                 anchor,
                 timestamp_ms: wall_epoch_ms(),
+                metadata: Default::default(),
             };
             let req = json!({"method": "SubmitIntent", "params": event});
             let resp: serde_json::Value = rpc(&args.intentd, &req).await?;
@@ -138,6 +139,7 @@ async fn main() -> Result<()> {
                 resource: resource.clone(),
                 anchor,
                 timestamp_ms: wall_epoch_ms(),
+                metadata: Default::default(),
             };
             let req = json!({"method": "SubmitIntent", "params": event});
             let resp: serde_json::Value = rpc(&args.intentd, &req).await?;

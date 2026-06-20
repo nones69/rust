@@ -40,6 +40,7 @@ fn main() -> Result<()> {
         resource: args.resource.clone(),
         anchor: TrustAnchor::UiEvent,
         timestamp_ms: wall_epoch_ms(),
+        metadata: Default::default(),
     };
 
     // 3. Policy decision (intentd stub)

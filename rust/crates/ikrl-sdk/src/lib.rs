@@ -145,6 +145,7 @@ impl IkrlRuntime {
             resource: resource.to_string(),
             anchor,
             timestamp_ms: intentkernel_core::wall_epoch_ms(),
+            metadata: Default::default(),
         };
         let req = serde_json::json!({
             "method": "SubmitIntent",

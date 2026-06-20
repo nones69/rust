@@ -346,6 +346,15 @@ mod tests {
         assert!(ml_dsa87_verify(&kp.public_key, b"other", &sig).is_err());
     }
 
+    #[cfg(feature = "oqs")]
+    #[test]
+    fn test_oqs_ml_dsa_roundtrip() {
+        let kp = ml_dsa87_keygen().unwrap();
+        let msg = b"oqs production path";
+        let sig = ml_dsa87_sign(&kp.secret_key, msg).unwrap();
+        assert!(ml_dsa87_verify(&kp.public_key, msg, &sig).is_ok());
+    }
+
     #[test]
     fn test_aes_gcm_roundtrip() {
         let key = [0x42u8; 32];

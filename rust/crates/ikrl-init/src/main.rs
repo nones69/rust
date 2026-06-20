@@ -30,6 +30,18 @@ struct Args {
     #[arg(long)]
     /// Path to the IntentKernel binary directory (defaults to same dir as ikrl-init)
     bin_dir: Option<PathBuf>,
+
+    #[arg(long, default_value = "tcp://127.0.0.1:9200")]
+    ikrl_ai_addr: String,
+
+    #[arg(long, default_value = "tcp://127.0.0.1:9300")]
+    bridge_addr: String,
+
+    #[arg(long, help = "Also start ikrl-ai gateway")]
+    with_ai: bool,
+
+    #[arg(long, help = "Also start ikrl-bridge for CRASS OS")]
+    with_bridge: bool,
 }
 
 struct Daemon {
@@ -101,7 +113,31 @@ async fn main() -> Result<()> {
         ],
     )?;
 
-    info!("all core daemons started");
+    if args.with_ai {
+        spawn_daemon(
+            &daemons,
+            &bin_dir,
+            "ikrl-ai",
+            &[
+                format!("--listen={}", strip_prefix(&args.ikrl_ai_addr)),
+                format!(
+                    "--eventscope-addr={}",
+                    strip_prefix(&args.eventscope_addr)
+                ),
+            ],
+        )?;
+    }
+
+    if args.with_bridge {
+        spawn_daemon(
+            &daemons,
+            &bin_dir,
+            "ikrl-bridge",
+            &[format!("--listen={}", strip_prefix(&args.bridge_addr))],
+        )?;
+    }
+
+    info!("all daemons started");
 
     // Health monitor loop.
     let monitor = Arc::clone(&daemons);

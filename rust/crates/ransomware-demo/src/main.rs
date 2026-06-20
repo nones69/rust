@@ -161,6 +161,7 @@ fn issue_write_token(
         resource: "file".to_string(),
         anchor: TrustAnchor::UiEvent,
         timestamp_ms: wall_epoch_ms(),
+        metadata: Default::default(),
     };
     let decision = default_policy(&event);
     let now = wall_epoch_ms();

@@ -13,6 +13,12 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
 use std::sync::{Arc, Mutex, RwLock};
 
+pub mod ip_policy;
+pub use ip_policy::{
+    ai_prompt_ip_allowed, apply_network_policy, evaluate_ip, extract_ipv4_literals,
+    verdict_from_threat_score, IpVerdict, ThreatLevel, META_DEST_IP, META_THREAT_SCORE,
+};
+
 pub use intentkernel_crypto::{
     ml_dsa87_keygen, ml_dsa87_sign, ml_dsa87_verify, ml_kem1024_decapsulate,
     ml_kem1024_encapsulate, ml_kem1024_keygen, CryptoError, MlDsa87KeyPair, MlKem1024KeyPair,
@@ -540,6 +546,8 @@ pub struct IntentEvent {
     pub resource: String,
     pub anchor: TrustAnchor,
     pub timestamp_ms: u64,
+    #[serde(default)]
+    pub metadata: BTreeMap<String, String>,
 }
 
 /// Broker policy decision.
@@ -552,25 +560,27 @@ pub struct PolicyDecision {
     pub requires_confirmation: bool,
 }
 
-/// Default policy for a given intent.
+/// Default policy for a given intent (includes IP-Discrambler network rules).
 pub fn default_policy(event: &IntentEvent) -> PolicyDecision {
     let (ttl, uses, confirm) = match (event.action.as_str(), event.resource.as_str()) {
         ("read", "file") => (5_000, 1, false),
         ("write", "file") => (10_000, 1, true),
         ("send", "network") => (30_000, 1, false),
+        ("descramble", "network") => (15_000, 1, false),
         ("capture", "camera") => (2_000, 1, true),
         ("draw", "display") => (60_000, u32::MAX, false),
         ("actuate", "vehicle") => (100, 1, true),
         ("background", "lease") => (30_000, 1, false),
         _ => (5_000, 1, false),
     };
-    PolicyDecision {
+    let base = PolicyDecision {
         allowed: event.anchor as u8 >= TrustAnchor::UiEvent as u8,
         reason: "default policy".to_string(),
         ttl_ms: ttl,
         max_uses: uses,
         requires_confirmation: confirm,
-    }
+    };
+    ip_policy::apply_network_policy(event, &event.metadata, base)
 }
 
 /// A process lease.
@@ -588,6 +598,23 @@ pub struct ProcessLease {
 mod tests {
     use super::*;
     use intentkernel_crypto as crypto;
+    use std::collections::BTreeMap;
+
+    #[test]
+    fn test_default_policy_blocks_bogon_network_dest() {
+        let mut meta = BTreeMap::new();
+        meta.insert(META_DEST_IP.into(), "192.0.2.1".into());
+        let event = IntentEvent {
+            actor_id: "app".into(),
+            action: "send".into(),
+            resource: "network".into(),
+            anchor: TrustAnchor::UiEvent,
+            timestamp_ms: wall_epoch_ms(),
+            metadata: meta,
+        };
+        let decision = default_policy(&event);
+        assert!(!decision.allowed);
+    }
 
     #[test]
     fn test_capability_lifecycle() {

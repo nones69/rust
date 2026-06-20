@@ -18,7 +18,9 @@ members = [
     "crates/ikrl-fs",
     "crates/ikrl-cli",
     "crates/ikrl-bench",
+    "crates/ikrl-bridge",
 ]
+
 resolver = "3"
 
 [workspace.package]

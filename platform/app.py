@@ -16,16 +16,20 @@ import sys
 sys.path.insert(0, os.path.dirname(__file__))
 
 from flask import Flask, send_from_directory
-from api.control   import control_bp
-from api.execution import execution_bp
-from api.logs      import logs_bp
+from api.control    import control_bp
+from api.daemons    import daemons_bp
+from api.execution  import execution_bp
+from api.ip_policy  import ip_policy_bp
+from api.logs       import logs_bp
 
 app = Flask(__name__, static_folder="ui", static_url_path="")
 
 # Register API blueprints
-app.register_blueprint(control_bp,   url_prefix="/api")
-app.register_blueprint(execution_bp, url_prefix="/api")
-app.register_blueprint(logs_bp,      url_prefix="/api")
+app.register_blueprint(control_bp,    url_prefix="/api")
+app.register_blueprint(daemons_bp,    url_prefix="/api")
+app.register_blueprint(execution_bp,  url_prefix="/api")
+app.register_blueprint(ip_policy_bp,  url_prefix="/api")
+app.register_blueprint(logs_bp,       url_prefix="/api")
 
 
 @app.route("/")
