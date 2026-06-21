@@ -24,11 +24,12 @@ impl MarketsAssessor {
             capabilities_ready: vec![
                 "FIX/ITCH-shaped intent mapper (stub)".into(),
                 "kernel audit chain (prototype)".into(),
+                "pre-trade risk latency harness (`markets bench`, ≤250µs P99 target)".into(),
             ],
             blockers: vec![
                 "FIX/ITCH live market data feed handler not shipped".into(),
                 "OMS vendor bridge (FlexTrade/ION) not shipped".into(),
-                "Pre-trade risk engine (≤250µs P99) not shipped".into(),
+                "Production pre-trade risk path (kernel-bypass/DPDK) not certified".into(),
                 "PTP/NTP nanosecond clock sync module not shipped".into(),
                 "FPGA / kernel-bypass (DPDK/RDMA) offload not shipped".into(),
                 "CAT / MiFID II regulatory reporting pipeline not shipped".into(),

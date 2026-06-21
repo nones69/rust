@@ -3,12 +3,13 @@
 use crate::parser::ParsedLine;
 use crate::tier::OsTier;
 use anyhow::{Context, Result};
-use intentos_bench::run_bench;
+use intentos_bench::{run_bench, run_markets_latency_bench};
 use intentos_kernel::{Handle, Intent, SyscallOp, SyscallRequest, TrustAnchor, wall_ms};
 use intentos_utilities::{
-    AiGateway, BankingAssessor, BankingMapper, CompatibilityMatrix, EnterpriseMapper,
-    HealthcareAssessor, HealthcareMapper, IotAssessor, IotMapper, MarketsAssessor, MarketsMapper,
-    MigrationAssessor, OsRuntime, PublicSafetyAssessor, PublicSafetyMapper, SysTools,
+    AiGateway, BankingAssessor, BankingMapper, CompatibilityMatrix, EnterpriseHardeningAssessor,
+    EnterpriseMapper, HealthcareAssessor, HealthcareMapper, IotAssessor, IotMapper, MarketsAssessor,
+    MarketsMapper, MigrationAssessor, OsRuntime, PublicSafetyAssessor, PublicSafetyMapper,
+    RollbackCheckpoint, SysTools,
 };
 use std::sync::Arc;
 
@@ -203,10 +204,16 @@ impl BuiltinContext<'_> {
             println!("{}", serde_json::to_string_pretty(&report)?);
             return Ok(());
         }
+        if sub == "bench" {
+            let iterations: usize = parsed.arg(1).and_then(|s| s.parse().ok()).unwrap_or(10_000);
+            let report = run_markets_latency_bench(iterations);
+            println!("{}", serde_json::to_string_pretty(&report)?);
+            return Ok(());
+        }
 
         let cmd = parsed.rest_from(0);
         if cmd.is_empty() {
-            anyhow::bail!("usage: markets list | assess | <trading-operation>");
+            anyhow::bail!("usage: markets list | assess | bench [iterations] | <trading-operation>");
         }
         let intent = MarketsMapper::map_and_audit(&cmd, &self.state.actor, &self.runtime.audit)
             .context("unknown financial markets operation")?;
@@ -310,10 +317,35 @@ impl BuiltinContext<'_> {
             println!("{}", serde_json::to_string_pretty(&report)?);
             return Ok(());
         }
+        if sub == "harden" {
+            let report = EnterpriseHardeningAssessor::assess(
+                &self.runtime.platform,
+                &self.runtime.audit,
+                &self.runtime.identity,
+            );
+            println!("{}", serde_json::to_string_pretty(&report)?);
+            return Ok(());
+        }
+        if sub == "rollback" {
+            let label = parsed
+                .arg(1)
+                .context("usage: enterprise rollback <label> [snapshot]")?;
+            let snapshot = parsed.arg(2).unwrap_or("manual-checkpoint");
+            let hash = RollbackCheckpoint::record(
+                &self.runtime.audit,
+                &self.state.actor,
+                label,
+                snapshot,
+            )?;
+            println!("rollback checkpoint recorded label={label} hash={hash}");
+            return Ok(());
+        }
 
         let cmd = parsed.rest_from(0);
         if cmd.is_empty() {
-            anyhow::bail!("usage: enterprise list | compat | enterprise <powershell|bash|cmd command>");
+            anyhow::bail!(
+                "usage: enterprise list | compat | harden | rollback <label> | <powershell|bash|cmd command>"
+            );
         }
         let intent = EnterpriseMapper::map_and_audit(&cmd, &self.state.actor, &self.runtime.audit)
             .context("no enterprise mapping for command")?;
@@ -330,7 +362,14 @@ impl BuiltinContext<'_> {
         Ok(())
     }
 
-    pub fn bench(&self) -> Result<()> {
+    pub fn bench(&self, parsed: &ParsedLine<'_>) -> Result<()> {
+        let sub = parsed.arg(0).unwrap_or("");
+        if sub == "markets" {
+            let iterations: usize = parsed.arg(1).and_then(|s| s.parse().ok()).unwrap_or(10_000);
+            let report = run_markets_latency_bench(iterations);
+            println!("{}", serde_json::to_string_pretty(&report)?);
+            return Ok(());
+        }
         let report = run_bench();
         println!("{}", serde_json::to_string_pretty(&report)?);
         Ok(())
@@ -641,8 +680,12 @@ IntentOS shell — tier 2 (native, no RPC):
   iot <op>               Map device operation to intent
   markets list           Show FIX/ITCH/OMS-shaped pilot operations
   markets assess         Financial markets pilot readiness (SEC/MiFID blockers)
+  markets bench [n]      Pre-trade risk latency harness (default 10000 iterations)
   markets <op>           Map trading operation to intent
-  bench                  Run latency benchmarks vs Phase 1 targets
+  bench                  Run Phase 1 boot/intent/syscall benchmarks
+  bench markets [n]      Financial markets latency harness (risk P99 vs 250µs)
+  enterprise harden      Phase 3 Wave 1 pilot exit gate assessment
+  enterprise rollback    Record rollback checkpoint in audit chain
   ipdis status           Show IP-Discrambler bridge availability
   ipdis lookup <ip>      Enrich IP (geo, WHOIS, threat) via Python bridge
   ipdis subnet <cidr>    Analyze CIDR block

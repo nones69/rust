@@ -483,9 +483,11 @@
 ### Phase 3: Full Deployment (Months 9-12)
 **Owner:** Production Rollout Director / SRE & Operations  
 **Target Date:** 2027-05-31
+- [~] Enterprise Wave 1 hardening gates (`enterprise harden`, `enterprise rollback`, `EnterpriseHardeningAssessor`)
+- [~] Trading latency harness prototype (`markets bench`, `intentos-bench` risk P99 vs 250µs target)
 - [ ] Public safety sector certification (scaffold → CJIS/NG911 live integrations)
 - [ ] Banking/ATM vendor partnerships
-- [ ] Trading platform low-latency optimization
+- [ ] Trading platform low-latency optimization (DPDK/RDMA production path)
 - [ ] General availability release
 
 ### Phase 4: Ecosystem (Year 2+)

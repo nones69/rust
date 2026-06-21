@@ -26,8 +26,10 @@ pub use intentos_audit::{AuditEntry, AuditEventKind, AuditLog};
 pub use intentos_hal::{native_hal, CpuArch, HardwareAbstraction, HostOs, PlatformInfo};
 pub use recognizer::{OllamaClient, PilotRecognizer};
 pub use sectors::enterprise::{
-    CompatReport, CompatibilityMatrix, EnterpriseMapper, IdentityBackend, IdentityBridge,
-    LdapConfig, MigrationAssessor, MigrationReport, Principal,
+    CompatReport, CompatibilityMatrix, EnterpriseHardeningAssessor, EnterpriseHardeningReport,
+    EnterpriseMapper, HardeningGate, IdentityBackend, IdentityBridge, LdapConfig,
+    MigrationAssessor, MigrationReport, Principal, RollbackCheckpoint, TARGET_COMPAT_PASS_PCT,
+    TARGET_MIGRATION_READINESS,
 };
 pub use sectors::banking::{BankingAssessor, BankingMapper, BankingPilotReport};
 pub use sectors::healthcare::{

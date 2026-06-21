@@ -3,6 +3,13 @@
 //! Measures boot, syscall, and intent-to-handle paths against Market
 //! Deployment Framework targets (documented in `docs/market_deployment_framework.md`).
 
+mod markets;
+
+pub use markets::{
+    run_markets_latency_bench, MarketsLatencyPass, MarketsLatencyReport, MarketsLatencyTargets,
+    LatencyStats, TARGET_CLOCK_DRIFT_NS, TARGET_RISK_PRECHECK_P99_US,
+};
+
 use intentos_audit::{AuditEventKind, AuditLog};
 use intentos_hal::native_hal;
 use intentos_kernel::{

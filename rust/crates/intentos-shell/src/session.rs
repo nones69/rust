@@ -152,7 +152,7 @@ impl ShellSession {
                 Ok(true)
             }
             "bench" => {
-                ctx.bench()?;
+                ctx.bench(&parsed)?;
                 Ok(true)
             }
             "ipdis" | "ip" => {

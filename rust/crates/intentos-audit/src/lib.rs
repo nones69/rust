@@ -22,6 +22,7 @@ pub enum AuditEventKind {
     Syscall,
     SectorMap,
     Bench,
+    RollbackCheckpoint,
 }
 
 /// Single immutable audit record.
@@ -102,6 +103,11 @@ impl AuditLog {
         let state = self.inner.lock().map_err(|_| AuditError::LockPoisoned)?;
         let start = state.entries.len().saturating_sub(n);
         Ok(state.entries[start..].to_vec())
+    }
+
+    pub fn has_kind(&self, kind: AuditEventKind) -> Result<bool, AuditError> {
+        let state = self.inner.lock().map_err(|_| AuditError::LockPoisoned)?;
+        Ok(state.entries.iter().any(|e| e.kind == kind))
     }
 
     pub fn verify_chain(&self) -> Result<bool, AuditError> {

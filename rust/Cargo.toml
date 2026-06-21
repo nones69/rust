@@ -68,3 +68,11 @@ futures = "0.3"
 mdns-sd = "0.13"
 tempfile = "3.14"
 walkdir = "2.5"
+
+[profile.dev]
+debug = 0
+incremental = false
+
+[profile.test]
+debug = 0
+incremental = false
