@@ -1,0 +1,47 @@
+---
+pid: 68036
+cwd: "C:\Users\Dizzle\rust"
+command: "cd C:\\Users\\Dizzle\\rust\\rust && cargo test -p intentos-audit -p intentos-hal -p intentos-kernel -p intentos-bench -p intentos-utilities 2>&1"
+started_at: 2026-06-21T11:46:50.493Z
+running_for_ms: 22030007 
+---
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling intentos-hal v0.1.0 (C:\Users\Dizzle\rust\rust\crates\intentos-hal)
+   Compiling intentos-audit v0.1.0 (C:\Users\Dizzle\rust\rust\crates\intentos-audit)
+   Compiling intentos-kernel v0.1.0 (C:\Users\Dizzle\rust\rust\crates\intentos-kernel)
+warning: unused imports: `EnterpriseMapper`, `MappedIntent`, and `ShellFamily`
+ --> crates\intentos-utilities\src\sectors\mod.rs:5:22
+  |
+5 | pub use enterprise::{EnterpriseMapper, MappedIntent, ShellFamily};
+  |                      ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^  ^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling intentos-utilities v0.1.0 (C:\Users\Dizzle\rust\rust\crates\intentos-utilities)
+warning: `intentos-utilities` (lib) generated 1 warning (run `cargo fix --lib -p intentos-utilities` to apply 1 suggestion)
+warning: unused import: `HardwareAbstraction`
+ --> crates\intentos-bench\src\lib.rs:7:32
+  |
+7 | use intentos_hal::{native_hal, HardwareAbstraction};
+  |                                ^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling intentos-bench v0.1.0 (C:\Users\Dizzle\rust\rust\crates\intentos-bench)
+warning: `intentos-bench` (lib) generated 1 warning
+warning: `intentos-utilities` (lib test) generated 1 warning (1 duplicate)
+warning: `intentos-bench` (lib test) generated 1 warning (1 duplicate)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.45s
+     Running unittests src\lib.rs (target\debug\deps\intentos_audit-e10ca229b6dd3107.exe)
+
+running 1 test
+test tests::chain_verifies_after_appends ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (target\debug\deps\intentos_bench-07ceb6ef2213d75d.exe)
+
+running 1 test
+test tests::bench_runs_without_panic has been running for over 60 seconds

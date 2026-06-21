@@ -1,0 +1,28 @@
+{
+  "name": "insert_markdown_cell",
+  "description": "Insert a markdown cell into a Jupyter notebook (.ipynb) at a given index using the Notebook API.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "path": {
+        "type": "string",
+        "description": "Absolute path to the .ipynb file on disk."
+      },
+      "index": {
+        "type": "integer",
+        "description": "0-based index where the new cell should be inserted."
+      },
+      "markdown": {
+        "type": "string",
+        "description": "Markdown content of the new cell."
+      }
+    },
+    "required": [
+      "path",
+      "index",
+      "markdown"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

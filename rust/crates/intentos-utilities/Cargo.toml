@@ -1,0 +1,17 @@
+[package]
+name = "intentos-utilities"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "IntentOS native utilities — VFS, AI gateway, system tools"
+
+[dependencies]
+intentos-audit = { path = "../intentos-audit" }
+intentos-hal = { path = "../intentos-hal" }
+intentos-kernel = { path = "../intentos-kernel" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+reqwest = { workspace = true, features = ["blocking", "json"] }
+ldap3 = { version = "0.11", default-features = false, features = ["sync"] }

@@ -1,11 +1,13 @@
-//! ikrl-init — IntentKernel init / orchestrator.
+//! ikrl-init — IntentOS boot orchestrator.
 //!
-//! Starts the four core daemons and any platform-specific enforcers, then
-//! monitors their health. This is the single command a user runs to boot the
-//! IntentKernel user-space OS on any host.
+//! Boots the three-tier AI OS:
+//!   1. **Kernel** (always) — capd, intentd, leasebroker, eventscope
+//!   2. **Shell** (user-launched) — run `ikrl-shell` after boot
+//!   3. **Utilities** (optional) — ikrl-ai, ikrl-fs, ikrl-federation, ikrl-bridge
 
 use anyhow::{Context, Result};
 use clap::Parser;
+use intentkernel_os::{boot_banner, OsLayer, KERNEL, SHELL};
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
@@ -13,7 +15,7 @@ use tracing::{error, info, warn};
 
 #[derive(Parser, Debug)]
 #[command(name = "ikrl-init")]
-#[command(about = "IntentKernel user-space init / orchestrator")]
+#[command(about = "IntentOS boot — kernel + utilities")]
 struct Args {
     #[arg(long, default_value = "tcp://127.0.0.1:9101")]
     capd_addr: String,
@@ -34,18 +36,29 @@ struct Args {
     #[arg(long, default_value = "tcp://127.0.0.1:9200")]
     ikrl_ai_addr: String,
 
+    #[arg(long, default_value = "tcp://127.0.0.1:9400")]
+    ikrl_fs_addr: String,
+
+    #[arg(long, default_value = "tcp://127.0.0.1:9310")]
+    federation_addr: String,
+
     #[arg(long, default_value = "tcp://127.0.0.1:9300")]
     bridge_addr: String,
 
-    #[arg(long, help = "Also start ikrl-ai gateway")]
+    /// Boot utility tier: ikrl-ai, ikrl-fs, ikrl-federation, ikrl-bridge.
+    #[arg(long, help = "Start all utility daemons (AI, FS, federation, bridge)")]
+    with_utilities: bool,
+
+    #[arg(long, help = "Start ikrl-ai only (alias for partial utilities)")]
     with_ai: bool,
 
-    #[arg(long, help = "Also start ikrl-bridge for CRASS OS")]
+    #[arg(long, help = "Start ikrl-bridge only (alias for partial utilities)")]
     with_bridge: bool,
 }
 
 struct Daemon {
     name: String,
+    layer: OsLayer,
     child: Child,
 }
 
@@ -64,7 +77,7 @@ async fn main() -> Result<()> {
         })
         .context("could not determine binary directory")?;
 
-    info!("starting IntentKernel user-space OS");
+    println!("{}", boot_banner());
     info!("binary directory: {}", bin_dir.display());
 
     #[cfg(windows)]
@@ -74,23 +87,29 @@ async fn main() -> Result<()> {
             Some(job)
         }
         Err(e) => {
-            warn!("could not create kill-on-close job object ({}); child cleanup may require manual taskkill", e);
+            warn!(
+                "could not create kill-on-close job object ({}); child cleanup may require manual taskkill",
+                e
+            );
             None
         }
     };
 
     let daemons = Arc::new(Mutex::new(Vec::<Daemon>::new()));
 
-    // Start core daemons in dependency order.
+    // --- Tier 1: Kernel (always) ---
+    info!("booting kernel tier");
     spawn_daemon(
         &daemons,
         &bin_dir,
+        OsLayer::Kernel,
         "capd",
         &[format!("--listen={}", strip_prefix(&args.capd_addr))],
     )?;
     spawn_daemon(
         &daemons,
         &bin_dir,
+        OsLayer::Kernel,
         "intentd",
         &[
             format!("--listen={}", strip_prefix(&args.intentd_addr)),
@@ -100,12 +119,14 @@ async fn main() -> Result<()> {
     spawn_daemon(
         &daemons,
         &bin_dir,
+        OsLayer::Kernel,
         "leasebroker",
         &[format!("--listen={}", strip_prefix(&args.leasebroker_addr))],
     )?;
     spawn_daemon(
         &daemons,
         &bin_dir,
+        OsLayer::Kernel,
         "eventscope",
         &[
             format!("--listen={}", strip_prefix(&args.eventscope_addr)),
@@ -113,10 +134,20 @@ async fn main() -> Result<()> {
         ],
     )?;
 
-    if args.with_ai {
+    let start_ai = args.with_utilities || args.with_ai;
+    let start_bridge = args.with_utilities || args.with_bridge;
+    let start_fs = args.with_utilities;
+    let start_federation = args.with_utilities;
+
+    if start_ai || start_fs || start_bridge || start_federation {
+        info!("booting utilities tier");
+    }
+
+    if start_ai {
         spawn_daemon(
             &daemons,
             &bin_dir,
+            OsLayer::Utilities,
             "ikrl-ai",
             &[
                 format!("--listen={}", strip_prefix(&args.ikrl_ai_addr)),
@@ -128,18 +159,56 @@ async fn main() -> Result<()> {
         )?;
     }
 
-    if args.with_bridge {
+    if start_fs {
         spawn_daemon(
             &daemons,
             &bin_dir,
+            OsLayer::Utilities,
+            "ikrl-fs",
+            &[
+                format!("--listen={}", strip_prefix(&args.ikrl_fs_addr)),
+                format!(
+                    "--eventscope-addr={}",
+                    strip_prefix(&args.eventscope_addr)
+                ),
+            ],
+        )?;
+    }
+
+    if start_federation {
+        let listen = strip_prefix(&args.federation_addr);
+        spawn_daemon(
+            &daemons,
+            &bin_dir,
+            OsLayer::Utilities,
+            "ikrl-federation",
+            &[
+                format!("--listen={listen}"),
+                format!("--device-id=intentos-1"),
+            ],
+        )?;
+    }
+
+    if start_bridge {
+        spawn_daemon(
+            &daemons,
+            &bin_dir,
+            OsLayer::Utilities,
             "ikrl-bridge",
             &[format!("--listen={}", strip_prefix(&args.bridge_addr))],
         )?;
     }
 
-    info!("all daemons started");
+    let shell_exe = bin_dir.join(exe_name(SHELL.binary));
+    println!("\n  Kernel:     {} daemons running", KERNEL.len());
+    println!(
+        "  Utilities:  {} running",
+        daemons.lock().unwrap().iter().filter(|d| d.layer == OsLayer::Utilities).count()
+    );
+    println!("  Shell:      launch interactive session:");
+    println!("              {}\n", shell_exe.display());
+    info!("IntentOS boot complete — press Ctrl-C to shut down");
 
-    // Health monitor loop.
     let monitor = Arc::clone(&daemons);
     let monitor_handle = tokio::task::spawn_blocking(move || {
         loop {
@@ -160,7 +229,6 @@ async fn main() -> Result<()> {
                         }
                     }
                 }
-                // Remove dead daemons (reverse order to keep indices valid).
                 for &i in dead.iter().rev() {
                     d.remove(i);
                 }
@@ -172,7 +240,6 @@ async fn main() -> Result<()> {
         }
     });
 
-    // Wait for Ctrl-C.
     tokio::signal::ctrl_c().await?;
     info!("shutdown signal received");
 
@@ -189,6 +256,7 @@ async fn main() -> Result<()> {
 fn spawn_daemon(
     daemons: &Arc<Mutex<Vec<Daemon>>>,
     bin_dir: &PathBuf,
+    layer: OsLayer,
     name: &str,
     args: &[String],
 ) -> Result<()> {
@@ -198,13 +266,14 @@ fn spawn_daemon(
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit());
 
-    info!("spawning {}: {:?} {:?}", name, exe, args);
+    info!("[{}] spawning {}: {:?} {:?}", layer.label(), name, exe, args);
     let child = cmd
         .spawn()
         .with_context(|| format!("failed to spawn {} from {}", name, exe.display()))?;
 
     daemons.lock().unwrap().push(Daemon {
         name: name.to_string(),
+        layer,
         child,
     });
     Ok(())
@@ -231,7 +300,7 @@ mod job_object {
     use anyhow::{Context, Result};
     use std::os::windows::io::AsRawHandle;
     use std::process::Child;
-    use tracing::{info, warn};
+    use tracing::info;
     use windows::Win32::Foundation::{CloseHandle, HANDLE};
     use windows::Win32::Security::SECURITY_ATTRIBUTES;
     use windows::Win32::System::JobObjects::{
@@ -251,8 +320,6 @@ mod job_object {
         }
     }
 
-    /// Create a Windows Job Object that kills all child processes when the
-    /// job handle is closed (i.e., when ikrl-init exits).
     pub fn create_kill_on_close_job() -> Result<JobObject> {
         unsafe {
             let handle = CreateJobObjectW(Some(&SECURITY_ATTRIBUTES::default()), None)
@@ -279,13 +346,12 @@ mod job_object {
         }
     }
 
-    /// Assign a spawned child process to the job object.
     #[allow(dead_code)]
     pub fn assign_child(job: &JobObject, child: &Child) {
         unsafe {
             let raw = HANDLE(child.as_raw_handle() as *mut _);
             if let Err(e) = AssignProcessToJobObject(job.0, raw) {
-                warn!("failed to assign child process to job object: {}", e);
+                tracing::warn!("failed to assign child process to job object: {}", e);
             }
         }
     }
@@ -301,5 +367,6 @@ mod job_object {
         Ok(JobObject)
     }
 
+    #[allow(dead_code)]
     pub fn assign_child(_job: &JobObject, _child: &std::process::Child) {}
 }

@@ -1,7 +1,7 @@
 """Data models used throughout IP-Discrambler."""
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 
 @dataclass
@@ -22,11 +22,11 @@ class IPResult:
     reverse_dns: Optional[str] = None
     threat_score: int = 0
     abuse_confidence: int = 0
-    whois: Dict[str, Any] = field(default_factory=dict)
-    threat_reports: List[Dict[str, Any]] = field(default_factory=list)
-    errors: List[str] = field(default_factory=list)
+    whois: dict[str, Any] = field(default_factory=dict)
+    threat_reports: list[dict[str, Any]] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "ip": self.ip,
             "version": self.version,
@@ -55,10 +55,10 @@ class ThreatReport:
     provider: str
     score: int = 0
     confidence: int = 0
-    categories: List[str] = field(default_factory=list)
-    raw: Dict[str, Any] = field(default_factory=dict)
+    categories: list[str] = field(default_factory=list)
+    raw: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "provider": self.provider,
             "score": self.score,
@@ -83,9 +83,9 @@ class SubnetSummary:
     last_usable: Optional[str] = None
     is_private: bool = False
     is_reserved: bool = False
-    expanded: List[str] = field(default_factory=list)
+    expanded: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "cidr": self.cidr,
             "version": self.version,

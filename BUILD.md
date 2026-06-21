@@ -129,8 +129,10 @@ The nine primitive APIs are provided by the `ikrl-sdk` crate. See
 
 ### Cross-platform notes
 
-- Daemons accept `tcp://`, `unix://` (Linux/macOS), and `pipe://` (Windows stub)
-  addresses through `ikrl-transport`.
+- Daemons accept `tcp://` everywhere and `unix://` on Linux/macOS through
+  `ikrl-transport`.
+- `pipe://` is parsed on Windows but currently fails fast with an explicit
+  "not yet implemented" error; use `tcp://127.0.0.1:PORT` on Windows today.
 - `eventscope` is implemented as a TCP-based runtime wrapper on all hosts.
 - Linux additionally contains an (experimental) `ptrace` interception module
   behind `#[cfg(target_os = "linux")]` in `ikrl-linux`.
@@ -215,7 +217,7 @@ rust/crates/ikrl-transport/              # Cross-platform IPC
 rust/crates/ikrl-cli/                    # Command-line interface
 rust/crates/ikrl-init/                   # Init / orchestrator
 rust/crates/ikrl-linux/                  # Linux ptrace supervisor
-rust/crates/ikrl-windows/                # Windows service wrapper
+rust/crates/ikrl-windows/                # Windows service registration stub
 rust/crates/ikrl-ai/                     # AI capability gateway
 rust/crates/ikrl-fs/                     # Filesystem capability mediator
 rust/crates/ikrl-bench/                    # Benchmark harness

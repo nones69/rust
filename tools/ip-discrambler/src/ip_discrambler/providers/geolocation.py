@@ -2,7 +2,7 @@
 
 import ipaddress
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import httpx
 
@@ -16,14 +16,14 @@ class GeolocationProvider(ABC):
         self.config = config
 
     @abstractmethod
-    async def lookup(self, ip: str) -> Dict[str, Any]:
+    async def lookup(self, ip: str) -> dict[str, Any]:
         ...
 
 
 class IPWhoisGeoProvider(GeolocationProvider):
     """Free geolocation lookup via ipwho.is public API."""
 
-    async def lookup(self, ip: str) -> Dict[str, Any]:
+    async def lookup(self, ip: str) -> dict[str, Any]:
         try:
             async with httpx.AsyncClient(timeout=self.config.request_timeout) as client:
                 resp = await client.get(f"https://ipwho.is/{ip}")
@@ -63,7 +63,7 @@ class MaxMindProvider(GeolocationProvider):
                 self._reader = None
                 self._error = str(exc)
 
-    async def lookup(self, ip: str) -> Dict[str, Any]:
+    async def lookup(self, ip: str) -> dict[str, Any]:
         if self._reader is None:
             return {"error": "MaxMind database not available"}
         try:

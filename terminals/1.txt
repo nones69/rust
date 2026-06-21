@@ -1,0 +1,115 @@
+---
+pid: 68212
+cwd: "C:\Users\Dizzle\rust"
+command: "cd C:\\Users\\Dizzle\\rust\\rust && cargo run -p intentos -- -c \"hal\" 2>&1 && cargo run -p intentos -- -c \"recognize read the readme\" 2>&1 && cargo run -p intentos -- -c \"enterprise Get-ChildItem\" 2>&1"
+started_at: 2026-06-21T11:46:49.128Z
+running_for_ms: 11020003 
+---
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on build directory
+warning: unused imports: `EnterpriseMapper`, `MappedIntent`, and `ShellFamily`
+ --> crates\intentos-utilities\src\sectors\mod.rs:5:22
+  |
+5 | pub use enterprise::{EnterpriseMapper, MappedIntent, ShellFamily};
+  |                      ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^  ^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `intentos-utilities` (lib) generated 1 warning (run `cargo fix --lib -p intentos-utilities` to apply 1 suggestion)
+warning: unused import: `HardwareAbstraction`
+ --> crates\intentos-bench\src\lib.rs:7:32
+  |
+7 | use intentos_hal::{native_hal, HardwareAbstraction};
+  |                                ^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `intentos-bench` (lib) generated 1 warning
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.28s
+     Running `target\debug\intentos.exe -c hal`
+
+  IntentOS 0.1 — ground-up AI capability operating system
+
+  ┌──────────────────────────────────────────────────────┐
+  │ 1. UTILITIES  vfs · ai gateway · system tools        │
+  │ 2. SHELL      interactive session (you are here)     │
+  │ 3. KERNEL     policy · tokens · table · leases       │
+  └──────────────────────────────────────────────────────┘
+
+  [3] kernel   online  recognizer=stub-keyword
+  [1] utilities online  hal=win32-native vfs=mounted audit=chain
+  [2] shell    starting session — type `help`
+
+hal backend=win32-native arch=X86_64 os=Windows cpus=32 host=DESKTOP-LRM2RIR
+warning: unused imports: `EnterpriseMapper`, `MappedIntent`, and `ShellFamily`
+ --> crates\intentos-utilities\src\sectors\mod.rs:5:22
+  |
+5 | pub use enterprise::{EnterpriseMapper, MappedIntent, ShellFamily};
+  |                      ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^  ^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `intentos-utilities` (lib) generated 1 warning (run `cargo fix --lib -p intentos-utilities` to apply 1 suggestion)
+warning: unused import: `HardwareAbstraction`
+ --> crates\intentos-bench\src\lib.rs:7:32
+  |
+7 | use intentos_hal::{native_hal, HardwareAbstraction};
+  |                                ^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `intentos-bench` (lib) generated 1 warning
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.15s
+     Running `target\debug\intentos.exe -c "recognize read the readme"`
+
+  IntentOS 0.1 — ground-up AI capability operating system
+
+  ┌──────────────────────────────────────────────────────┐
+  │ 1. UTILITIES  vfs · ai gateway · system tools        │
+  │ 2. SHELL      interactive session (you are here)     │
+  │ 3. KERNEL     policy · tokens · table · leases       │
+  └──────────────────────────────────────────────────────┘
+
+  [3] kernel   online  recognizer=stub-keyword
+  [1] utilities online  hal=win32-native vfs=mounted audit=chain
+  [2] shell    starting session — type `help`
+
+recognizer=stub-keyword resource=file action=read conf=0.75
+policy: allowed=true ttl=5000ms uses=1 — intentos policy allow
+warning: unused imports: `EnterpriseMapper`, `MappedIntent`, and `ShellFamily`
+ --> crates\intentos-utilities\src\sectors\mod.rs:5:22
+  |
+5 | pub use enterprise::{EnterpriseMapper, MappedIntent, ShellFamily};
+  |                      ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^  ^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `intentos-utilities` (lib) generated 1 warning (run `cargo fix --lib -p intentos-utilities` to apply 1 suggestion)
+warning: unused import: `HardwareAbstraction`
+ --> crates\intentos-bench\src\lib.rs:7:32
+  |
+7 | use intentos_hal::{native_hal, HardwareAbstraction};
+  |                                ^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `intentos-bench` (lib) generated 1 warning
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.13s
+     Running `target\debug\intentos.exe -c "enterprise Get-ChildItem"`
+
+  IntentOS 0.1 — ground-up AI capability operating system
+
+  ┌──────────────────────────────────────────────────────┐
+  │ 1. UTILITIES  vfs · ai gateway · system tools        │
+  │ 2. SHELL      interactive session (you are here)     │
+  │ 3. KERNEL     policy · tokens · table · leases       │
+  └──────────────────────────────────────────────────────┘
+
+  [3] kernel   online  recognizer=stub-keyword
+  [1] utilities online  hal=win32-native vfs=mounted audit=chain
+  [2] shell    starting session — type `help`
+
+mapped dir/list policy allowed=true — intentos policy allow
+error: process didn't exit successfully: `target\debug\intentos.exe -c "enterprise Get-ChildItem"` (exit code: 0xffffffff)

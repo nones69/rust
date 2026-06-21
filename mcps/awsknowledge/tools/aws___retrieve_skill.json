@@ -1,0 +1,20 @@
+{
+  "name": "aws___retrieve_skill",
+  "description": "Retrieve an AWS agent skill — domain-specific expertise that transforms you into a specialist for a particular AWS domain. Skills provide workflows, context, best practices, decision frameworks and step-by-step procedures. A skill may include reference files (architecture docs, schemas, examples) and deterministic workflows for sub-tasks that require exact execution.\n\n## What Skills Provide\n\n- **Domain expertise**: Deep knowledge about specific AWS services, patterns, and operational practices\n- **Workflows**: Guided sequences for complex tasks with appropriate degrees of freedom\n- **Reference materials**: Architecture docs, API references, examples, and templates accessible via the `file` parameter\n- **Decision frameworks**: Conditional logic and troubleshooting trees for navigating complex scenarios\n\n## CRITICAL PREREQUISITE — DO NOT SKIP\n\nYou MUST call search_documentation BEFORE calling this tool. NEVER call this tool first. You do NOT know skill names — they are unpredictable identifiers that can only be discovered through search_documentation results. Guessing or fabricating a skill_name WILL fail.\n\n## REQUIRED WORKFLOW (no exceptions)\n\n1. FIRST: Call search_documentation with the user's requirements\n2. THEN: Find the result entry that has a skill_name field\n3. FINALLY: Call this tool with the EXACT skill_name value from that result — copy it verbatim\n\n## Working with Skills\n\nWhen you retrieve a skill:\n1. Read the SKILL.md overview to understand the domain and scope\n2. Follow the workflows and guidance in the skill body\n3. When the skill references additional files (e.g., `[architecture](references/architecture.md)`), retrieve them using this same tool with the `file` parameter\n4. Apply the skill's decision frameworks and conditional logic to the user's specific situation\n\n## PARAMETER REQUIREMENTS\n\nskill_name: str (Required)\n- MUST be copied exactly from the skill_name field in search_documentation results\n- Do NOT guess, fabricate, paraphrase, or modify the name in any way\n- Do NOT use the result title — use only the skill_name field value\n\nfile: str (Optional)\n- Retrieve a specific file within the skill directory (e.g., \"references/architecture.md\")\n- Use this when the SKILL.md body links to reference files\n- If omitted, returns the main SKILL.md file\n\n## IF SKILL NOT FOUND\n\nIf you get an error, you likely guessed the name. Call search_documentation first to discover it. The error response will include a list of available files for the skill.\n\n## Returns\n\nThe skill content — either the main SKILL.md with domain expertise, workflows, and guidance, or a specific reference file when the `file` parameter is provided.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "skill_name": {
+        "type": "string",
+        "description": "Exact skill name from the skill_name field in search_documentation results (no modifications)"
+      },
+      "file": {
+        "type": "string",
+        "description": "Optional specific file within the skill directory (e.g., 'references/architecture.md'). Use when the SKILL.md body links to reference files. If omitted, returns the main SKILL.md."
+      }
+    },
+    "required": [
+      "skill_name"
+    ]
+  }
+}

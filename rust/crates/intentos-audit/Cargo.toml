@@ -1,0 +1,15 @@
+[package]
+name = "intentos-audit"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "IntentOS immutable hash-chained audit log"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha3 = { workspace = true }
+thiserror = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }

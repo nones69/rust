@@ -1,0 +1,32 @@
+name: IP-Discrambler
+
+on:
+  push:
+    paths:
+      - "tools/ip-discrambler/**"
+      - ".github/workflows/ip-discrambler.yml"
+  pull_request:
+    paths:
+      - "tools/ip-discrambler/**"
+      - ".github/workflows/ip-discrambler.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.12"]
+    defaults:
+      run:
+        working-directory: tools/ip-discrambler
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install package
+        run: pip install -e ".[dev]"
+      - name: Ruff
+        run: ruff check src tests
+      - name: Pytest
+        run: pytest tests/

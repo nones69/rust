@@ -1,0 +1,37 @@
+{
+  "name": "get_price_list_urls",
+  "description": "Get download URLs for bulk pricing data files.\n\n    **PURPOSE:** Access complete AWS pricing datasets as downloadable files for historical analysis and bulk processing.\n\n    **WORKFLOW:** Use this for historical pricing analysis or bulk data processing when current pricing from get_pricing() isn't sufficient.\n\n    **PARAMETERS:**\n    - Service code from get_pricing_service_codes() (e.g., 'AmazonEC2', 'AmazonS3')\n    - AWS region (e.g., 'us-east-1', 'eu-west-1')\n    - Optional: effective_date for historical pricing (default: current date)\n\n    **RETURNS:** Dictionary with download URLs for different formats:\n    - 'csv': Direct download URL for CSV format\n    - 'json': Direct download URL for JSON format\n\n    **USE CASES:**\n    - Historical pricing analysis (get_pricing() only provides current pricing)\n    - Bulk data processing without repeated API calls\n    - Offline analysis of complete pricing datasets\n    - Savings Plans analysis across services\n\n    **FILE PROCESSING:**\n    - CSV files: Lines 1-5 are metadata, Line 6 contains headers, Line 7+ contains pricing data\n    - Use `tail -n +7 pricing.csv | grep \"t3.medium\"` to filter data\n    ",
+  "inputSchema": {
+    "properties": {
+      "service_code": {
+        "description": "AWS service code (e.g., \"AmazonEC2\", \"AmazonS3\", \"AmazonES\")",
+        "title": "Service Code",
+        "type": "string"
+      },
+      "region": {
+        "description": "AWS region (e.g., \"us-east-1\", \"eu-west-1\")",
+        "title": "Region",
+        "type": "string"
+      },
+      "effective_date": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Effective date for pricing in format \"YYYY-MM-DD HH:MM\" (default: current timestamp)",
+        "title": "Effective Date"
+      }
+    },
+    "required": [
+      "service_code",
+      "region"
+    ],
+    "title": "get_price_list_urlsArguments",
+    "type": "object"
+  }
+}

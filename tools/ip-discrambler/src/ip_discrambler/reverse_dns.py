@@ -9,11 +9,11 @@ from .config import Config
 
 async def reverse_dns(ip: str, config: Config) -> Optional[str]:
     """Resolve a PTR record for an IP address asynchronously."""
-    loop = asyncio.get_event_loop()
     try:
-        return await asyncio.wait_for(
-            loop.run_in_executor(None, socket.gethostbyaddr, ip),
+        host, _, _ = await asyncio.wait_for(
+            asyncio.to_thread(socket.gethostbyaddr, ip),
             timeout=config.reverse_dns_timeout,
-        )[0]
+        )
+        return host
     except Exception:
         return None

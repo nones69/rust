@@ -46,11 +46,10 @@ if (-not (Test-Path $initExe)) {
     throw "ikrl-init.exe not found. Run without -SkipBuild or build manually."
 }
 
-Write-Step "Starting IntentKernel daemon stack (ikrl-init --with-ai --with-bridge)"
+Write-Step "Starting IntentOS (kernel + utilities: ikrl-init --with-utilities)"
 $initArgs = @(
     "--bin-dir", $BinDir,
-    "--with-ai",
-    "--with-bridge"
+    "--with-utilities"
 )
 $initProc = Start-Process -FilePath $initExe -ArgumentList $initArgs -PassThru -WindowStyle Hidden
 Start-Sleep -Seconds 2
@@ -72,8 +71,11 @@ Start-Process $url
 Write-Host @"
 
   Running:
-    ikrl-init   PID $($initProc.Id)  (capd, intentd, leasebroker, eventscope, ikrl-ai, ikrl-bridge)
+    ikrl-init   PID $($initProc.Id)  (kernel + utilities)
     IntentOS UI PID $($uiProc.Id)    $url
+
+  Shell (tier 2):
+    $BinDir\ikrl-shell.exe
 
   API:
     GET  $url/api/daemons/health

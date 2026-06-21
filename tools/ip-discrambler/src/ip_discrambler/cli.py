@@ -3,7 +3,7 @@
 import json
 import sys
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 import click
 import yaml
@@ -14,7 +14,6 @@ from tabulate import tabulate
 from .client import Discrambler
 from .config import Config
 from .models import IPResult
-
 
 console = Console()
 
@@ -69,6 +68,16 @@ def subnet(ctx: click.Context, cidr: str, expand: bool, limit: int) -> None:
 
 
 @cli.command()
+@click.option("--host", default="127.0.0.1", help="Bind address for REST API.")
+@click.option("--port", default=8765, show_default=True, help="Listen port.")
+def serve(host: str, port: int) -> None:
+    """Start REST API server mode (OpenAPI-compatible JSON endpoints)."""
+    from .serve import serve_forever
+
+    serve_forever(host=host, port=port)
+
+
+@cli.command()
 @click.argument("ip")
 @click.option(
     "--providers",
@@ -90,11 +99,19 @@ def threat(ctx: click.Context, ip: str, providers: str) -> None:
     missing = requested - enabled
 
     if missing:
-        click.echo(f"Warning: providers without API keys configured: {', '.join(missing)}", err=True)
+        missing_names = ", ".join(missing)
+        click.echo(
+            f"Warning: providers without API keys configured: {missing_names}",
+            err=True,
+        )
 
     client = _make_client(ctx)
     # Restrict providers to those requested.
-    client.threat_providers = [p for p in client.threat_providers if p.__class__.__name__.lower().replace("provider", "") in to_query]
+    client.threat_providers = [
+        p
+        for p in client.threat_providers
+        if p.__class__.__name__.lower().replace("provider", "") in to_query
+    ]
     results = client.lookup_batch_sync([ip])
     _render(results, "json")
 
@@ -107,8 +124,8 @@ def _make_client(ctx: click.Context) -> Discrambler:
     )
 
 
-def _read_ips(ip: Optional[str], ip_file: Optional[str]) -> List[str]:
-    ips: List[str] = []
+def _read_ips(ip: Optional[str], ip_file: Optional[str]) -> list[str]:
+    ips: list[str] = []
     if ip:
         ips.append(ip)
     if ip_file:
@@ -117,10 +134,15 @@ def _read_ips(ip: Optional[str], ip_file: Optional[str]) -> List[str]:
             line = line.strip()
             if line and not line.startswith("#"):
                 ips.append(line)
+    if not ips and not sys.stdin.isatty():
+        for line in sys.stdin:
+            line = line.strip()
+            if line and not line.startswith("#"):
+                ips.append(line)
     return ips
 
 
-def _render(results: List[IPResult], output: str) -> None:
+def _render(results: list[IPResult], output: str) -> None:
     if output == "json":
         click.echo(json.dumps([r.to_dict() for r in results], indent=2))
     elif output == "yaml":
@@ -131,15 +153,26 @@ def _render(results: List[IPResult], output: str) -> None:
         _render_table(results)
 
 
-def _render_csv(results: List[IPResult]) -> None:
+def _render_csv(results: list[IPResult]) -> None:
     headers = ["ip", "country", "country_code", "city", "asn", "org", "reverse_dns", "threat_score"]
     rows = []
     for r in results:
-        rows.append([r.ip, r.country, r.country_code, r.city, r.asn, r.org, r.reverse_dns, r.threat_score])
+        rows.append(
+            [
+                r.ip,
+                r.country,
+                r.country_code,
+                r.city,
+                r.asn,
+                r.org,
+                r.reverse_dns,
+                r.threat_score,
+            ]
+        )
     click.echo(tabulate(rows, headers=headers, tablefmt="csv"))
 
 
-def _render_table(results: List[IPResult]) -> None:
+def _render_table(results: list[IPResult]) -> None:
     table = Table(title="IP-Discrambler Results")
     table.add_column("IP")
     table.add_column("Country")

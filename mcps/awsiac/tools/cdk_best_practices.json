@@ -1,0 +1,9 @@
+{
+  "name": "cdk_best_practices",
+  "description": "Returns CDK best practices and security guidelines.\n\n## Usage\n\nThis tool provides comprehensive CDK development guidelines, security best practices, and architectural recommendations. Always run this tool when asked to generate or review CDK code and follow the guidelines returned.\n\n## When to Use\n\n- Get CDK security best practices and compliance guidelines\n- Look up architectural patterns and recommendations\n- Get guidance on CDK application structure and organization\n- Research performance optimization techniques\n- Learn about proper construct usage and design patterns\n- Understand deployment and testing best practices\n\n## Result Interpretation\n\nReturns JSON with:\n- knowledge_response: Details of the response\n  - results: Array with single result containing:\n    - rank: Always 1\n    - title: Document title or filename\n    - url: Source URL of the CDK best practices\n    - context: A summary of the CDK best practices\n- next_step_guidance: If present, suggested next actions to take for answering user query\n\n## Args\n\nNo parameters required - this tool returns the complete best practices guide.\n\n## Returns\n\nComplete best practices documentation as text, including security guidelines, architectural patterns, development workflow, and compliance requirements.",
+  "inputSchema": {
+    "additionalProperties": false,
+    "properties": {},
+    "type": "object"
+  }
+}

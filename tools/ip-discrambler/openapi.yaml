@@ -1,0 +1,189 @@
+openapi: 3.0.3
+info:
+  title: IP-Discrambler REST API
+  description: Lightweight REST API for IP enrichment, subnet analysis, and policy checks.
+  version: 0.1.0
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+servers:
+  - url: http://127.0.0.1:8765
+    description: Local development server
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: health
+      responses:
+        "200":
+          description: Service is running
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /lookup:
+    get:
+      summary: Enrich a single IP address
+      operationId: lookup
+      parameters:
+        - name: ip
+          in: query
+          required: true
+          schema:
+            type: string
+            example: 8.8.8.8
+      responses:
+        "200":
+          description: Enriched IP record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IPResult"
+        "400":
+          description: Missing or invalid IP
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /subnet:
+    get:
+      summary: Analyze a CIDR subnet
+      operationId: subnet
+      parameters:
+        - name: cidr
+          in: query
+          required: true
+          schema:
+            type: string
+            example: 10.0.0.0/8
+      responses:
+        "200":
+          description: Subnet summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubnetSummary"
+        "400":
+          description: Missing or invalid CIDR
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /policy-check:
+    post:
+      summary: Evaluate IP against threat policy threshold
+      operationId: policyCheck
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ip]
+              properties:
+                ip:
+                  type: string
+                  example: 8.8.8.8
+      responses:
+        "200":
+          description: Policy decision
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PolicyCheckResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+        service:
+          type: string
+          example: ip-discrambler
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+    IPResult:
+      type: object
+      properties:
+        ip:
+          type: string
+        country:
+          type: string
+          nullable: true
+        country_code:
+          type: string
+          nullable: true
+        region:
+          type: string
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        latitude:
+          type: number
+          nullable: true
+        longitude:
+          type: number
+          nullable: true
+        asn:
+          type: string
+          nullable: true
+        org:
+          type: string
+          nullable: true
+        isp:
+          type: string
+          nullable: true
+        reverse_dns:
+          type: string
+          nullable: true
+        threat_score:
+          type: integer
+        abuse_confidence:
+          type: integer
+    SubnetSummary:
+      type: object
+      properties:
+        cidr:
+          type: string
+        version:
+          type: integer
+        total_hosts:
+          type: integer
+        usable_hosts:
+          type: integer
+        is_private:
+          type: boolean
+        is_reserved:
+          type: boolean
+    PolicyCheckResponse:
+      type: object
+      properties:
+        allowed:
+          type: boolean
+        ip:
+          type: string
+        threat_score:
+          type: integer
+        country:
+          type: string
+          nullable: true
+        org:
+          type: string
+          nullable: true
+        asn:
+          type: string
+          nullable: true
+        discrambler:
+          $ref: "#/components/schemas/IPResult"

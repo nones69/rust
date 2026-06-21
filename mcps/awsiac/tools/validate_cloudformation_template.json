@@ -1,0 +1,47 @@
+{
+  "name": "validate_cloudformation_template",
+  "description": "Validate CloudFormation template syntax, schema, and resource properties using cfn-lint.\n\nThis tool performs syntax and schema validation for CloudFormation templates. It validates:\n- JSON/YAML syntax correctness and structure\n- AWS resource type validity and property schemas\n- Resource property values against AWS service specifications\n- Template format compliance with CloudFormation standards\n- Cross-resource reference validation\n\nUse this tool to:\n- Validate AI-generated CloudFormation templates before deployment\n- Catch syntax errors, invalid properties, and schema violations early\n- Get specific fix suggestions with line numbers for each error\n- Ensure template compatibility with CloudFormation deployment engine\n- Validate both JSON and YAML template formats\n- Receive exact CloudFormation code fixes for all validation issues\n\nReturns validation results including:\n- valid (Boolean indicating if template passes validation)\n- error_count, warning_count, info_count\n- issues (List of validation issues with line numbers and paths)\n\nOUTPUT FORMATTING REQUIREMENTS:\n- Start with: \"Your template has X errors, Y warnings, Z info messages\"\n- Group issues by resource or section (e.g., all S3Bucket errors together)\n- Prioritize: Errors first, then warnings, then info\n- For similar errors on multiple resources, show pattern once with affected resources listed\n- Show line numbers and property paths for easy location\n- Use inline YAML/JSON comments to show corrections\n- Focus on what needs to change, not entire resource definitions\n\nMANDATORY REMEDIATION REQUIREMENTS:\n- Provide specific CloudFormation template code fixes\n- Show exact corrected YAML/JSON for each error with line numbers\n- Use inline comments to explain each fix\n- For property name errors, show before/after side-by-side",
+  "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+      "template_content": {
+        "type": "string",
+        "description": "CloudFormation template as YAML or JSON string"
+      },
+      "regions": {
+        "anyOf": [
+          {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "AWS regions to validate against"
+      },
+      "ignore_checks": {
+        "anyOf": [
+          {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Rule IDs to ignore (e.g., W2001, E3012)"
+      }
+    },
+    "required": [
+      "template_content"
+    ],
+    "type": "object"
+  }
+}

@@ -731,4 +731,68 @@ mod tests {
         token.signature = sig.to_vec();
         assert!(table.register_full_token(&token).is_ok());
     }
+
+    #[test]
+    fn validate_handle_rejects_expired_capability() {
+        let table = CapabilityTable::new();
+        let token = CapabilityToken {
+            ver: 1,
+            typ: TokenType::Capability,
+            alg: 1,
+            anchor: TrustAnchor::UiEvent,
+            iss: "broker".into(),
+            sub: "app".into(),
+            ctx: vec![0u8; 48],
+            scope: CapabilityScope::new("file", "read"),
+            exp: wall_epoch_ms(),
+            nbf: wall_epoch_ms(),
+            uses: 1,
+            state: LeaseState::Granted,
+            jti: uuid::Uuid::new_v4().to_string(),
+            signature: vec![1u8; ML_DSA_87_SIGNATURE_LEN],
+        };
+        let id = table
+            .create(CapabilityType::FileReadOnce, 0, 1, token)
+            .unwrap();
+        let handle = table.get_handle(id).unwrap();
+
+        assert!(matches!(
+            table.validate_handle(handle),
+            Err(ValidationResult::Expired)
+        ));
+    }
+
+    #[test]
+    fn register_full_token_rejects_replay() {
+        let table = CapabilityTable::new();
+        let kp = crypto::ml_dsa87_keygen().unwrap();
+        table.set_broker_key(kp.public_key);
+        let mut token = CapabilityToken {
+            ver: 1,
+            typ: TokenType::Capability,
+            alg: 1,
+            anchor: TrustAnchor::UiEvent,
+            iss: "broker-1".into(),
+            sub: "myapp".into(),
+            ctx: b"ctx".to_vec(),
+            scope: CapabilityScope::new("file", "read"),
+            exp: wall_epoch_ms() + 60_000,
+            nbf: wall_epoch_ms(),
+            uses: 1,
+            state: LeaseState::Granted,
+            jti: uuid::Uuid::new_v4().to_string(),
+            signature: Vec::new(),
+        };
+        let mut sign_token = token.clone();
+        sign_token.signature.clear();
+        let cbor = token_to_cbor(&sign_token).unwrap();
+        let sig = crypto::ml_dsa87_sign(&kp.secret_key, &cbor).unwrap();
+        token.signature = sig.to_vec();
+
+        assert!(table.register_full_token(&token).is_ok());
+        assert!(matches!(
+            table.register_full_token(&token),
+            Err(CoreError::ReplayDetected)
+        ));
+    }
 }

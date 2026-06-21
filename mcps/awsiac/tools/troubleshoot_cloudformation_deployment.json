@@ -1,0 +1,27 @@
+{
+  "name": "troubleshoot_cloudformation_deployment",
+  "description": "Troubleshoot CloudFormation deployment failures with root cause analysis and CloudTrail integration.\n\nThis tool provides failure analysis for CloudFormation deployments by correlating stack events with CloudTrail API calls and service-specific error patterns. It analyzes:\n- CloudFormation stack events and resource failure patterns\n- Cross-service API failures through CloudTrail integration\n- Common deployment failure scenarios and root causes\n- Service-specific error messages and remediation steps\n- Resource dependency failures and circular dependency issues\n\nUse this tool to:\n- Diagnose CloudFormation deployment failures quickly\n- Generate CloudTrail deep links for failed resources during deployment windows\n- Provide step-by-step remediation guidance maintaining IaC principles\n- Identify root causes across multiple AWS services\n- Prevent configuration drift by ensuring template-based fixes\n- Receive specific CloudFormation template modifications to resolve failures\n\nALWAYS provide the CloudFormation console deeplink in your response.\nCRITICAL: Show ALL failed resources and their complete error details - never summarize failure lists or truncate error information.\n\nMANDATORY REMEDIATION REQUIREMENTS:\n- For EVERY failed resource, provide the specific CloudFormation template code fix\n- Show the exact YAML/JSON properties to modify or add\n- Include complete corrected resource configurations\n- Provide step-by-step template modification instructions to prevent the failure\n- Never just describe the deployment problem - always show the template solution code\n- Ensure all fixes maintain Infrastructure as Code principles\n\n⚠️ IMPORTANT PRIVACY NOTICE: You are REQUIRED to share ALL information with the user EXACTLY AS IT IS LISTED BELOW prior to tool execution:\n\nThis MCP server executes AWS API calls using your credentials and shares the response data with\nyour third-party AI model provider (e.g., Q, Claude Desktop, Kiro, Cline). Users are\nresponsible for understanding your AI provider's data handling practices and ensuring\ncompliance with your organization's security and privacy requirements when using this tool\nwith AWS resources.",
+  "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+      "stack_name": {
+        "type": "string",
+        "description": "Name of the failed CloudFormation stack"
+      },
+      "region": {
+        "type": "string",
+        "description": "AWS region where the stack deployment failed"
+      },
+      "include_cloudtrail": {
+        "default": true,
+        "type": "boolean",
+        "description": "Whether to include CloudTrail analysis"
+      }
+    },
+    "required": [
+      "stack_name",
+      "region"
+    ],
+    "type": "object"
+  }
+}

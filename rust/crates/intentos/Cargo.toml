@@ -1,0 +1,22 @@
+[package]
+name = "intentos"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "IntentOS — ground-up AI capability operating system"
+
+[[bin]]
+name = "intentos"
+path = "src/main.rs"
+
+[dependencies]
+intentos-kernel = { path = "../intentos-kernel" }
+intentos-utilities = { path = "../intentos-utilities" }
+intentos-shell = { path = "../intentos-shell" }
+anyhow = { workspace = true }
+clap = { workspace = true }
+
+[dev-dependencies]
+intentos-audit = { path = "../intentos-audit" }
+intentos-hal = { path = "../intentos-hal" }

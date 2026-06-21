@@ -1,233 +1,215 @@
 # IntentKernel
 
-**A capability-secure execution architecture that replaces persistent permissions with event-scoped authority derived from verified user intent.**
+**IntentKernel is a research repository for an event-scoped capability architecture.**
+
+It contains design documents, a Rust reference implementation, a legacy IKRL compatibility stack, and a small C reference core. The most direct implementation path in the repo today is the in-process Rust runtime built around **three major components**: **utilities**, **shell**, and **kernel**.
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/Status-Public_Architecture_Proposal-green.svg)](#)
+[![Status](https://img.shields.io/badge/Status-Reference_Implementation-green.svg)](#)
 [![Version](https://img.shields.io/badge/Version-1.1.0-orange.svg)](#)
 
 ---
 
-## Current Implementation Status
+## Current implementation status
 
-This repository now contains a cross-platform, working reference implementation
-in Rust that exercises the full IntentKernel security flow end-to-end:
+The repo does **not** currently ship a production-ready operating system or a proven security boundary. What it does provide is a set of reference implementations and experiments that exercise the IntentKernel model.
 
-- **`capd`** — post-quantum capability token issuance and verification
-- **`intentd`** — intent broker with policy decisions
-- **`leasebroker`** — renewable process leases and expiry watchdog
-- **`eventscope`** — runtime wrapper / syscall interception interface
-- **`ikrl-sdk`** — the nine primitive APIs for all device classes
-- **`ikrl-sim`** — in-process simulator
-- **`ikrl-cli`** — command-line administration and integration testing
-- **`ikrl-init`** — init / orchestrator that boots the user-space OS
-- **`ikrl-transport`** — cross-platform IPC (Unix sockets / TCP / named pipes)
-- **`ikrl-linux`** — Linux `ptrace` syscall supervisor
-- **`ikrl-windows`** — Windows service wrapper
-- **`ikrl-ai`** — capability-gated AI inference and tool-use gateway
-- **`ikrl-fs`** — filesystem capability mediator
-- **`ikrl-federation`** — cross-device capability discovery and exchange
-- **`ransomware-demo`** — live demonstration of structural ransomware immunity
+### Primary Rust reference runtime
 
-See [`BUILD.md`](BUILD.md) and [`rust/README.md`](rust/README.md) for build
-and run instructions.
+Under [`rust/`](rust/), the main active path is the **`intentos`** binary and its three in-process crates:
 
-A complete master’s thesis proposal for empirical validation of the
-IntentKernel Relief Layer is available at
-[`docs/thesis_proposal.md`](docs/thesis_proposal.md).
+| # | Component | Crate / Binary | Current role |
+|---|-----------|----------------|--------------|
+| **1** | Utilities | `intentos-utilities` | In-memory VFS, AI stub gateway, support utilities |
+| **2** | Shell | `intentos-shell` | Interactive REPL and command dispatch |
+| **3** | Kernel | `intentos-kernel` | Policy evaluation, token minting, capability table, lease tracking |
+| - | Entry point | `intentos` | Boots the three components in one process |
 
-IP address enrichment and threat-intelligence tooling is provided by
-[`tools/ip-discrambler/`](tools/ip-discrambler/).
+Build and run:
 
-> **Cryptography note:** The Rust implementation uses algorithm-compatible
-> mocks for ML-DSA-87 and ML-KEM-1024 to enable development and testing
-> without the `liboqs` native dependency. Build with the `oqs` feature on
-> `intentkernel-crypto` to link a real liboqs backend. Production deployments
-> must link against certified FIPS 204/203 libraries.
+```bash
+cd rust
+cargo run -p intentos --release
+```
+
+See [`rust/README.md`](rust/README.md) for details.
+
+### Other code in this repository
+
+The repository also includes:
+
+- A **legacy IKRL daemon stack** in Rust (`capd`, `intentd`, `leasebroker`, `eventscope`, `ikrl-*` crates)
+- A **C reference capability core** under [`src/reference/`](src/reference/)
+- A **bare-metal kernel skeleton** under [`src/kernel/`](src/kernel/) and [`src/arch/`](src/arch/)
+- Architecture and protocol documents in [`docs/`](docs/)
+
+Those parts are useful context, but they should not be confused with the current three-component `intentos` runtime.
 
 ---
 
-## The Problem
+## What the current Rust runtime demonstrates
 
-Every operating system in use today — Windows, Linux, macOS, Android, iOS — shares the same fatal design flaw inherited from Multics (1969):
+The current `intentos-*` crates provide a reference flow for:
 
-> **All code runs with ambient authority.**
+- evaluating an intent in [`rust/crates/intentos-kernel/src/policy.rs`](rust/crates/intentos-kernel/src/policy.rs)
+- minting and verifying signed capability tokens in [`rust/crates/intentos-kernel/src/token.rs`](rust/crates/intentos-kernel/src/token.rs)
+- registering handles and enforcing simple gated syscalls in [`rust/crates/intentos-kernel/src/lib.rs`](rust/crates/intentos-kernel/src/lib.rs)
+- exposing gated utilities such as a virtual filesystem in [`rust/crates/intentos-utilities/src/vfs.rs`](rust/crates/intentos-utilities/src/vfs.rs)
+- exposing a stubbed AI utility in [`rust/crates/intentos-utilities/src/ai.rs`](rust/crates/intentos-utilities/src/ai.rs)
+- driving the flow from an interactive shell in [`rust/crates/intentos-shell/src/`](rust/crates/intentos-shell/src/)
 
-Once a process starts, it inherits a permanent set of permissions for its entire lifetime. Every security mechanism in existence — antivirus, EDR, firewalls, sandboxes, SELinux, AppArmor — is an attempt to limit the damage this causes. None of them address the root cause.
+The included ground-up test at [`rust/crates/intentos/tests/ground_up.rs`](rust/crates/intentos/tests/ground_up.rs) also checks that the `intentos-*` path does not depend on the legacy IKRL daemon crates.
 
-This means:
-- **560,000** new malware samples appear per day (AV-TEST, 2024)
-- **83%** of enterprise breaches originate from endpoint compromise (Verizon DBIR, 2024)
-- **$4.88M** average cost per server breach (IBM, 2024)
-- **1.5 billion** IoT devices expected compromised by 2025 (Zscaler)
-- Quantum computing will break all current cryptographic protocols
+---
 
-**It is mathematically impossible to build a secure system on top of ambient authority.**
+## What this repository does **not** currently prove
 
-## The Solution
+To keep the documentation honest:
 
-IntentKernel eliminates ambient authority entirely. It is built on three inviolable laws:
+- it does **not** prove malware, ransomware, spyware, or botnet **immunity**
+- it does **not** provide a formally verified kernel
+- it does **not** yet implement a production syscall-interception boundary for the `intentos` path
+- it does **not** currently use production post-quantum cryptography in the `intentos-*` runtime
+- it does **not** replace Windows, Linux, macOS, Android, or iOS today
 
-1. **No code has any default authority.** A process starts with zero capabilities.
-2. **All authority is event-scoped.** A capability is granted for exactly one action, at the exact moment the user intends it.
-3. **All authority expires automatically.** No capability is permanent. Every capability has a hard TTL.
+This repo is best read as a **reference implementation plus architecture proposal**, not as a finished secure OS.
 
-There are no exceptions. There is no root. There is no supervisor mode. Even the kernel operates under the same rules.
+---
 
-> **Example:** You tap "Send" on an email. The app receives a one-time capability to send one message to one address. After sending, the capability burns. The app cannot silently send a second email, read your contacts, or access the network without a new user action.
+## Three-component architecture
 
-Even if an attacker achieves perfect arbitrary code execution inside any process, **there is no malicious action they can perform.** This is not a claim — it is a formal property of the architecture.
+The active Rust reference runtime is organized around these three layers:
 
-## Architecture Stack
-
-IntentKernel is not a single component. It is a four-layer ecosystem:
-
-| Layer | Role | Specification |
-|-------|------|---------------|
-| **IntentKernel** | Core execution model — zero ambient authority, event-scoped capabilities | [`docs/intentkernel_thesis.md`](docs/intentkernel_thesis.md) |
-| **UCCS** | Universal Capability Computing Substrate — hardware-independent abstraction across all device classes | [`docs/uccs_spec.md`](docs/uccs_spec.md) |
-| **IKRL** | IntentKernel Relief Layer — compatibility shim for Windows/Linux/Android/macOS/IoT | [`docs/ikrl_spec.md`](docs/ikrl_spec.md) |
-| **IBPS** | Intent Broker Protocol — wire format, state machines, token lifecycle | [`docs/ibp_spec.md`](docs/ibp_spec.md) + [`docs/token_rfc.md`](docs/token_rfc.md) |
-
-```
-┌─────────────────────────────────────────────────┐
-│              USER INTERACTION                    │
-│       (Click, Voice, Sensor, GPIO)               │
-└──────────────────┬──────────────────────────────┘
-                   │ Verified Intent
-                   ▼
-┌─────────────────────────────────────────────────┐
-│             INTENT BROKER                        │
-│    intentd / capd / leasebroker / eventscope     │
-│    • Classifies action                           │
-│    • Issues PQC-signed capability token          │
-│    • Enforces expiry                             │
-└──────────────────┬──────────────────────────────┘
-                   │ Capability Token (ML-DSA-87)
-                   ▼
-┌─────────────────────────────────────────────────┐
-│           EXECUTION CONTEXT                      │
-│     (Process / Container / Firmware Task)        │
-│    • Zero authority without token                │
-│    • Token auto-expires after TTL                │
-└──────────────────┬──────────────────────────────┘
-                   │ Syscall + Token
-                   ▼
-┌─────────────────────────────────────────────────┐
-│          HOST OPERATING SYSTEM                   │
-│   (Windows / Linux / Android / Embedded)         │
-│    • Treated as untrusted resource provider      │
-│    • Interceptor validates token before access   │
-└─────────────────────────────────────────────────┘
+```text
+user command / event
+        |
+        v
++--------------------+
+| shell              |
+| intentos-shell     |
+| - parse commands   |
+| - session state    |
++---------+----------+
+          |
+          v
++--------------------+
+| kernel             |
+| intentos-kernel    |
+| - policy           |
+| - tokens           |
+| - capability table |
+| - leases           |
++---------+----------+
+          |
+          v
++--------------------+
+| utilities          |
+| intentos-utilities |
+| - vfs              |
+| - ai gateway stub  |
+| - helper tools     |
++--------------------+
 ```
 
-## Deployment Strategy
+This is an **in-process model**. It is separate from the older daemon-oriented IKRL path that remains in the workspace.
 
-IntentKernel does not require replacing your operating system. It enters as a **compatibility layer** and evolves toward native hardware — the same path taken by POSIX, JVM, Docker, WSL, and Rosetta.
+---
 
-| Stage | Target | Mechanism | Value |
-|-------|--------|-----------|-------|
-| **1** | Windows Enterprise | VBS Service + Micro-VM | Ransomware immunity for existing fleets |
-| **2** | Linux / Cloud | LSM Module + eBPF | Zero-trust containers without Kubernetes complexity |
-| **3** | Android / Mobile | Privileged System Service | Privacy without rooting |
-| **4** | Embedded / IoT / Vehicles | Firmware Supervisor | Prevent botnet enrollment and remote hijacking |
-| **5** | Native Hardware | Microkernel on bare metal | Maximum performance, minimum attack surface |
+## Claims table: reference implementation status
 
-## Security Guarantees
+The table below describes what the repository currently supports or illustrates, without claiming guaranteed protection.
 
-| Threat | IntentKernel | Android | iOS | Windows | Linux |
-|--------|:---:|:---:|:---:|:---:|:---:|
-| Zero-day malware | Immune | Vulnerable | Vulnerable | Vulnerable | Vulnerable |
-| Ransomware | Immune | Vulnerable | Vulnerable | Vulnerable | Vulnerable |
-| Commercial spyware | Immune | Vulnerable | Vulnerable | Vulnerable | Vulnerable |
-| IMSI catcher | Immune | Vulnerable | Vulnerable | Vulnerable | Vulnerable |
-| Quantum attack | Resistant | Vulnerable | Vulnerable | Vulnerable | Vulnerable |
-| Botnet enrollment | Impossible | Common | Rare | Common | Common |
+| Topic | Status in this repo | Notes |
+|------|----------------------|-------|
+| Event-scoped capability model | **Implemented as a reference flow** | `intentos-kernel` evaluates intents, mints tokens, registers handles, and gates operations |
+| Interactive shell workflow | **Implemented** | `intentos-shell` provides `status`, `flow`, `ls`, `cat`, `write`, `ai infer`, and lease commands |
+| File access mediation demo | **Implemented in-memory** | `intentos-utilities` gates reads/writes to an in-memory VFS, not the host filesystem |
+| AI capability gating | **Implemented as a stub** | `AiGateway` returns a local stub response after kernel authorization |
+| Lease tracking | **Implemented** | Lease grant, renew, tick, and list logic exists in `intentos-kernel` |
+| Legacy multi-process stack | **Present** | `capd`, `intentd`, `leasebroker`, `eventscope`, and related crates remain in the workspace |
+| Bare-metal OS | **Partial / experimental** | C and low-level kernel sources exist, but this is not the main runnable path |
+| Ransomware immunity | **Not proven** | The repo includes demos and architectural goals, not a universal guarantee |
+| Spyware immunity | **Not proven** | No formal or system-wide proof is provided |
+| Quantum resistance | **Not yet in `intentos-*` runtime** | Current `intentos-kernel` code uses Ed25519-based development signing, not production PQC |
 
-## Post-Quantum Cryptography
+---
 
-All cryptographic operations use NIST-standardized post-quantum algorithms — the same suite mandated by NSA CNSA 2.0 for Top Secret communications:
+## Cryptography note
 
-| Function | Algorithm | Standard |
-|----------|-----------|----------|
-| Token signatures | ML-DSA-87 (Dilithium 5) | NIST FIPS 204 |
-| Key exchange | ML-KEM-1024 (Kyber) | NIST FIPS 203 |
-| Hashing | SHA3-384 / SHA3-512 | NIST FIPS 202 |
-| Symmetric encryption | AES-256-GCM | NIST FIPS 197 |
+The current `intentos-*` runtime uses the code in [`rust/crates/intentos-kernel/src/crypto.rs`](rust/crates/intentos-kernel/src/crypto.rs), which is a **development-oriented signing path** built around `ed25519-dalek` and SHA-3. It is useful for exercising token flow, but it should not be described as a finished post-quantum deployment.
 
-No fallback to classical cryptography. No experimental algorithms.
+Separate crypto experiments also exist in the legacy Rust workspace, including [`rust/crates/intentkernel-crypto/`](rust/crates/intentkernel-crypto/).
 
-## Developer Experience
+---
 
-The entire system SDK consists of **9 primitive APIs**:
+## Repository structure
 
-| API | Description |
-|-----|-------------|
-| `draw()` | Submit a framebuffer to the display |
-| `wait_event()` | Sleep until a capability is received |
-| `get_resource()` | Request one resource from the user |
-| `put_resource()` | Return one resource to the user |
-| `network_request()` | Make exactly one outbound network request |
-| `schedule_notification()` | Schedule exactly one notification |
-| `create_capability()` | Create a new capability token |
-| `invoke_capability()` | Execute an action using a capability |
-| `exit()` | Terminate execution |
+This is the top-level layout as it exists today:
 
-Every application, for every device class, is built using only these 9 functions.
-
-## Trusted Computing Base
-
-| System | TCB Size | Auditable by One Person |
-|--------|----------|:-----------------------:|
-| **IntentKernel** | **21,400 LOC** | **Yes** |
-| seL4 | 87,000 LOC | No |
-| Linux Kernel | 32,000,000 LOC | No |
-| Windows Kernel | 70,000,000 LOC | No |
-
-The reference microkernel implementation is available at [`src/reference/capability_core.c`](src/reference/capability_core.c).
-
-## Repository Structure
-
-```
-intentkernel/
-├── README.md                          # This file
-├── LICENSE                            # Apache License 2.0
-├── AUTHORS.md                         # Authorship and attribution
-├── docs/
-│   ├── architecture_overview.md       # Executive summary and stack overview
-│   ├── intentkernel_thesis.md         # Core thesis — capability execution model
-│   ├── uccs_spec.md                   # Universal Capability Computing Substrate
-│   ├── ikrl_spec.md                   # IntentKernel Relief Layer (compatibility)
-│   ├── ibp_spec.md                    # Intent Broker Protocol specification
-│   └── token_rfc.md                   # RFC-INTENT-001: Capability Token Wire Format
-├── src/
-│   └── reference/
-│       └── capability_core.c          # Reference microkernel capability logic
-├── roadmap/
-│   └── implementation_plan.md         # Phased development timeline
-└── governance/
-    └── principles.md                  # Architectural compliance requirements
+```text
+.
+├── README.md
+├── BUILD.md
+├── LICENSE
+├── AUTHORS.md
+├── docs/                 # Architecture and protocol documents
+├── governance/           # Project principles
+├── install/              # Install-related assets
+├── mcps/                 # MCP tool definitions and related assets
+├── platform/             # Platform-specific material
+├── roadmap/              # Implementation planning
+├── rust/                 # Rust workspace: intentos + IKRL crates
+├── scripts/              # Helper scripts
+├── src/                  # C reference core and low-level kernel sources
+├── thesis/               # Thesis-related material
+└── tools/                # Additional tooling
 ```
 
-## Roadmap
+Key subtrees:
 
-| Phase | Timeline | Deliverable |
-|-------|----------|-------------|
-| **v1.0** | Published | Architecture specification and protocol definitions (Zenodo archived) |
-| **v1.1** | Current | Consolidated repository with full spec suite |
-| **v1.2** | Months 1-3 | Reference implementation (Rust/Go) + ransomware immunity demo |
-| **v1.3** | Months 4-9 | Windows VBS driver + Linux LSM module |
-| **v1.4** | Months 10-18 | Full SDK release + mobile integration |
-| **v2.0** | Year 2+ | Native hardware specification + SoC integration |
+```text
+rust/
+├── Cargo.toml
+├── README.md
+└── crates/
+    ├── intentos/
+    ├── intentos-kernel/
+    ├── intentos-shell/
+    ├── intentos-utilities/
+    ├── capd/
+    ├── intentd/
+    ├── leasebroker/
+    ├── eventscope/
+    ├── ikrl-*/
+    └── ransomware-demo/
+
+src/
+├── reference/
+│   ├── capability_core.c
+│   ├── capability_core_modified.c
+│   ├── capability_core.h
+│   ├── secure_random.c
+│   └── secure_random.h
+├── test_harness.c
+├── arch/
+└── kernel/
+```
+
+---
+
+## Documents and references
+
+- Architecture overview: [`docs/architecture_overview.md`](docs/architecture_overview.md)
+- IntentKernel thesis: [`docs/intentkernel_thesis.md`](docs/intentkernel_thesis.md)
+- UCCS specification: [`docs/uccs_spec.md`](docs/uccs_spec.md)
+- IKRL specification: [`docs/ikrl_spec.md`](docs/ikrl_spec.md)
+- Intent Broker Protocol: [`docs/ibp_spec.md`](docs/ibp_spec.md)
+- Token RFC: [`docs/token_rfc.md`](docs/token_rfc.md)
+- Thesis proposal: [`docs/thesis_proposal.md`](docs/thesis_proposal.md)
+- Build instructions: [`BUILD.md`](BUILD.md)
+
+---
 
 ## License
 
-This architecture is released under the [Apache License 2.0](LICENSE). This ensures attribution while allowing commercial adoption and preventing patent aggression.
-
-## Citation
-
-> Daniel Kirk Owings, "IntentKernel: A Capability-Secure Execution Model for Event-Scoped Computing," 2025. Available at [Repository URL].
-
----
-
-*IntentKernel demonstrates that security, usability, and performance are not tradeoffs — they are artifacts of a single bad design decision made in 1969. This is a complete reset of the foundation of all computing.*
+This repository is released under the [Apache License 2.0](LICENSE).

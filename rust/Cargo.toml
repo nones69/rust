@@ -1,5 +1,13 @@
 [workspace]
 members = [
+    "crates/intentos",
+    "crates/intentos-audit",
+    "crates/intentos-bench",
+    "crates/intentos-hal",
+    "crates/intentos-kernel",
+    "crates/intentos-shell",
+    "crates/intentos-utilities",
+    "crates/intentkernel-os",
     "crates/intentkernel-core",
     "crates/intentkernel-crypto",
     "crates/intentd",
@@ -17,6 +25,7 @@ members = [
     "crates/ikrl-init",
     "crates/ikrl-fs",
     "crates/ikrl-cli",
+    "crates/ikrl-shell",
     "crates/ikrl-bench",
     "crates/ikrl-bridge",
 ]

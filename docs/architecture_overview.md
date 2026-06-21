@@ -62,7 +62,7 @@ The system is divided into four interoperable components:
 
 IntentKernel follows a Compatibility First doctrine. It enters as a security runtime on existing operating systems and evolves toward native hardware — mirroring the success of TCP/IP, TLS, Docker, and POSIX.
 
-Stage 1 deploys IKRL as a Windows Service using VBS, providing ransomware immunity for existing enterprise fleets. Stage 2 targets Linux and cloud infrastructure via LSM modules and eBPF. Stage 3 covers mobile devices via privileged system services. Stage 4 addresses embedded systems and IoT via firmware supervisors. Stage 5 delivers native hardware enforcement with the IntentKernel microkernel on bare metal.
+Stage 1 targets IKRL deployment as a hardened Windows Service using VBS, providing ransomware immunity for existing enterprise fleets. In the current Rust repo, that Windows path is still partial: `ikrl-windows` registers a service entry, but the actual runnable stack is launched directly with `ikrl-init` and uses TCP rather than named pipes. Stage 2 targets Linux and cloud infrastructure via LSM modules and eBPF. Stage 3 covers mobile devices via privileged system services. Stage 4 addresses embedded systems and IoT via firmware supervisors. Stage 5 delivers native hardware enforcement with the IntentKernel microkernel on bare metal.
 
 We are not distributing a new operating system. We are distributing a Runtime Environment compatible with existing OSes. This eliminates the friction that killed every previous secure OS attempt.
 

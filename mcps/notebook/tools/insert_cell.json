@@ -1,0 +1,34 @@
+{
+  "name": "insert_cell",
+  "description": "Insert a new cell into a notebook",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "notebookPath": {
+        "type": "string",
+        "description": "Path to the notebook file"
+      },
+      "cellIndex": {
+        "type": "number",
+        "description": "Index at which to insert the cell (omitted to append)"
+      },
+      "cellType": {
+        "type": "string",
+        "enum": [
+          "code",
+          "markdown"
+        ],
+        "description": "Type of cell"
+      },
+      "content": {
+        "type": "string",
+        "description": "Content of the cell"
+      }
+    },
+    "required": [
+      "notebookPath",
+      "cellType",
+      "content"
+    ]
+  }
+}

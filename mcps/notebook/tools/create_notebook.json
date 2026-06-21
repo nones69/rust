@@ -1,0 +1,21 @@
+{
+  "name": "create_notebook",
+  "description": "Create a new notebook file in the workspace",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "directory": {
+        "type": "string",
+        "description": "Absolute path to the directory where the notebook should be created"
+      },
+      "filename": {
+        "type": "string",
+        "description": "Name of the notebook file (without extension)"
+      }
+    },
+    "required": [
+      "directory",
+      "filename"
+    ]
+  }
+}

@@ -67,7 +67,7 @@ IKRL operates as a **privileged shim** between user-space applications and the h
 1. **Intent Broker (`intentd`):** Validates user input correlation with resource requests.
 2. **Capability Engine (`capd`):** Issues CBOR-encoded, PQC-signed tokens with TTL and scope restrictions.
 3. **Lease Scheduler (`leasebroker`):** Enforces hard timeouts and process liveness.
-4. **Interceptor (`eventscope` / `ikrl-linux` / `ikrl-windows`):** Platform-specific hooks (TCP wrapper, `ptrace`, and Windows service wrapper in the reference prototype; eBPF/LSM and Minifilters in the production thesis target).
+4. **Interceptor (`eventscope` / `ikrl-linux` / `ikrl-windows`):** Platform-specific hooks (TCP wrapper, `ptrace`, and a Windows service-registration stub in the current reference repo; eBPF/LSM and Minifilters in the production thesis target).
 
 A working Rust reference implementation of the user-space shim (daemons, SDK, simulator, ransomware demo, and benchmark harness) exists in `rust/` and provides the experimental substrate for the quantitative evaluation described below.
 
@@ -208,7 +208,7 @@ File descriptors returned to applications are *virtual* indices mapping to a use
 
 ### 6.2 Windows Implementation (Stage 1 IKRL)
 
-The current reference prototype runs as a user-mode service (`capd`/`intentd`/`eventscope`) plus a Windows service wrapper (`ikrl-windows`). The thesis evaluation path moves toward a **Minifilter Driver** that registers callbacks for `IRP_MJ_CREATE` (file open) and `IRP_MJ_NETWORK_QUERY_OPEN`:
+The current reference prototype runs the daemon stack in user mode (`capd`/`intentd`/`eventscope`) and includes a Windows service-registration stub (`ikrl-windows`). In the repo today, Windows launches are done via `ikrl-init`, and `pipe://` named-pipe transport is not yet implemented. The thesis evaluation path moves toward a **Minifilter Driver** that registers callbacks for `IRP_MJ_CREATE` (file open) and `IRP_MJ_NETWORK_QUERY_OPEN`:
 
 - **Communication:** User-mode service (`capd`) communicates via Filter Manager's `FltSendMessage` API.
 - **Job Objects:** Processes assigned to Windows Job Objects with resource quotas enforced by IKRL's lease scheduler.

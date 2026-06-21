@@ -1,0 +1,25 @@
+{
+  "name": "search_cells",
+  "description": "Search for text within cells of a notebook",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "notebookPath": {
+        "type": "string",
+        "description": "Path to the notebook file"
+      },
+      "query": {
+        "type": "string",
+        "description": "Text to search for"
+      },
+      "caseSensitive": {
+        "type": "boolean",
+        "description": "Whether search is case sensitive (optional)"
+      }
+    },
+    "required": [
+      "notebookPath",
+      "query"
+    ]
+  }
+}

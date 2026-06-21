@@ -26,7 +26,7 @@ struct Args {
     #[arg(long, default_value = "device-1")]
     device_id: String,
 
-    #[arg(long, default_value = "127.0.0.1:9300")]
+    #[arg(long, default_value = "127.0.0.1:9310")]
     listen: String,
 }
 

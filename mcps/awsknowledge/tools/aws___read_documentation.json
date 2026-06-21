@@ -1,0 +1,34 @@
+{
+  "name": "aws___read_documentation",
+  "description": "Read full AWS documentation pages after searching — search results contain partial excerpts only. Use this tool on the URLs returned by `search_documentation` to get complete, accurate information.\n\n## Usage\n\nThis tool reads documentation pages concurrently and converts them to markdown format.\nSupports AWS documentation, AWS Amplify docs, AWS GitHub repositories and CDK construct documentation.\nWhen content is truncated, a Table of Contents (TOC) with character positions is included to help navigate large documents.\n\n## Best Practices\n\n- After searching, read the most relevant URLs to get complete information — search snippets are partial excerpts and often insufficient to answer accurately\n- Batch 2-5 requests when reading multiple URLs from search results\n- Use TOC character positions to jump directly to relevant sections in long documents\n- If a document was truncated and the answer may be in the remaining content, continue reading with `start_index` set to the previous `end_index`. Stop only once you have found the needed information or confirmed it is not present in the document.\n\n## Request Format\n\nEach request must be an object with:\n- `url`: The documentation URL to fetch (required)\n- `max_length`: Maximum characters to return (optional, default: 10000 characters)\n- `start_index`: Starting character position (optional, default: 0)\n\nFor batching you can input a list of requests.\n\n## Example Request\n\n```\n{\n  \"requests\":\n  [\n      {\n          \"url\": \"https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-management.html\",\n          \"max_length\": 5000,\n          \"start_index\": 0\n      },\n      {\n          \"url\": \"https://repost.aws/knowledge-center/ec2-instance-connection-troubleshooting\"\n      }\n  ]\n}\n```\n\n\n## URL Requirements\n\nAllow-listed URL prefixes:\n- docs.aws.amazon.com\n- aws.amazon.com\n- repost.aws/knowledge-center\n- docs.amplify.aws\n- ui.docs.amplify.aws\n- github.com/aws-cloudformation/aws-cloudformation-templates\n- github.com/aws-samples/aws-cdk-examples\n- github.com/aws-samples/generative-ai-cdk-constructs-samples\n- github.com/aws-samples/serverless-patterns\n- github.com/awsdocs/aws-cdk-guide\n- github.com/awslabs/aws-solutions-constructs\n- github.com/cdklabs/cdk-nag\n- constructs.dev/packages/@aws-cdk-containers\n- constructs.dev/packages/@aws-cdk\n- constructs.dev/packages/@cdk-cloudformation\n- constructs.dev/packages/aws-analytics-reference-architecture\n- constructs.dev/packages/aws-cdk-lib\n- constructs.dev/packages/cdk-amazon-chime-resources\n- constructs.dev/packages/cdk-aws-lambda-powertools-layer\n- constructs.dev/packages/cdk-ecr-deployment\n- constructs.dev/packages/cdk-lambda-powertools-python-layer\n- constructs.dev/packages/cdk-serverless-clamscan\n- constructs.dev/packages/cdk8s\n- constructs.dev/packages/cdk8s-plus-33\n- strandsagents.com/\n\nDeny-listed URL prefixes:\n- aws.amazon.com/marketplace\n\n## Example URLs\n\n- https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html\n- https://docs.aws.amazon.com/lambda/latest/dg/lambda-invocation.html\n- https://aws.amazon.com/about-aws/whats-new/2023/02/aws-telco-network-builder/\n- https://aws.amazon.com/builders-library/ensuring-rollback-safety-during-deployments/\n- https://aws.amazon.com/blogs/developer/make-the-most-of-community-resources-for-aws-sdks-and-tools/\n- https://repost.aws/knowledge-center/example-article\n- https://docs.amplify.aws/react/build-a-backend/auth/\n- https://ui.docs.amplify.aws/angular/connected-components/authenticator\n- https://github.com/aws-samples/aws-cdk-examples/blob/main/README.md\n- https://github.com/awslabs/aws-solutions-constructs/blob/main/README.md\n- https://constructs.dev/packages/aws-cdk-lib/v/2.229.1?submodule=aws_lambda&lang=typescript\n- https://github.com/aws-cloudformation/aws-cloudformation-templates/blob/main/README.md\n- https://strandsagents.com/docs/user-guide/quickstart/overview/index.md\n\n## Output Format\n\nReturns a list of results, one per request:\n- Success: Markdown content with `status: \"SUCCESS\"`, `total_length`, `start_index`, `end_index`, `truncated`, `redirected_url` (if page was redirected)\n- Error: Error message with `status: \"ERROR\"`, `error_code` (not_found, invalid_url, throttled, downstream_error, validation_error)\n- Truncated content includes a ToC with character positions for navigation\n- Redirected pages include a note in the content and populate the `redirected_url` field\n\n## Handling Long Documents\n\nIf the response indicates the document was truncated, you have several options:\n\n1. **Continue Reading**: Make another call with `start_index` set to the previous `end_index` — do this if the answer may be in the remaining content\n2. **Jump to Section**: Use the ToC character positions to jump directly to specific sections\n3. **Stop when done**: Stop only once you have found the needed information or confirmed it is not present in the document\n\n**Example - Jump to Section:**\n```\n# TOC shows: \"Using a logging library (char 3331-6016)\"\n# Jump directly to that section:\n{\"requests\":[{\"url\": \"https://docs.aws.amazon.com/lambda/latest/dg/python-logging.html\", \"start_index\": 3331, \"max_length\": 3000}]}\n```\n",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "requests": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "URL of the AWS documentation page to read."
+            },
+            "max_length": {
+              "type": "integer",
+              "description": "Maximum number of characters to return."
+            },
+            "start_index": {
+              "type": "integer",
+              "description": "On return output starting at this character index, useful if a previous fetch was truncated and more content is required."
+            }
+          },
+          "required": [
+            "url"
+          ]
+        },
+        "description": "List of documentation requests, each containing url, max_length (optional), and start_index (optional)."
+      }
+    },
+    "required": []
+  }
+}

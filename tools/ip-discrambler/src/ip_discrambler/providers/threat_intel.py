@@ -1,7 +1,7 @@
 """Threat intelligence provider backends."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List
+from typing import Any
 
 import httpx
 
@@ -15,14 +15,14 @@ class ThreatIntelProvider(ABC):
         self.config = config
 
     @abstractmethod
-    async def lookup(self, ip: str) -> Dict[str, Any]:
+    async def lookup(self, ip: str) -> dict[str, Any]:
         ...
 
 
 class AbuseIPDBProvider(ThreatIntelProvider):
     """AbuseIPDB reputation lookup."""
 
-    async def lookup(self, ip: str) -> Dict[str, Any]:
+    async def lookup(self, ip: str) -> dict[str, Any]:
         if not self.config.abuseipdb_api_key:
             return {"error": "ABUSEIPDB_API_KEY not configured"}
         try:
@@ -48,7 +48,7 @@ class AbuseIPDBProvider(ThreatIntelProvider):
 class VirusTotalProvider(ThreatIntelProvider):
     """VirusTotal IP reputation lookup."""
 
-    async def lookup(self, ip: str) -> Dict[str, Any]:
+    async def lookup(self, ip: str) -> dict[str, Any]:
         if not self.config.virustotal_api_key:
             return {"error": "VIRUSTOTAL_API_KEY not configured"}
         try:
@@ -79,7 +79,7 @@ class VirusTotalProvider(ThreatIntelProvider):
 class ShodanProvider(ThreatIntelProvider):
     """Shodan host intelligence lookup."""
 
-    async def lookup(self, ip: str) -> Dict[str, Any]:
+    async def lookup(self, ip: str) -> dict[str, Any]:
         if not self.config.shodan_api_key:
             return {"error": "SHODAN_API_KEY not configured"}
         try:

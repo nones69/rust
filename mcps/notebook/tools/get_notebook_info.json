@@ -1,0 +1,16 @@
+{
+  "name": "get_notebook_info",
+  "description": "Get summary information about a notebook",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "notebookPath": {
+        "type": "string",
+        "description": "Path to the notebook file"
+      }
+    },
+    "required": [
+      "notebookPath"
+    ]
+  }
+}

@@ -2,7 +2,8 @@
 
 import asyncio
 import ipaddress
-from typing import Any, Dict, List, Optional, Sequence
+from collections.abc import Sequence
+from typing import Any, Optional
 
 from .config import Config
 from .models import IPResult, SubnetSummary
@@ -33,7 +34,7 @@ class Discrambler:
         self.config.max_concurrency = max_concurrency
         self.geo = geo_provider or self._default_geo_provider()
         self.whois = WhoisRdapProvider(self.config)
-        self.threat_providers: List[ThreatIntelProvider] = self._default_threat_providers()
+        self.threat_providers: list[ThreatIntelProvider] = self._default_threat_providers()
         self.semaphore = asyncio.Semaphore(max_concurrency)
 
     def _default_geo_provider(self) -> GeolocationProvider:
@@ -41,8 +42,8 @@ class Discrambler:
             return MaxMindProvider(self.config)
         return IPWhoisGeoProvider(self.config)
 
-    def _default_threat_providers(self) -> List[ThreatIntelProvider]:
-        providers: List[ThreatIntelProvider] = []
+    def _default_threat_providers(self) -> list[ThreatIntelProvider]:
+        providers: list[ThreatIntelProvider] = []
         if self.config.abuseipdb_api_key:
             providers.append(AbuseIPDBProvider(self.config))
         if self.config.virustotal_api_key:
@@ -92,7 +93,7 @@ class Discrambler:
                 if not result.org and whois.get("org"):
                     result.org = whois["org"]
 
-            reports: List[Dict[str, Any]] = []
+            reports: list[dict[str, Any]] = []
             for task in asyncio.as_completed(threat_tasks):
                 report = await task
                 if "error" not in report:
@@ -107,7 +108,7 @@ class Discrambler:
 
     async def lookup_batch(
         self, ips: Sequence[str], include_rdns: bool = True
-    ) -> List[IPResult]:
+    ) -> list[IPResult]:
         """Enrich many IPs concurrently."""
         tasks = [self.lookup(ip, include_rdns=include_rdns) for ip in ips]
         return await asyncio.gather(*tasks)
@@ -122,6 +123,6 @@ class Discrambler:
 
     def lookup_batch_sync(
         self, ips: Sequence[str], include_rdns: bool = True
-    ) -> List[IPResult]:
+    ) -> list[IPResult]:
         """Synchronous wrapper for batch IP lookup."""
         return asyncio.run(self.lookup_batch(ips, include_rdns=include_rdns))

@@ -2,12 +2,12 @@
 //!
 //! Cross-platform IPC transport for the IntentKernel daemon stack.
 //!
-//! | Platform | Default transport |
-//! |----------|-------------------|
-//! | Linux    | Unix domain socket |
-//! | macOS    | Unix domain socket |
-//! | Windows  | Named pipe         |
-//! | Fallback | TCP loopback       |
+//! | Platform | Current transport support |
+//! |----------|---------------------------|
+//! | Linux    | Unix domain socket / TCP  |
+//! | macOS    | Unix domain socket / TCP  |
+//! | Windows  | TCP loopback today        |
+//! | `pipe://`| Parsed on Windows, but fails fast as unimplemented |
 //!
 //! All transports carry length-prefixed JSON messages so every daemon can
 //! speak the same protocol regardless of the underlying socket type.
@@ -202,13 +202,19 @@ impl Listener {
 }
 
 #[cfg(windows)]
-async fn connect_named_pipe(_name: &str) -> Result<Channel> {
-    anyhow::bail!("Windows named pipes are not yet implemented; use tcp://")
+async fn connect_named_pipe(name: &str) -> Result<Channel> {
+    anyhow::bail!(
+        "Windows named pipes are not yet implemented for pipe://{}; use tcp://127.0.0.1:PORT instead",
+        name
+    )
 }
 
 #[cfg(windows)]
-async fn bind_named_pipe(_addr: &str) -> Result<Listener> {
-    anyhow::bail!("Windows named pipes are not yet implemented; use tcp://")
+async fn bind_named_pipe(addr: &str) -> Result<Listener> {
+    anyhow::bail!(
+        "Windows named pipes are not yet implemented for {}; use tcp://127.0.0.1:PORT instead",
+        addr
+    )
 }
 
 /// Convenience RPC helper: send a request and await a response.

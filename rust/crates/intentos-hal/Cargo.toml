@@ -1,0 +1,11 @@
+[package]
+name = "intentos-hal"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "IntentOS hardware abstraction layer — x86_64/ARM64, Windows/Linux hosts"
+
+[dependencies]
+serde = { workspace = true }
+thiserror = { workspace = true }

@@ -1,6 +1,6 @@
 """WHOIS / RDAP provider backend."""
 
-from typing import Any, Dict
+from typing import Any
 
 from ipwhois import IPWhois  # type: ignore
 
@@ -13,7 +13,7 @@ class WhoisRdapProvider:
     def __init__(self, config: Config):
         self.config = config
 
-    def lookup(self, ip: str) -> Dict[str, Any]:
+    def lookup(self, ip: str) -> dict[str, Any]:
         try:
             obj = IPWhois(ip)
             result = obj.lookup_rdap(depth=1)

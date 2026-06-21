@@ -1,0 +1,10 @@
+[package]
+name = "intentkernel-os"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "IntentOS three-tier layout: kernel, shell, and utilities"
+
+[dependencies]
+serde = { workspace = true }

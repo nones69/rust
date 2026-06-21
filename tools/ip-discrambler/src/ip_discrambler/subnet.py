@@ -1,10 +1,13 @@
 """Subnet / CIDR analysis helpers."""
 
 import ipaddress
-from typing import List, Optional
+from typing import Optional
 
 from .models import SubnetSummary
 
+DOCUMENTATION_NETWORKS_V6 = [
+    ipaddress.ip_network("2001:db8::/32"),
+]
 
 RESERVED_NETWORKS_V4 = [
     ipaddress.ip_network("0.0.0.0/8"),
@@ -50,12 +53,27 @@ def analyze_subnet(cidr: str, expand: bool = False, limit: int = 256) -> SubnetS
         first = str(network[0])
         last = str(network[-1])
 
-    expanded: List[str] = []
+    expanded: list[str] = []
     if expand and total <= limit:
         expanded = [str(host) for host in network.hosts()]
 
-    is_private = network.is_private
-    is_reserved = any(network.subnet_of(res) for res in RESERVED_NETWORKS_V4) if version == 4 else False
+    is_documentation = (
+        any(network.subnet_of(doc) for doc in DOCUMENTATION_NETWORKS_V6)
+        if version == 6
+        else network.subnet_of(ipaddress.ip_network("192.0.2.0/24"))
+        or network.subnet_of(ipaddress.ip_network("198.51.100.0/24"))
+        or network.subnet_of(ipaddress.ip_network("203.0.113.0/24"))
+    )
+    # Python 3.14+ may mark documentation IPv6 (2001:db8::/32) as private.
+    is_private = network.is_private and not is_documentation
+    is_reserved = (
+        any(network.subnet_of(res) for res in RESERVED_NETWORKS_V4)
+        if version == 4
+        else is_documentation
+        or network.is_loopback
+        or network.is_link_local
+        or network.is_multicast
+    )
 
     return SubnetSummary(
         cidr=str(network),

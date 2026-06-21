@@ -1,0 +1,17 @@
+{
+  "name": "search_cloudformation_documentation",
+  "description": "Searches AWS CloudFormation documentation knowledge bases and returns relevant excerpts.\n\n## Usage\n\nThis tool searches AWS CloudFormation documentation to find information about resource types, properties, syntax, and implementation patterns for CloudFormation templates.\n\n## When to Use\n\n- Write CloudFormation templates or modify resources\n- Find specific information about CloudFormation resource types and properties\n- Get implementation guidance from official documentation\n- Look up syntax and examples for CloudFormation patterns\n- Research best practices and architectural guidelines\n- Find answers to specific technical questions about CloudFormation\n- Validate infrastructure templates against security best practices\n\n## Search Tips\n\n- Use specific resource types: \"AWS::Lambda::Function\", \"AWS::S3::Bucket\"\n- Search for properties: \"S3 bucket encryption\", \"Lambda environment variables\"\n- Include service names: \"DynamoDB table properties\", \"API Gateway configuration\"\n- Use boolean operators: \"CloudFormation AND parameters\", \"template OR stack\"\n- Search for specific features: \"cross-stack references\", \"nested stacks\"\n- Include security terms: \"IAM policies\", \"encryption at rest\"\n\n## Result Interpretation\n\nReturns JSON with:\n- knowledge_response: Details of the response\n  - results: Array with single result containing:\n    - rank: Search relevance ranking (1 = most relevant, higher is less relevant)\n    - title: Document title or filename\n    - url: Source URL of the document\n    - context: Full or paginated document content\n- next_step_guidance: If present, suggested next actions to take for answering user query\n\n\nUse rank to prioritize results. Check error field first - if not null, the search failed.",
+  "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "Search query for CloudFormation documentation. Examples: \"AWS::Lambda::Function\", \"S3 bucket encryption\", \"DynamoDB table properties\""
+      }
+    },
+    "required": [
+      "query"
+    ],
+    "type": "object"
+  }
+}

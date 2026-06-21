@@ -1,0 +1,14 @@
+[package]
+name = "intentos-bench"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "IntentOS native benchmark harness — boot, intent, syscall latency"
+
+[dependencies]
+intentos-audit = { path = "../intentos-audit" }
+intentos-hal = { path = "../intentos-hal" }
+intentos-kernel = { path = "../intentos-kernel" }
+intentos-utilities = { path = "../intentos-utilities" }
+serde = { workspace = true }

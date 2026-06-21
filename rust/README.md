@@ -1,102 +1,168 @@
-# IntentKernel Rust Reference Implementation
+# IntentOS Rust reference runtime
 
-This directory contains the cross-platform, production-oriented reference
-implementation of the IntentKernel architecture.
+`rust/` contains the main Rust workspace for this repository. The most direct implementation path here is the **`intentos` reference runtime**, organized around three major components: **utilities**, **shell**, and **kernel**.
 
-## Components
+It is best described as a **single-process reference implementation** of the IntentKernel model, not as a production-ready operating system.
 
-### Core crates
+## Three major components
 
-| Crate | Role |
-|---|---|
-| `intentkernel-crypto` | Post-quantum primitives: SHA3, AES-256-GCM, ML-DSA-87, ML-KEM-1024 |
-| `intentkernel-core` | Capability table, token lifecycle, policy, kernel handles |
-| `ikrl-transport` | Cross-platform IPC (Unix domain sockets / TCP / Windows named-pipe stub) |
+| # | Component | Crate | Current responsibility |
+|---|-----------|-------|------------------------|
+| **1** | Utilities | `intentos-utilities` | In-memory VFS, AI stub gateway, support utilities |
+| **2** | Shell | `intentos-shell` | Interactive REPL, session state, command dispatch |
+| **3** | Kernel | `intentos-kernel` | Policy engine, token broker, capability table, leases |
+| - | Entry point | `intentos` | Boots all three components in-process |
 
-### Daemons
+The code for this path is in:
 
-| Binary | Crate | Role |
-|---|---|---|
-| `capd` | `capd` | Capability engine — mints and verifies PQC-signed tokens |
-| `intentd` | `intentd` | Intent broker — correlates user intent with policy |
-| `leasebroker` | `leasebroker` | Renewable process lease watchdog |
-| `eventscope` | `eventscope` | Runtime wrapper / syscall interception interface |
-| `ikrl-ai` | `ikrl-ai` | Capability-gated AI inference and tool-use gateway |
-| `ikrl-fs` | `ikrl-fs` | Filesystem capability mediator |
-| `ikrl-federation` | `ikrl-federation` | Cross-device capability discovery and exchange |
-
-### Platform shims
-
-| Binary | Crate | Role |
-|---|---|---|
-| `ikrl-linux` | `ikrl-linux` | Linux `ptrace` syscall supervisor |
-| `ikrl-windows` | `ikrl-windows` | Windows service wrapper |
-
-### Tools
-
-| Binary | Crate | Role |
-|---|---|---|
-| `ikrl-init` | `ikrl-init` | Init / orchestrator — starts all core daemons |
-| `ikrl-cli` | `ikrl-cli` | Command-line administration and integration testing |
-| `ikrl-sim` | `ikrl-sim` | In-process simulator |
-| `ransomware-demo` | `ransomware-demo` | Structural ransomware immunity demo |
-| `ikrl-bench` | `ikrl-bench` | Benchmark harness for token and table throughput |
+- [`crates/intentos/`](crates/intentos/)
+- [`crates/intentos-utilities/`](crates/intentos-utilities/)
+- [`crates/intentos-shell/`](crates/intentos-shell/)
+- [`crates/intentos-kernel/`](crates/intentos-kernel/)
 
 ## Quick start
 
 ```bash
 cd rust
-
-# Build everything
-cargo build --release
-
-# Run tests
-cargo test
-
-# Start the user-space OS (adjust bin-dir as needed)
-./target/release/ikrl-init --bin-dir ./target/release
-
-# In another terminal, exercise the full flow
-./target/release/ikrl-cli full-flow --resource file --action read --actor myapp
-
-# Run the simulator
-./target/release/ikrl-sim
-
-# Run the ransomware demo
-./target/release/ransomware-demo
+cargo run -p intentos --release
 ```
 
-## Cross-platform IPC
+Example session:
 
-`ikrl-transport` abstracts the underlying socket type:
+```text
+intentos> status
+intentos> flow file read
+intentos> cat /readme.txt
+intentos> ls /
+intentos> flow ai infer
+intentos> ai infer hello from IntentOS
+intentos> exit
+```
 
-- `tcp://127.0.0.1:9100` works on every platform.
-- `unix:///run/intentd.sock` works on Linux and macOS.
-- `pipe://IntentKernel` is the Windows named-pipe form (stub; use `tcp://` for now).
+One-shot command:
 
-All transports carry length-prefixed JSON so every daemon speaks the same
-protocol regardless of socket type.
+```bash
+cargo run -p intentos --release -- -c "flow file read"
+```
 
-## AI OS integration
+## Current behavior
 
-`ikrl-ai` treats every LLM inference and tool invocation as a capability-
-gated operation. Applications must present an event-scoped token to call a
-model or use a tool. This makes AI agents structurally unable to exfiltrate
-data or call unapproved tools without explicit user intent.
+The current runtime demonstrates:
 
-## Security notes
+- policy evaluation from shell-generated intents
+- token minting and verification in the kernel
+- handle registration and gated operations
+- an in-memory virtual filesystem
+- a stubbed AI utility gated by kernel approval
+- lease creation and reporting
 
-- The Rust implementation uses algorithm-compatible **mocks** for ML-DSA-87
-  and ML-KEM-1024 so the system can be developed and tested without the
-  `liboqs` native dependency. To use a real PQC backend, build with the
-  `oqs` feature:
-  ```bash
-  cargo build --release -p intentkernel-crypto --features oqs
-  ```
-  Production builds must link against certified NIST FIPS 204/203 libraries.
-- `ikrl-linux` provides a `ptrace`-based proof-of-concept supervisor. A
-  production Linux deployment should use `seccomp` user-notification
-  (Linux 5.0+) for lower overhead; a scaffold module is included.
-- On Windows, `ikrl-init` creates a Job Object with `KILL_ON_JOB_CLOSE`
-  when possible so that terminating `ikrl-init.exe` also terminates child
-  daemons.
+Important limits:
+
+- the VFS is **in-memory**, not a host filesystem mediator
+- the AI path is a **stub**, not a full external model runtime
+- the implementation is **in-process**, not a hardened isolation boundary
+- the runtime demonstrates the model; it does **not** prove system-wide immunity claims
+
+## Architecture
+
+```text
++------------------------------+
+| intentos                     |
+| single binary                |
++---------------+--------------+
+                |
+    +-----------+-----------+
+    |                       |
+    v                       v
++-----------+         +-----------+
+| shell     |         | utilities |
+| tier 2    |<------->| tier 1    |
++-----+-----+         +-----+-----+
+      |                     |
+      +----------+----------+
+                 |
+                 v
+           +-----------+
+           | kernel    |
+           | tier 3    |
+           +-----------+
+```
+
+In code:
+
+- `crates/intentos/src/main.rs` boots the runtime
+- `crates/intentos-shell/src/` implements the REPL and builtins
+- `crates/intentos-kernel/src/` implements policy, token, table, lease, and type logic
+- `crates/intentos-utilities/src/` implements VFS, AI, federation, and helper utilities
+
+## Cryptography note
+
+The `intentos-kernel` crate currently uses the development signing path in [`crates/intentos-kernel/src/crypto.rs`](crates/intentos-kernel/src/crypto.rs). That code uses `ed25519-dalek` with SHA-3-based padding to exercise token issuance and verification.
+
+This should be read as **reference implementation crypto**, not as a finished post-quantum deployment.
+
+## Dependency boundary
+
+The test at [`crates/intentos/tests/ground_up.rs`](crates/intentos/tests/ground_up.rs) enforces that the `intentos-*` crates do not directly depend on the legacy IKRL daemon path.
+
+Run it with:
+
+```bash
+cargo test -p intentos --test ground_up
+```
+
+## Legacy IKRL compatibility stack
+
+This workspace also still contains the older multi-process IKRL path, including crates such as:
+
+- `capd`
+- `intentd`
+- `leasebroker`
+- `eventscope`
+- `ikrl-cli`
+- `ikrl-init`
+- `ikrl-shell`
+- `ikrl-fs`
+- `ikrl-ai`
+- `ikrl-federation`
+
+That code remains useful for compatibility experiments and host-integration ideas, but it is **not** the same thing as the current three-component `intentos` runtime.
+
+## Workspace structure
+
+```text
+rust/
+├── Cargo.toml
+├── README.md
+└── crates/
+    ├── intentos/
+    ├── intentos-kernel/
+    ├── intentos-shell/
+    ├── intentos-utilities/
+    ├── intentkernel-core/
+    ├── intentkernel-crypto/
+    ├── intentkernel-os/
+    ├── capd/
+    ├── intentd/
+    ├── leasebroker/
+    ├── eventscope/
+    ├── ikrl-sdk/
+    ├── ikrl-sim/
+    ├── ikrl-cli/
+    ├── ikrl-init/
+    ├── ikrl-shell/
+    ├── ikrl-fs/
+    ├── ikrl-ai/
+    ├── ikrl-federation/
+    ├── ikrl-linux/
+    ├── ikrl-windows/
+    ├── ikrl-bench/
+    ├── ikrl-bridge/
+    └── ransomware-demo/
+```
+
+## Suggested reading
+
+- Top-level repo overview: [`../README.md`](../README.md)
+- Build instructions: [`../BUILD.md`](../BUILD.md)
+- Architecture overview: [`../docs/architecture_overview.md`](../docs/architecture_overview.md)
