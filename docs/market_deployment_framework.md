@@ -476,7 +476,8 @@
 - [~] Public safety sector scaffold (`PublicSafetyMapper`, `safety assess` — CJIS blockers documented, not certified)
 - [~] Banking/ATM sector scaffold (`BankingMapper`, `banking assess` — PCI-DSS blockers documented, not certified)
 - [~] IoT/embedded sector scaffold (`IotMapper`, `iot assess` — IEC 62443 blockers documented, not certified)
-- [~] Financial markets sector scaffold (`MarketsMapper`, `markets assess` — SEC/MiFID II blockers documented, not certified)
+- [~] Financial markets sector scaffold (`MarketsMapper`, `markets assess`, `markets bench` — SEC/MiFID II blockers documented, not certified)
+- [~] Cross-sector deployment reporter (`market status` — all six assessors + Wave 1 hardening gates)
 - [ ] Financial services security certification (live HSM/EMV beyond stubs)
 - [ ] IoT/embedded SDK beta release (RTOS bridge, signed OTA pipeline)
 
@@ -514,5 +515,5 @@
 ---
 
 *Document Version: 1.0*
-*Last Updated: 2026-06-20*
+*Last Updated: 2026-06-21*
 *Classification: Strategic Planning - Market Deployment*

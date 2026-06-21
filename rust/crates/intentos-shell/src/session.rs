@@ -127,6 +127,10 @@ impl ShellSession {
                 ctx.migrate_assess()?;
                 Ok(true)
             }
+            "market" | "deploy" => {
+                ctx.market(&parsed)?;
+                Ok(true)
+            }
             "identity" | "id" => {
                 ctx.identity(&parsed)?;
                 Ok(true)

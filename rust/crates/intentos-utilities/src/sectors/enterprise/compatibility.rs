@@ -159,7 +159,7 @@ impl CompatibilityMatrix {
             passed,
             failed,
             pass_rate_pct,
-            pilot_gate_met: pass_rate_pct >= 80,
+            pilot_gate_met: pass_rate_pct >= super::hardening::TARGET_COMPAT_PASS_PCT,
             results,
         }
     }

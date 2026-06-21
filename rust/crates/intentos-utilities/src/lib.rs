@@ -12,6 +12,7 @@
 mod ai;
 mod federation;
 mod ip_discrambler;
+mod market_status;
 mod recognizer;
 mod sectors;
 mod tools;
@@ -22,6 +23,7 @@ pub use ip_discrambler::{
     IpDiscramblerBridge, IpDiscramblerError, IpLookupResult, IpPolicyVerdict,
 };
 pub use federation::{FederationError, FederationHub};
+pub use market_status::{MarketDeploymentReporter, MarketDeploymentStatus, SectorStatus};
 pub use intentos_audit::{AuditEntry, AuditEventKind, AuditLog};
 pub use intentos_hal::{native_hal, CpuArch, HardwareAbstraction, HostOs, PlatformInfo};
 pub use recognizer::{OllamaClient, PilotRecognizer};

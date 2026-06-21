@@ -1,7 +1,10 @@
 //! IP-Discrambler bridge — invokes the Python toolchain from IntentOS utilities tier.
 
 use intentos_audit::{AuditEventKind, AuditLog};
-use intentos_kernel::{evaluate_ip, Intent, PolicyDecision, PolicyEngine, TrustAnchor, wall_ms};
+use intentos_kernel::{
+    evaluate_ip, verdict_from_threat_score, Intent, PolicyDecision, PolicyEngine, TrustAnchor,
+    wall_ms,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;
@@ -107,14 +110,14 @@ impl IpDiscramblerBridge {
         };
 
         let kernel = PolicyEngine::evaluate(&intent);
-        let threat_score = enrichment
-            .as_ref()
-            .map(|e| e.threat_score)
-            .unwrap_or(0);
+        let threat_score = enrichment.as_ref().map(|e| e.threat_score).unwrap_or(0);
+        let threat_verdict = verdict_from_threat_score(ip, threat_score);
 
-        let allowed = local.allowed && kernel.allowed;
+        let allowed = local.allowed && kernel.allowed && threat_verdict.allowed;
         let reason = if !local.allowed {
             local.reason
+        } else if !threat_verdict.allowed {
+            threat_verdict.reason
         } else if !kernel.allowed {
             kernel.reason.clone()
         } else if threat_score >= 50 {

@@ -19,4 +19,5 @@ clap = { workspace = true }
 
 [dev-dependencies]
 intentos-audit = { path = "../intentos-audit" }
+intentos-bench = { path = "../intentos-bench" }
 intentos-hal = { path = "../intentos-hal" }

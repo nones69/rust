@@ -8,8 +8,8 @@ use intentos_kernel::{Handle, Intent, SyscallOp, SyscallRequest, TrustAnchor, wa
 use intentos_utilities::{
     AiGateway, BankingAssessor, BankingMapper, CompatibilityMatrix, EnterpriseHardeningAssessor,
     EnterpriseMapper, HealthcareAssessor, HealthcareMapper, IotAssessor, IotMapper, MarketsAssessor,
-    MarketsMapper, MigrationAssessor, OsRuntime, PublicSafetyAssessor, PublicSafetyMapper,
-    RollbackCheckpoint, SysTools,
+    MarketsMapper, MarketDeploymentReporter, MigrationAssessor, OsRuntime, PublicSafetyAssessor,
+    PublicSafetyMapper, RollbackCheckpoint, SysTools,
 };
 use std::sync::Arc;
 
@@ -74,6 +74,22 @@ impl BuiltinContext<'_> {
     pub fn migrate_assess(&self) -> Result<()> {
         let report = MigrationAssessor::assess(&self.runtime.platform);
         println!("{}", serde_json::to_string_pretty(&report)?);
+        Ok(())
+    }
+
+    pub fn market(&self, parsed: &ParsedLine<'_>) -> Result<()> {
+        let sub = parsed.arg(0).unwrap_or("status");
+        match sub {
+            "status" => {
+                let report = MarketDeploymentReporter::status(
+                    &self.runtime.platform,
+                    &self.runtime.audit,
+                    &self.runtime.identity,
+                );
+                println!("{}", serde_json::to_string_pretty(&report)?);
+            }
+            other => anyhow::bail!("usage: market status (got: {other})"),
+        }
         Ok(())
     }
 
@@ -663,6 +679,7 @@ IntentOS shell — tier 2 (native, no RPC):
   enterprise compat      Run app compatibility matrix (pass/fail)
   enterprise <cmd>       Map Win32/Bash/PowerShell cmd to intent
   migrate assess         Enterprise migration readiness report
+  market status          All-sector deployment status + Wave 1 hardening gates
   identity whoami        Resolve AD/LDAP principal + set actor
   identity lookup <user> Lookup principal (live LDAP or stub)
   identity domain        Show identity domain/backend config

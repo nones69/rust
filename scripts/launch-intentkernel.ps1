@@ -35,8 +35,10 @@ if (-not $SkipBuild) {
     if ($WithPqc) {
         & .\..\scripts\build-pqc.ps1
     } else {
+        cargo build --release -p intentos
+        if ($LASTEXITCODE -ne 0) { throw "cargo build failed (intentos)" }
         cargo build --release
-        if ($LASTEXITCODE -ne 0) { throw "cargo build failed" }
+        if ($LASTEXITCODE -ne 0) { throw "cargo build failed (workspace)" }
     }
     Pop-Location
 }
@@ -74,7 +76,12 @@ Write-Host @"
     ikrl-init   PID $($initProc.Id)  (kernel + utilities)
     IntentOS UI PID $($uiProc.Id)    $url
 
-  Shell (tier 2):
+  Shell (tier 2 — native IntentOS, sector commands):
+    $BinDir\intentos.exe
+    $BinDir\intentos.exe -c "market status"
+    $BinDir\intentos.exe -c "enterprise harden"
+
+  Legacy IKRL shell:
     $BinDir\ikrl-shell.exe
 
   API:

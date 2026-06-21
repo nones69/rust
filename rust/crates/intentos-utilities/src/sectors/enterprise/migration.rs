@@ -90,7 +90,8 @@ impl MigrationAssessor {
         };
 
         let readiness_score = score.min(100) as u8;
-        let pilot_ready = readiness_score >= 55 && platform.os != HostOs::Unknown;
+        // Wave 1 pilot exit requires EnterpriseHardeningAssessor gates, not score alone.
+        let pilot_ready = false;
 
         MigrationReport {
             sector: "enterprise".into(),
