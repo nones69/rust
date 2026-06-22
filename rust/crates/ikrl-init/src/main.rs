@@ -262,9 +262,11 @@ fn spawn_daemon(
 ) -> Result<()> {
     let exe = bin_dir.join(exe_name(name));
     let mut cmd = Command::new(&exe);
+    // Redirect daemon stdio to null so they don't inherit ikrl-init's stdio handles.
+    // Each daemon manages its own logging via tracing/log infrastructure.
     cmd.args(args)
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit());
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
 
     info!("[{}] spawning {}: {:?} {:?}", layer.label(), name, exe, args);
     let child = cmd

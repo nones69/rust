@@ -14,10 +14,28 @@ fn workspace_manifest() -> PathBuf {
 }
 
 fn current_bin(bin_name: &str) -> PathBuf {
-    if let Ok(path) = std::env::var(format!("CARGO_BIN_EXE_{bin_name}")) {
+    // Cargo sets CARGO_BIN_EXE_{name} (dashes→underscores) for same-package binaries.
+    let env_key = format!("CARGO_BIN_EXE_{}", bin_name.replace('-', "_"));
+    if let Ok(path) = std::env::var(&env_key) {
         return PathBuf::from(path);
     }
 
+    // Fall back to the workspace target directory — cargo builds all binaries before
+    // running integration tests, so the binary should already be present.
+    let mut path = workspace_manifest()
+        .parent()
+        .expect("workspace root")
+        .join("target")
+        .join("debug")
+        .join(bin_name);
+    if cfg!(windows) {
+        path.set_extension("exe");
+    }
+    if path.exists() {
+        return path;
+    }
+
+    // Last resort: invoke cargo build (may block if the parent cargo holds the lock).
     let status = Command::new("cargo")
         .arg("build")
         .arg("--quiet")
@@ -29,15 +47,6 @@ fn current_bin(bin_name: &str) -> PathBuf {
         .unwrap_or_else(|e| panic!("build {bin_name}: {e}"));
     assert!(status.success(), "cargo build -p {bin_name} failed");
 
-    let mut path = workspace_manifest()
-        .parent()
-        .expect("workspace root")
-        .join("target")
-        .join("debug")
-        .join(bin_name);
-    if cfg!(windows) {
-        path.set_extension("exe");
-    }
     assert!(path.exists(), "missing built binary at {}", path.display());
     path
 }
@@ -99,10 +108,9 @@ impl Drop for ChildGuard {
 #[test]
 fn ikrl_cli_full_flow_hits_real_daemons() {
     let cli_bin = current_bin("ikrl-cli");
-    let bin_dir = cli_bin.parent().expect("ikrl-cli parent dir").to_path_buf();
-    let capd_bin = sibling_bin(&bin_dir, "capd");
-    let intentd_bin = sibling_bin(&bin_dir, "intentd");
-    let eventscope_bin = sibling_bin(&bin_dir, "eventscope");
+    let capd_bin = current_bin("capd");
+    let intentd_bin = current_bin("intentd");
+    let eventscope_bin = current_bin("eventscope");
 
     let capd_port = reserve_port();
     let intentd_port = reserve_port();
