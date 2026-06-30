@@ -169,6 +169,18 @@ impl ShellSession {
                 ctx.audit(&parsed)?;
                 Ok(true)
             }
+            "telemetry" => {
+                match parsed.arg(0) {
+                    Some("enable") => ctx.telemetry_enable()?,
+                    Some("disable") => ctx.telemetry_disable()?,
+                    Some("status") | None => ctx.telemetry_status()?,
+                    other => anyhow::bail!(
+                        "usage: telemetry status | enable | disable (got: {:?})",
+                        other
+                    ),
+                }
+                Ok(true)
+            }
             "recognize" => {
                 ctx.recognize(&parsed)?;
                 Ok(true)

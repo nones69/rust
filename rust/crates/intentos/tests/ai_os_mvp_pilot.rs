@@ -202,3 +202,35 @@ fn loom_corruption_triggers_recovery() {
     assert!(loom.corruption_recovered());
     let _ = std::fs::remove_dir_all(dir);
 }
+
+#[test]
+fn telemetry_opt_in_persists_in_loom() {
+    let (rt, dir) = boot_with_temp_loom();
+    rt.loom.complete_oobe(ThresholdLevel::Medium).unwrap();
+    assert!(!rt.loom.is_telemetry_enabled());
+    rt.loom.set_telemetry_enabled(true).unwrap();
+    assert!(rt.loom.is_telemetry_enabled());
+    let path = dir.join("loom_state.json");
+    drop(rt);
+    let loom2 = LoomStore::open_in(&dir).unwrap();
+    assert!(loom2.is_telemetry_enabled());
+    let _ = std::fs::remove_dir_all(dir);
+    let _ = path;
+}
+
+#[test]
+fn audit_redact_masks_sensitive_caps() {
+    let log = intentos_audit::AuditLog::new();
+    log.record(
+        AuditEventKind::CardCreated,
+        "user",
+        "card=card-1 caps=file/read path=/secret/doc.txt",
+    )
+    .unwrap();
+    let entry = log.tail(1).unwrap().pop().unwrap();
+    let redacted = intentos_audit::AuditLog::format_entry(&entry, true);
+    assert!(redacted.contains("caps=[REDACTED]"));
+    assert!(redacted.contains("path=[REDACTED]"));
+    let plain = intentos_audit::AuditLog::format_entry(&entry, false);
+    assert!(plain.contains("file/read"));
+}

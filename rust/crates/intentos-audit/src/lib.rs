@@ -280,15 +280,19 @@ impl AuditLog {
 /// Redact path-like segments, IPs, and resource/cap identifiers in audit detail strings.
 pub fn redact_detail(detail: &str) -> String {
     let mut out = detail.to_string();
-    for token in out.split_whitespace().collect::<Vec<_>>() {
-        if looks_sensitive_token(token) {
+    let tokens: Vec<String> = detail
+        .split_whitespace()
+        .map(str::to_string)
+        .collect();
+    for token in tokens {
+        if looks_sensitive_token(&token) {
             let redacted = "[REDACTED]";
             if token.contains('=') {
-                let key = token.split('=').next().unwrap_or(token);
+                let key = token.split('=').next().unwrap_or(&token);
                 let replacement = format!("{key}={redacted}");
-                out = out.replace(token, &replacement);
+                out = out.replace(&token, &replacement);
             } else {
-                out = out.replace(token, redacted);
+                out = out.replace(&token, redacted);
             }
         }
     }

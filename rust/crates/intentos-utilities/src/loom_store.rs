@@ -354,6 +354,18 @@ impl LoomStore {
         self.inner.lock().unwrap().ai_enabled
     }
 
+    pub fn set_telemetry_enabled(&self, enabled: bool) -> Result<(), LoomError> {
+        let mut session = self.inner.lock().unwrap();
+        session.telemetry_enabled = enabled;
+        session.refresh_checksum();
+        drop(session);
+        self.save()
+    }
+
+    pub fn is_telemetry_enabled(&self) -> bool {
+        self.inner.lock().unwrap().telemetry_enabled
+    }
+
     pub fn merge_import_payload(
         &self,
         payload: &crate::loom_export::LoomExportPayload,

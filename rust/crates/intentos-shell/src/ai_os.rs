@@ -172,8 +172,11 @@ impl BuiltinContext<'_> {
                     stats.revoked_tokens
                 );
             }
+            "tui" | "bar" => {
+                crate::kb_tui::run_kb_tui(self)?;
+            }
             other => anyhow::bail!(
-                "usage: kb open|suggest|create|preview|run|status (got: {other})"
+                "usage: kb open|suggest|create|preview|run|status|tui (got: {other})"
             ),
         }
         Ok(())

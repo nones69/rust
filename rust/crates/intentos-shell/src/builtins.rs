@@ -45,23 +45,63 @@ impl BuiltinContext<'_> {
         let sub = parsed.arg(0).unwrap_or("tail");
         match sub {
             "tail" => {
-                let n: usize = parsed.arg(1).and_then(|s| s.parse().ok()).unwrap_or(10);
+                let redact = parsed.args.iter().any(|a| *a == "--redact");
+                let n: usize = parsed
+                    .args
+                    .iter()
+                    .skip(1)
+                    .find(|a| **a != "--redact")
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(10);
                 for entry in self.runtime.audit.tail(n)? {
                     println!(
-                        "[{}] {:?} actor={} {}",
-                        entry.ts_ms, entry.kind, entry.actor, entry.detail
+                        "{}",
+                        intentos_audit::AuditLog::format_entry(&entry, redact)
                     );
                 }
                 let ok = self.runtime.audit.verify_chain()?;
                 let total = self.runtime.audit.len()?;
-                println!("chain_ok={ok} tail={n} total={total} head={}", self.runtime.audit.head_hash()?);
+                println!(
+                    "chain_ok={ok} tail={n} total={total} redact={redact} head={}",
+                    self.runtime.audit.head_hash()?
+                );
             }
             "verify" => {
                 let ok = self.runtime.audit.verify_chain()?;
                 println!("chain_ok={ok} head={}", self.runtime.audit.head_hash()?);
             }
-            other => anyhow::bail!("usage: audit tail [n] | verify (got: {other})"),
+            other => anyhow::bail!("usage: audit tail [n] [--redact] | verify (got: {other})"),
         }
+        Ok(())
+    }
+
+    pub fn telemetry_status(&self) -> Result<()> {
+        let enabled = self.runtime.loom.is_telemetry_enabled();
+        println!(
+            "telemetry_enabled={enabled} (opt-in only — run `telemetry enable` to allow outbound analytics)"
+        );
+        Ok(())
+    }
+
+    pub fn telemetry_enable(&self) -> Result<()> {
+        self.runtime.loom.set_telemetry_enabled(true)?;
+        let _ = self.runtime.audit.record(
+            intentos_audit::AuditEventKind::TelemetryEnabled,
+            &self.state.actor,
+            "telemetry opt-in accepted for active profile".to_string(),
+        );
+        println!("telemetry enabled (opt-in recorded in audit)");
+        Ok(())
+    }
+
+    pub fn telemetry_disable(&self) -> Result<()> {
+        self.runtime.loom.set_telemetry_enabled(false)?;
+        let _ = self.runtime.audit.record(
+            intentos_audit::AuditEventKind::TelemetryDisabled,
+            &self.state.actor,
+            "telemetry disabled for active profile".to_string(),
+        );
+        println!("telemetry disabled");
         Ok(())
     }
 
@@ -773,7 +813,8 @@ IntentOS shell — tier 2 (native, no RPC):
   tier                   Show tier numbering (1=utilities 2=shell 3=kernel)
   status                 Kernel stats + HAL probe
   field create|use|list  Field context management
-  kb open|suggest|run    Kernel Bar — intent cards
+  kb open|suggest|run|tui Kernel Bar — intent cards (tui = numbered picker)
+  telemetry status|enable|disable  Outbound analytics opt-in (off by default)
   oobe status|run|reset  First-run onboarding (privacy defaults)
   kernel stats           Kernel uptime, caps, leases, revocations (JSON)
   kernel revoke <jti>    Revoke capability token (or 0xHANDLE)
@@ -786,7 +827,7 @@ IntentOS shell — tier 2 (native, no RPC):
   ai status|enable|disable|infer  AI gateway (disabled until `ai enable`)
   loom export|import     Signed Loom session transfer between machines
   hal                    Show hardware abstraction probe
-  audit tail [n]|verify  Append-only audit trail (persisted locally)
+  audit tail [n] [--redact]|verify  Append-only audit trail (persisted locally)
   policy list|use        Personal vs enterprise policy packs
   kb preview <card_id>   Preview caps/ttl/risk before execution
   recognize <text>       Intent recognition (enterprise map / Ollama / stub)
