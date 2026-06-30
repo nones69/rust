@@ -44,6 +44,7 @@ pub enum AuditEventKind {
     BrokerDelegated,
     BrokerWireSent,
     BrokerWireReceived,
+    BrokerTcpListening,
     PqcTokensEnabled,
     PqcTokensDisabled,
     OobeHookEmitted,

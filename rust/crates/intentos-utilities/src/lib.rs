@@ -10,6 +10,7 @@
 //! and system tools — all gated through the kernel.
 
 mod ai;
+mod broker_tcp;
 mod broker_wire;
 mod federation;
 mod ip_discrambler;
@@ -26,6 +27,7 @@ pub use ai::{AiError, AiGateway};
 pub use ip_discrambler::{
     IpDiscramblerBridge, IpDiscramblerError, IpLookupResult, IpPolicyVerdict,
 };
+pub use broker_tcp::{BrokerTcpTransport, TcpListenManifest};
 pub use broker_wire::{
     decode_payload_hex, BrokerWireError, BrokerWireHub, BrokerWireKind, BrokerWireMessage,
     BROKER_WIRE_VERSION,

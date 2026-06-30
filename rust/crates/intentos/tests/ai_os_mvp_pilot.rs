@@ -338,3 +338,38 @@ fn broker_wire_send_recv_round_trip() {
     assert_eq!(decode_payload_hex(&inbox[0].payload_b64).unwrap(), b"wire-hello");
     let _ = std::fs::remove_dir_all(dir);
 }
+
+#[test]
+fn broker_tcp_transport_delivers_to_inbox() {
+    use intentos_kernel::BrokerPeer;
+    use intentos_utilities::{BrokerTcpTransport, BrokerWireHub};
+    use std::thread;
+    use std::time::Duration;
+
+    let (rt, dir) = boot_with_temp_loom();
+    rt.loom.complete_oobe(ThresholdLevel::Medium).unwrap();
+    rt.loom.ensure_signing_keys().unwrap();
+    let device_id = rt.loom.profile_id();
+    let secret = rt.loom.signing_secret_key_hex();
+    let public_hex = rt.loom.session().signing_public_key_hex.clone();
+    let wire = BrokerWireHub::open_in(&dir);
+
+    let wire2 = BrokerWireHub::open_in(&dir);
+    let device = device_id.clone();
+    let handle = thread::spawn(move || {
+        BrokerTcpTransport::serve(&wire2, &device, 0, true, 8).unwrap()
+    });
+    thread::sleep(Duration::from_millis(80));
+    let manifest = BrokerTcpTransport::read_listen_manifest(&wire).unwrap().unwrap();
+    let mut peer = BrokerPeer::new("tcp-peer", public_hex, 1);
+    peer.endpoint = manifest.endpoint.clone();
+    rt.loom.register_broker_peer(peer).unwrap();
+    let mut msg = BrokerWireHub::build_delegate(&device_id, "tcp-peer", b"via-tcp", 7);
+    intentos_utilities::BrokerWireHub::sign_message(&mut msg, &secret).unwrap();
+    let peer_ref = rt.loom.session().broker_peers[0].clone();
+    wire.enqueue_to_peer(&peer_ref, &msg).unwrap();
+    let _ = handle.join().unwrap();
+    let inbox = wire.recv_inbox(&device_id, 5).unwrap();
+    assert_eq!(inbox.len(), 1);
+    let _ = std::fs::remove_dir_all(dir);
+}

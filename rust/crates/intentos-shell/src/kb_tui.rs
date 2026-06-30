@@ -1,12 +1,15 @@
-//! Minimal Kernel Bar TUI — numbered card picker without raw terminal mode.
+//! Kernel Bar TUI — numbered card picker with live refresh.
 
 use crate::builtins::BuiltinContext;
 use anyhow::{Context, Result};
-use intentos_kernel::ThresholdSignals;
+use intentos_utilities::LoomStore;
 use std::io::{self, Write};
 
 pub fn run_kb_tui(ctx: &mut BuiltinContext<'_>) -> Result<()> {
-    println!("Kernel Bar TUI — type `help` for commands, `q` to exit");
+    let mut selected: Option<usize> = None;
+    clear_screen();
+    render_bar(ctx, selected)?;
+    println!("Kernel Bar TUI — `help` for commands, `q` to exit");
     let stdin = io::stdin();
     loop {
         print!("kb> ");
@@ -17,14 +20,19 @@ pub fn run_kb_tui(ctx: &mut BuiltinContext<'_>) -> Result<()> {
         }
         let line = line.trim();
         if line.is_empty() {
-            render_bar(ctx)?;
+            clear_screen();
+            render_bar(ctx, selected)?;
             continue;
         }
         let parts: Vec<&str> = line.split_whitespace().collect();
         match parts.first().copied().unwrap_or("") {
             "q" | "quit" | "exit" => break,
             "help" | "?" => print_tui_help(),
-            "list" | "open" | "bar" => render_bar(ctx)?,
+            "refresh" | "list" | "open" | "bar" => {
+                clear_screen();
+                render_bar(ctx, selected)?;
+            }
+            "status" => print_status(ctx)?,
             "suggest" => {
                 let n: usize = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(3);
                 let cards = ctx.runtime.loom.suggest_cards(n);
@@ -39,8 +47,29 @@ pub fn run_kb_tui(ctx: &mut BuiltinContext<'_>) -> Result<()> {
                     );
                 }
             }
+            "create" | "c" => {
+                let title = parts.get(1).context("usage: create <title> <resource> <action>")?;
+                let resource = parts.get(2).context("usage: create <title> <resource> <action>")?;
+                let action = parts.get(3).context("usage: create <title> <resource> <action>")?;
+                let card = ctx.runtime.loom.create_card(title, resource, action)?;
+                println!(
+                    "created {} caps={} risk={:?}",
+                    card.id,
+                    card.cap_summary(),
+                    card.risk_level
+                );
+                clear_screen();
+                render_bar(ctx, selected)?;
+            }
+            "sel" | "select" => {
+                let idx = card_index(&parts, 1)?;
+                selected = Some(idx);
+                clear_screen();
+                render_bar(ctx, selected)?;
+            }
             "preview" | "p" => {
                 let idx = card_index(&parts, 1)?;
+                selected = Some(idx);
                 let card_id = card_id_at(ctx, idx)?;
                 preview_card(ctx, &card_id)?;
             }
@@ -52,11 +81,15 @@ pub fn run_kb_tui(ctx: &mut BuiltinContext<'_>) -> Result<()> {
                     1
                 };
                 let idx = card_index(&parts, idx_pos)?;
+                selected = Some(idx);
                 let card_id = card_id_at(ctx, idx)?;
                 run_card(ctx, &card_id, confirmed)?;
+                clear_screen();
+                render_bar(ctx, selected)?;
             }
             n if n.parse::<usize>().is_ok() => {
                 let idx = n.parse::<usize>().context("invalid card index")?;
+                selected = Some(idx);
                 let card_id = card_id_at(ctx, idx)?;
                 preview_card(ctx, &card_id)?;
             }
@@ -66,10 +99,18 @@ pub fn run_kb_tui(ctx: &mut BuiltinContext<'_>) -> Result<()> {
     Ok(())
 }
 
+fn clear_screen() {
+    print!("\x1b[2J\x1b[H");
+    let _ = io::stdout().flush();
+}
+
 fn print_tui_help() {
     println!(
         r#"Kernel Bar commands:
-  list|bar          Render card table
+  refresh|bar       Redraw card table (clears screen)
+  status            Kernel + posture summary
+  create <t> <r> <a>  New intent card
+  sel <n>           Highlight card n
   <n>               Preview card n
   p <n>             Preview card n
   r <n> [--confirm] Run card n
@@ -78,7 +119,30 @@ fn print_tui_help() {
     );
 }
 
-fn render_bar(ctx: &BuiltinContext<'_>) -> Result<()> {
+fn print_status(ctx: &BuiltinContext<'_>) -> Result<()> {
+    let session = ctx.runtime.loom.session();
+    let stats = ctx.runtime.kernel().stats();
+    let signals = LoomStore::threshold_signals(&ctx.runtime.platform);
+    println!(
+        "field={:?} cards={} caps={} revoked={} pqc={} peers={}",
+        session.active_field_id,
+        session.cards.len(),
+        stats.active_capabilities,
+        stats.revoked_tokens,
+        session.pqc_tokens_enabled,
+        session.broker_peers.len()
+    );
+    println!(
+        "trust_score={} sig_version={} telemetry={} ai={}",
+        signals.trust_score,
+        ctx.runtime.kernel().token_sig_version(),
+        session.telemetry_enabled,
+        session.ai_enabled
+    );
+    Ok(())
+}
+
+fn render_bar(ctx: &BuiltinContext<'_>, selected: Option<usize>) -> Result<()> {
     let session = ctx.runtime.loom.session();
     let field = session
         .active_field()
@@ -91,12 +155,13 @@ fn render_bar(ctx: &BuiltinContext<'_>) -> Result<()> {
     println!("║ #  │ Title                    │ Caps         │ Risk         ║");
     println!("╠════╪══════════════════════════╪══════════════╪══════════════╣");
     if session.cards.is_empty() {
-        println!("║ (no cards — create with `kb create <title> <res> <act>`)     ║");
+        println!("║ (no cards — `create <title> <res> <act>`)                    ║");
     } else {
         for (i, c) in session.cards.iter().enumerate() {
             let n = i + 1;
+            let marker = if selected == Some(n) { ">" } else { " " };
             println!(
-                "║ {:>2} │ {:<24} │ {:<12} │ {:<12?} ║",
+                "║{marker}{:>2} │ {:<24} │ {:<12} │ {:<12?} ║",
                 n,
                 truncate(&c.title, 24),
                 truncate(&c.cap_summary(), 12),
@@ -106,8 +171,12 @@ fn render_bar(ctx: &BuiltinContext<'_>) -> Result<()> {
     }
     println!("╚════╧══════════════════════════╧══════════════╧══════════════╝");
     println!(
-        "threshold={:?} telemetry={} ai={}",
-        session.default_threshold, session.telemetry_enabled, session.ai_enabled
+        "threshold={:?} pqc={} telemetry={} ai={} peers={}",
+        session.default_threshold,
+        session.pqc_tokens_enabled,
+        session.telemetry_enabled,
+        session.ai_enabled,
+        session.broker_peers.len()
     );
     Ok(())
 }
@@ -142,34 +211,28 @@ fn card_id_at(ctx: &BuiltinContext<'_>, idx: usize) -> Result<String> {
 }
 
 fn preview_card(ctx: &BuiltinContext<'_>, card_id: &str) -> Result<()> {
-    let platform = &ctx.runtime.platform;
-    let signals = ThresholdSignals::from_platform(
-        &format!("{:?}", platform.arch),
-        &format!("{:?}", platform.os),
-        platform.logical_cpus,
-        platform.backend,
-    );
+    let signals = LoomStore::threshold_signals(&ctx.runtime.platform);
     let preview = ctx
         .runtime
         .loom
         .preview_card(card_id, Some(&signals))?;
     println!(
-        "preview {} title={} caps={} outcome={} confirm={}",
+        "preview {} title={} caps={} outcome={} confirm={} reason={}",
         preview.card_id,
         preview.title,
         preview.cap_summary,
         preview.outcome.as_str(),
-        preview.requires_confirmation
+        preview.requires_confirmation,
+        preview.reason
     );
     if preview.requires_confirmation {
-        println!("run with: r {card_id} --confirm  (or index with --confirm in TUI)");
+        println!("run with: r {} --confirm", preview.card_id);
     }
     Ok(())
 }
 
 fn run_card(ctx: &mut BuiltinContext<'_>, card_id: &str, confirmed: bool) -> Result<()> {
-    let signals =
-        intentos_utilities::LoomStore::threshold_signals(&ctx.runtime.platform);
+    let signals = LoomStore::threshold_signals(&ctx.runtime.platform);
     let (handle, decision) = ctx
         .runtime
         .loom

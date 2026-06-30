@@ -7,7 +7,7 @@ use intentos_audit::AuditEventKind;
 use intentos_kernel::{BrokerPeer, wall_ms};
 use intentos_kernel::TrustAnchor;
 use intentos_utilities::{
-    decode_payload_hex, BrokerWireHub, FederationError,
+    decode_payload_hex, BrokerTcpTransport, BrokerWireHub, FederationError,
 };
 
 impl BuiltinContext<'_> {
@@ -30,6 +30,12 @@ impl BuiltinContext<'_> {
                     },
                     wire.root().display()
                 );
+                if let Ok(Some(m)) = BrokerTcpTransport::read_listen_manifest(&wire) {
+                    println!(
+                        "tcp_listen={} device={}",
+                        m.endpoint, m.device_id
+                    );
+                }
                 println!(
                     "wire_version={} sig_version={}",
                     intentos_utilities::BROKER_WIRE_VERSION,
@@ -39,9 +45,15 @@ impl BuiltinContext<'_> {
             "list" => {
                 let session = self.runtime.loom.session();
                 for p in &session.broker_peers {
+                    let ep = if p.endpoint.is_empty() {
+                        "file"
+                    } else {
+                        &p.endpoint
+                    };
                     println!(
-                        "peer={} key={}.. registered={}",
+                        "peer={} endpoint={} key={}.. registered={}",
                         p.peer_id,
+                        ep,
                         &p.public_key_hex[..p.public_key_hex.len().min(16)],
                         p.registered_at_ms
                     );
@@ -58,8 +70,15 @@ impl BuiltinContext<'_> {
                     "usage: broker register <peer_id> <public_key_hex> [label]",
                 )?;
                 let mut peer = BrokerPeer::new(peer_id, pubkey, wall_ms());
-                if let Some(label) = parsed.arg(3) {
-                    peer.label = label.to_string();
+                if let Some(a3) = parsed.arg(3) {
+                    if a3.starts_with("tcp://") || a3.starts_with("file://") {
+                        peer.endpoint = a3.to_string();
+                    } else {
+                        peer.label = a3.to_string();
+                        if let Some(a4) = parsed.arg(4) {
+                            peer.endpoint = a4.to_string();
+                        }
+                    }
                 }
                 self.runtime.loom.register_broker_peer(peer.clone())?;
                 self.runtime.sync_federation_from_loom();
@@ -98,14 +117,46 @@ impl BuiltinContext<'_> {
                     .map_err(|e| anyhow::anyhow!("wire sign: {e}"))?;
                 BrokerWireHub::verify_message(&msg, &session.signing_public_key_hex)
                     .map_err(|e| anyhow::anyhow!("local verify failed: {e}"))?;
+                let transport = if peer.endpoint.starts_with("tcp://") {
+                    "tcp"
+                } else {
+                    "file"
+                };
                 wire.enqueue_to_peer(&peer, &msg)
                     .map_err(|e| anyhow::anyhow!("wire enqueue: {e}"))?;
                 let _ = self.runtime.audit.record(
                     AuditEventKind::BrokerWireSent,
                     &self.state.actor,
-                    format!("peer={peer_id} nonce={} bytes={}", msg.nonce, payload.len()),
+                    format!(
+                        "peer={peer_id} transport={transport} nonce={} bytes={}",
+                        msg.nonce,
+                        payload.len()
+                    ),
                 );
-                println!("wire sent peer={peer_id} nonce={}", msg.nonce);
+                println!("wire sent peer={peer_id} transport={transport} nonce={}", msg.nonce);
+            }
+            "listen" => {
+                let port: u16 = parsed
+                    .arg(1)
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(BrokerTcpTransport::default_port());
+                let once = parsed.args.iter().any(|a| *a == "--once");
+                let device_id = self.runtime.loom.profile_id();
+                let wire = BrokerWireHub::open_default();
+                println!(
+                    "listening on 127.0.0.1:{port} (once={once}) — waiting for wire messages..."
+                );
+                let manifest = BrokerTcpTransport::serve(&wire, &device_id, port, once, 64)
+                    .map_err(|e| anyhow::anyhow!("tcp listen: {e}"))?;
+                let _ = self.runtime.audit.record(
+                    AuditEventKind::BrokerTcpListening,
+                    &self.state.actor,
+                    format!("endpoint={} device={}", manifest.endpoint, manifest.device_id),
+                );
+                println!(
+                    "tcp listen complete endpoint={} (run `broker recv` to process inbox)",
+                    manifest.endpoint
+                );
             }
             "recv" => {
                 let max: usize = parsed.arg(1).and_then(|s| s.parse().ok()).unwrap_or(10);
@@ -189,7 +240,7 @@ impl BuiltinContext<'_> {
                 println!("{}", String::from_utf8_lossy(&out));
             }
             other => anyhow::bail!(
-                "usage: broker status|list|register|send|recv|delegate (got: {other})"
+                "usage: broker status|list|register|send|recv|listen|delegate (got: {other})"
             ),
         }
         Ok(())

@@ -140,6 +140,12 @@ impl BrokerWireHub {
                 msg.wire_version
             )));
         }
+        if peer.endpoint.starts_with("tcp://") {
+            let addr = crate::broker_tcp::BrokerTcpTransport::parse_endpoint(&peer.endpoint)?;
+            crate::broker_tcp::BrokerTcpTransport::send_message(addr, msg)?;
+            self.append_message(&self.outbox_path(), msg)?;
+            return Ok(());
+        }
         let path = if peer.endpoint.is_empty() {
             self.inbox_path(&peer.peer_id)
         } else {
@@ -148,6 +154,14 @@ impl BrokerWireHub {
         self.append_message(&path, msg)?;
         self.append_message(&self.outbox_path(), msg)?;
         Ok(())
+    }
+
+    pub fn append_message_public(
+        &self,
+        path: &Path,
+        msg: &BrokerWireMessage,
+    ) -> Result<(), BrokerWireError> {
+        self.append_message(path, msg)
     }
 
     pub fn recv_inbox(&self, device_id: &str, max: usize) -> Result<Vec<BrokerWireMessage>, BrokerWireError> {

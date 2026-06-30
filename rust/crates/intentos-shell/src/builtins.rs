@@ -876,7 +876,7 @@ IntentOS shell — tier 2 (native, no RPC):
   telemetry status|enable|disable  Outbound analytics opt-in (off by default)
   oobe status|run|reset|hook  First-run onboarding + platform bootstrap hooks
   posture                Device posture + Threshold signals (HAL probe)
-  broker status|register|delegate  Intent Broker federation peers
+  broker status|register|send|recv|listen  Intent Broker wire + TCP transport
   kernel stats           Kernel uptime, caps, leases, revocations (JSON)
   kernel revoke <jti>    Revoke capability token (or 0xHANDLE)
   kernel crypto status|enable-pqc|disable-pqc  Token signature scheme (PQC hybrid path)
