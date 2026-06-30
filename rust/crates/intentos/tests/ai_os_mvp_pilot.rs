@@ -138,3 +138,67 @@ fn auto_oobe_runs_on_shell_open() {
     assert!(rt.loom.is_oobe_complete());
     let _ = std::fs::remove_dir_all(dir);
 }
+
+#[test]
+fn card_confirm_then_vfs_read() {
+    let dir = temp_loom_dir();
+    let loom = Arc::new(LoomStore::open_in(&dir).unwrap());
+    let audit = Arc::new(
+        intentos_audit::AuditLog::open_persisted(dir.join("audit.jsonl")).unwrap(),
+    );
+    let rt = OsRuntime::boot_with_loom(audit, loom).expect("boot");
+    rt.loom.complete_oobe(ThresholdLevel::High).unwrap();
+
+    let card = rt.loom.create_card("Read notes", "file", "read").unwrap();
+    let preview = rt.loom.preview_card(&card.id, None).unwrap();
+    assert_eq!(preview.cap_summary, "file/read");
+    assert!(!preview.requires_confirmation);
+
+    let (handle, _) = rt
+        .loom
+        .run_card(&rt.kernel(), &rt.audit, &card.id, "user", false)
+        .unwrap();
+
+    let k = rt.kernel();
+    let utils = rt.utilities.lock().unwrap();
+    let data = utils.vfs.read(&k, handle, "/readme.txt").expect("vfs read");
+    assert!(!data.is_empty());
+    assert!(rt.audit.len().unwrap() > 0);
+
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn policy_pack_enterprise_raises_threshold() {
+    let (rt, dir) = boot_with_temp_loom();
+    rt.loom.complete_oobe(ThresholdLevel::Medium).unwrap();
+    rt.loom
+        .set_policy_pack(intentos_kernel::PolicyPack::Enterprise)
+        .unwrap();
+    assert_eq!(rt.loom.session().default_threshold, ThresholdLevel::High);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn loom_corruption_triggers_recovery() {
+    use intentos_kernel::LoomSession;
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Deserialize, Serialize)]
+    struct Envelope {
+        session: LoomSession,
+    }
+
+    let dir = temp_loom_dir();
+    let store = LoomStore::open_in(&dir).unwrap();
+    store.complete_oobe(ThresholdLevel::Medium).unwrap();
+    drop(store);
+    let path = dir.join("loom_state.json");
+    let mut env: Envelope =
+        serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    env.session.checksum = "corrupt".into();
+    std::fs::write(&path, serde_json::to_vec_pretty(&env).unwrap()).unwrap();
+    let loom = LoomStore::open_in(&dir).unwrap();
+    assert!(loom.corruption_recovered());
+    let _ = std::fs::remove_dir_all(dir);
+}

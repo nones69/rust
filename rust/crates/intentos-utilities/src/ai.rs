@@ -57,7 +57,9 @@ mod tests {
     #[test]
     fn authorized_infer_returns_response() {
         let kernel = Kernel::boot().unwrap();
-        let handle = kernel.intent_to_handle(intent("ai", "infer")).unwrap();
+        let handle = kernel
+            .intent_to_handle_confirmed(intent("ai", "infer"), true)
+            .unwrap();
         let out = AiGateway::infer(&kernel, handle, "intentos", "say hi").unwrap();
         assert!(out.contains("say hi"), "got {out}");
         assert!(out.contains("intentos"), "got {out}");

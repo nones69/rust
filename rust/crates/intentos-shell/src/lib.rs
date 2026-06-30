@@ -11,6 +11,7 @@
 
 mod ai_os;
 mod builtins;
+mod policy_cmd;
 mod parser;
 mod session;
 mod tier;

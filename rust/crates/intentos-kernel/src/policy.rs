@@ -1,4 +1,5 @@
 use crate::ip_policy::apply_ip_policy;
+use crate::signals::ThresholdSignals;
 use crate::threshold::{gate_outcome, risk_for, PolicyOutcome, ThresholdLevel};
 use crate::types::{Intent, PolicyDecision, TrustAnchor};
 
@@ -11,7 +12,38 @@ impl PolicyEngine {
     }
 
     pub fn evaluate_with_threshold(intent: &Intent, profile: ThresholdLevel) -> PolicyDecision {
+        Self::evaluate_with_signals(intent, profile, None)
+    }
+
+    pub fn evaluate_with_signals(
+        intent: &Intent,
+        profile: ThresholdLevel,
+        signals: Option<&ThresholdSignals>,
+    ) -> PolicyDecision {
         let cap_summary = format!("{}/{}", intent.resource, intent.action);
+
+        if let Some(sig) = signals {
+            let risk = risk_for(&intent.resource, &intent.action);
+            if risk == ThresholdLevel::High
+                && (intent.anchor as u8) < sig.min_anchor_for_high_risk() as u8
+            {
+                return PolicyDecision {
+                    outcome: PolicyOutcome::Deny,
+                    allowed: false,
+                    requires_confirmation: false,
+                    threshold_level: risk,
+                    reason: format!(
+                        "posture gate: high-risk intent needs anchor >= {:?} ({})",
+                        sig.min_anchor_for_high_risk(),
+                        sig.posture_summary
+                    ),
+                    reason_code: "posture_deny".into(),
+                    cap_summary,
+                    ttl_ms: 0,
+                    max_uses: 0,
+                };
+            }
+        }
 
         if (intent.anchor as u8) < TrustAnchor::UiEvent as u8 {
             return PolicyDecision {

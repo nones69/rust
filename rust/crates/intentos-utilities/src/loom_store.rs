@@ -1,9 +1,9 @@
 //! Local Loom persistence — atomic writes with checksum recovery.
 
-use intentos_audit::{AuditEventKind, AuditLog};
+use intentos_audit::{AuditEventKind, AuditLog, CardAuditDetail};
 use intentos_kernel::{
-    Intent, IntentCard, LoomSession, PolicyEngine, ThresholdLevel, TrustAnchor, wall_ms,
-    Handle, Kernel, KernelError,
+    Intent, IntentCard, LoomSession, PolicyEngine, PolicyOutcome, PolicyPack, ThresholdLevel,
+    TrustAnchor, wall_ms, Handle, Kernel, KernelError,
 };
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -29,10 +29,26 @@ struct LoomEnvelope {
     session: LoomSession,
 }
 
+/// Preview of a card execution without minting a token.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct CardPreview {
+    pub card_id: String,
+    pub field_id: String,
+    pub title: String,
+    pub cap_summary: String,
+    pub ttl_ms: u64,
+    pub uses: u32,
+    pub risk_level: ThresholdLevel,
+    pub outcome: PolicyOutcome,
+    pub requires_confirmation: bool,
+    pub reason: String,
+}
+
 /// Thread-safe local Loom store.
 pub struct LoomStore {
     path: PathBuf,
     inner: Mutex<LoomSession>,
+    corruption_recovered: Mutex<bool>,
 }
 
 impl LoomStore {
@@ -44,6 +60,7 @@ impl LoomStore {
             let store = Self {
                 path,
                 inner: Mutex::new(LoomSession::default()),
+                corruption_recovered: Mutex::new(false),
             };
             store.save()?;
             Ok(store)
@@ -61,29 +78,34 @@ impl LoomStore {
             let store = Self {
                 path,
                 inner: Mutex::new(LoomSession::default()),
+                corruption_recovered: Mutex::new(false),
             };
             store.save()?;
             Ok(store)
         }
     }
 
+    pub fn corruption_recovered(&self) -> bool {
+        *self.corruption_recovered.lock().unwrap()
+    }
+
     fn load_from(path: &Path) -> Result<Self, LoomError> {
         let bytes = fs::read(path)?;
         let envelope: LoomEnvelope = serde_json::from_slice(&bytes)?;
         let mut session = envelope.session;
-        if !session.verify_checksum() {
+        let recovered = !session.verify_checksum();
+        if recovered {
             session = LoomSession::default();
-            let store = Self {
-                path: path.to_path_buf(),
-                inner: Mutex::new(session),
-            };
-            store.save()?;
-            return Ok(store);
         }
-        Ok(Self {
+        let store = Self {
             path: path.to_path_buf(),
             inner: Mutex::new(session),
-        })
+            corruption_recovered: Mutex::new(recovered),
+        };
+        if recovered {
+            store.save()?;
+        }
+        Ok(store)
     }
 
     pub fn session(&self) -> LoomSession {
@@ -92,6 +114,59 @@ impl LoomStore {
 
     pub fn is_oobe_complete(&self) -> bool {
         self.inner.lock().unwrap().oobe_complete
+    }
+
+    pub fn set_policy_pack(&self, pack: PolicyPack) -> Result<(), LoomError> {
+        let mut session = self.inner.lock().unwrap();
+        session.policy_pack = pack;
+        session.default_threshold = pack.default_threshold();
+        session.refresh_checksum();
+        drop(session);
+        self.save()
+    }
+
+    pub fn preview_card(
+        &self,
+        card_id: &str,
+        signals: Option<&intentos_kernel::ThresholdSignals>,
+    ) -> Result<CardPreview, LoomError> {
+        let session = self.inner.lock().unwrap();
+        let active_field = session.active_field_id.as_deref();
+        let card = session
+            .find_card(card_id)
+            .ok_or_else(|| LoomError::State(format!("unknown card: {card_id}")))?
+            .clone();
+        let profile = session.default_threshold;
+        if active_field != Some(card.field_id.as_str()) {
+            return Err(LoomError::State(format!(
+                "card field {} != active field {:?}",
+                card.field_id, active_field
+            )));
+        }
+        let cap = card
+            .primary_cap()
+            .ok_or_else(|| LoomError::State("card has no capability".into()))?;
+        let intent = Intent {
+            actor: "preview".into(),
+            resource: cap.resource.clone(),
+            action: cap.action.clone(),
+            anchor: TrustAnchor::UiEvent,
+            timestamp_ms: wall_ms(),
+            metadata: Default::default(),
+        };
+        let decision = PolicyEngine::evaluate_with_signals(&intent, profile, signals);
+        Ok(CardPreview {
+            card_id: card.id.clone(),
+            field_id: card.field_id.clone(),
+            title: card.title.clone(),
+            cap_summary: card.cap_summary(),
+            ttl_ms: card.ttl_ms,
+            uses: card.uses,
+            risk_level: card.risk_level,
+            outcome: decision.outcome,
+            requires_confirmation: decision.requires_confirmation,
+            reason: decision.reason,
+        })
     }
 
     pub fn complete_oobe(&self, threshold: ThresholdLevel) -> Result<(), LoomError> {
@@ -192,15 +267,14 @@ impl LoomStore {
         let decision = PolicyEngine::evaluate_with_threshold(&intent, profile);
 
         if decision.requires_confirmation && !user_confirmed {
-            let _ = audit.record(
-                AuditEventKind::UserDenied,
-                actor,
-                format!(
-                    "card={card_id} field={} caps={} — confirmation required",
-                    card.field_id,
-                    card.cap_summary()
-                ),
-            );
+            let detail = CardAuditDetail {
+                field_id: card.field_id.clone(),
+                card_id: card_id.to_string(),
+                decision: "confirm_required".into(),
+                reason: "confirmation required — run with --confirm".into(),
+                cap_summary: card.cap_summary(),
+            };
+            let _ = audit.record(AuditEventKind::UserDenied, actor, detail.to_detail_string());
             return Err(LoomError::State(
                 "high-risk card requires confirmation — re-run with --confirm".into(),
             ));
@@ -234,14 +308,20 @@ impl LoomStore {
 
         let handle =
             kernel.intent_to_handle_with_profile(intent, profile, user_confirmed)?;
+        let detail = CardAuditDetail {
+            field_id: card.field_id.clone(),
+            card_id: card_id.to_string(),
+            decision: decision.outcome.as_str().into(),
+            reason: decision.reason.clone(),
+            cap_summary: card.cap_summary(),
+        };
         let _ = audit.record(
             AuditEventKind::CardExecuted,
             actor,
             format!(
-                "card={card_id} field={} handle=0x{:X} caps={}",
-                card.field_id,
-                handle.as_u64(),
-                card.cap_summary()
+                "{} handle=0x{:X}",
+                detail.to_detail_string(),
+                handle.as_u64()
             ),
         );
         Ok((handle, decision))

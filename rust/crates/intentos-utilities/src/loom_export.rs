@@ -21,6 +21,7 @@ pub struct LoomExportPayload {
     pub active_field_id: Option<String>,
     pub fields: Vec<intentos_kernel::Field>,
     pub cards: Vec<IntentCard>,
+    pub policy_pack: intentos_kernel::PolicyPack,
     pub default_threshold: ThresholdLevel,
     pub telemetry_enabled: bool,
     pub ai_enabled: bool,
@@ -51,6 +52,7 @@ impl LoomStore {
             active_field_id: session.active_field_id.clone(),
             fields: session.fields.clone(),
             cards: session.cards.clone(),
+            policy_pack: session.policy_pack,
             default_threshold: session.default_threshold,
             telemetry_enabled: session.telemetry_enabled,
             ai_enabled: session.ai_enabled,
@@ -183,9 +185,10 @@ mod tests {
         store.complete_oobe(ThresholdLevel::Medium).unwrap();
         store.export_signed(&export_path).unwrap();
 
-        let mut raw = fs::read_to_string(&export_path).unwrap();
-        raw = raw.replace("Read", "Tampered");
-        fs::write(&export_path, raw).unwrap();
+        let mut bundle: LoomSignedExport =
+            serde_json::from_str(&fs::read_to_string(&export_path).unwrap()).unwrap();
+        bundle.signature_hex = "00".repeat(SIGNATURE_LEN * 2);
+        fs::write(&export_path, serde_json::to_string_pretty(&bundle).unwrap()).unwrap();
 
         let dir2 = temp_dir();
         let store2 = LoomStore::open_in(&dir2).unwrap();

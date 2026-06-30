@@ -6,6 +6,9 @@
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Sha3_256};
+use std::fs::{File, OpenOptions};
+use std::io::{BufRead, BufReader, Write};
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use thiserror::Error;
 use uuid::Uuid;
@@ -53,6 +56,7 @@ pub struct AuditEntry {
 /// Append-only audit log with SHA3-256 hash chain.
 pub struct AuditLog {
     inner: Mutex<AuditState>,
+    persist_path: Option<PathBuf>,
 }
 
 struct AuditState {
@@ -60,10 +64,35 @@ struct AuditState {
     last_hash: String,
 }
 
+/// Structured detail for card lifecycle audit events (FR-07).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CardAuditDetail {
+    pub field_id: String,
+    pub card_id: String,
+    pub decision: String,
+    pub reason: String,
+    pub cap_summary: String,
+}
+
+impl CardAuditDetail {
+    pub fn to_detail_string(&self) -> String {
+        serde_json::to_string(self).unwrap_or_else(|_| {
+            format!(
+                "field={} card={} decision={} caps={}",
+                self.field_id, self.card_id, self.decision, self.cap_summary
+            )
+        })
+    }
+}
+
 #[derive(Debug, Error)]
 pub enum AuditError {
     #[error("audit log lock poisoned")]
     LockPoisoned,
+    #[error("audit I/O: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("audit JSON: {0}")]
+    Json(#[from] serde_json::Error),
 }
 
 impl AuditLog {
@@ -73,7 +102,52 @@ impl AuditLog {
                 entries: Vec::new(),
                 last_hash: genesis_hash(),
             }),
+            persist_path: None,
         }
+    }
+
+    /// Open or create a file-backed append-only audit log.
+    pub fn open_persisted(path: impl AsRef<Path>) -> Result<Self, AuditError> {
+        let path = path.as_ref().to_path_buf();
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let mut log = Self {
+            inner: Mutex::new(AuditState {
+                entries: Vec::new(),
+                last_hash: genesis_hash(),
+            }),
+            persist_path: Some(path.clone()),
+        };
+        if path.exists() {
+            log.reload_from_disk()?;
+        }
+        Ok(log)
+    }
+
+    pub fn open_default() -> Result<Self, AuditError> {
+        Self::open_persisted(default_audit_path())
+    }
+
+    fn reload_from_disk(&mut self) -> Result<(), AuditError> {
+        let path = self.persist_path.as_ref().expect("persist path");
+        let file = File::open(path)?;
+        let reader = BufReader::new(file);
+        let mut state = AuditState {
+            entries: Vec::new(),
+            last_hash: genesis_hash(),
+        };
+        for line in reader.lines() {
+            let line = line?;
+            if line.trim().is_empty() {
+                continue;
+            }
+            let entry: AuditEntry = serde_json::from_str(&line)?;
+            state.last_hash = entry.entry_hash.clone();
+            state.entries.push(entry);
+        }
+        *self.inner.lock().map_err(|_| AuditError::LockPoisoned)? = state;
+        Ok(())
     }
 
     pub fn record(
@@ -103,7 +177,23 @@ impl AuditLog {
 
         state.last_hash = entry_hash;
         state.entries.push(entry.clone());
+        drop(state);
+
+        if let Some(path) = &self.persist_path {
+            self.append_to_disk(path, &entry)?;
+        }
         Ok(entry)
+    }
+
+    fn append_to_disk(&self, path: &Path, entry: &AuditEntry) -> Result<(), AuditError> {
+        let line = serde_json::to_string(entry)?;
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)?;
+        writeln!(file, "{line}")?;
+        file.flush()?;
+        Ok(())
     }
 
     pub fn len(&self) -> Result<usize, AuditError> {
@@ -176,6 +266,16 @@ fn hash_entry(
     hex_hash(payload.as_bytes())
 }
 
+fn default_audit_path() -> PathBuf {
+    if let Ok(dir) = std::env::var("INTENTOS_STATE_DIR") {
+        return PathBuf::from(dir).join("audit.jsonl");
+    }
+    if let Ok(home) = std::env::var("USERPROFILE").or_else(|_| std::env::var("HOME")) {
+        return PathBuf::from(home).join(".intentos").join("audit.jsonl");
+    }
+    PathBuf::from(".intentos").join("audit.jsonl")
+}
+
 fn hex_hash(data: &[u8]) -> String {
     let digest = Sha3_256::digest(data);
     digest.iter().map(|b| format!("{b:02x}")).collect()
@@ -238,6 +338,37 @@ mod tests {
         log.record(AuditEventKind::Policy, "shell", "deny").unwrap();
         assert!(log.has_kind(AuditEventKind::Policy).unwrap());
         assert!(!log.has_kind(AuditEventKind::Boot).unwrap());
+    }
+
+    #[test]
+    fn persisted_log_survives_reload() {
+        let dir = std::env::temp_dir().join(format!(
+            "intentos-audit-{}",
+            Uuid::new_v4()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("audit.jsonl");
+        {
+            let log = AuditLog::open_persisted(&path).unwrap();
+            log.record(AuditEventKind::Boot, "kernel", "boot").unwrap();
+            log.record(AuditEventKind::Policy, "shell", "allow").unwrap();
+        }
+        let log2 = AuditLog::open_persisted(&path).unwrap();
+        assert_eq!(log2.len().unwrap(), 2);
+        assert!(log2.verify_chain().unwrap());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn card_audit_detail_serializes() {
+        let d = CardAuditDetail {
+            field_id: "fld-1".into(),
+            card_id: "card-1".into(),
+            decision: "allow".into(),
+            reason: "ok".into(),
+            cap_summary: "file/read".into(),
+        };
+        assert!(d.to_detail_string().contains("card-1"));
     }
 
     #[test]

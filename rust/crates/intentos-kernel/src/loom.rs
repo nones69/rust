@@ -2,6 +2,7 @@
 
 use crate::card::IntentCard;
 use crate::field::Field;
+use crate::policy_pack::PolicyPack;
 use crate::threshold::ThresholdLevel;
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Sha3_256};
@@ -18,6 +19,7 @@ pub struct LoomSession {
     pub active_field_id: Option<String>,
     pub fields: Vec<Field>,
     pub cards: Vec<IntentCard>,
+    pub policy_pack: PolicyPack,
     pub default_threshold: ThresholdLevel,
     pub telemetry_enabled: bool,
     pub ai_enabled: bool,
@@ -39,7 +41,8 @@ impl Default for LoomSession {
             active_field_id: None,
             fields: Vec::new(),
             cards: Vec::new(),
-            default_threshold: ThresholdLevel::Medium,
+            policy_pack: PolicyPack::Personal,
+            default_threshold: PolicyPack::Personal.default_threshold(),
             telemetry_enabled: false,
             ai_enabled: false,
             oobe_complete: false,

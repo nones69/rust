@@ -4,7 +4,7 @@ use crate::builtins::BuiltinContext;
 use crate::parser::ParsedLine;
 use anyhow::{Context, Result};
 use intentos_audit::AuditEventKind;
-use intentos_kernel::ThresholdLevel;
+use intentos_kernel::{ThresholdLevel, ThresholdSignals};
 
 impl BuiltinContext<'_> {
     pub fn field_cmd(&mut self, parsed: &ParsedLine<'_>) -> Result<()> {
@@ -118,6 +118,24 @@ impl BuiltinContext<'_> {
                     card.risk_level
                 );
             }
+            "preview" => {
+                let card_id = parsed.arg(1).context("usage: kb preview <card_id>")?;
+                let platform = &self.runtime.platform;
+                let signals = ThresholdSignals::from_platform(
+                    &format!("{:?}", platform.arch),
+                    &format!("{:?}", platform.os),
+                    platform.logical_cpus,
+                    platform.backend,
+                );
+                let preview = self
+                    .runtime
+                    .loom
+                    .preview_card(card_id, Some(&signals))?;
+                println!("{}", serde_json::to_string_pretty(&preview)?);
+                if preview.requires_confirmation {
+                    println!("confirmation required — run: kb run {card_id} --confirm");
+                }
+            }
             "run" => {
                 let card_id = parsed.arg(1).context("usage: kb run <card_id> [--confirm]")?;
                 let confirmed = parsed.args.iter().any(|a| *a == "--confirm");
@@ -155,7 +173,7 @@ impl BuiltinContext<'_> {
                 );
             }
             other => anyhow::bail!(
-                "usage: kb open|suggest|create|run|status (got: {other})"
+                "usage: kb open|suggest|create|preview|run|status (got: {other})"
             ),
         }
         Ok(())

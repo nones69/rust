@@ -17,7 +17,9 @@ mod ip_policy;
 mod lease;
 mod loom;
 mod policy;
+mod policy_pack;
 mod recognizer;
+mod signals;
 mod revocation;
 mod table;
 mod threshold;
@@ -39,6 +41,8 @@ pub use ip_policy::{
     ThreatLevel, META_DEST_IP, META_THREAT_SCORE,
 };
 pub use policy::PolicyEngine;
+pub use policy_pack::PolicyPack;
+pub use signals::ThresholdSignals;
 pub use recognizer::{IntentRecognizer, RecognizedIntent, StubRecognizer};
 pub use revocation::RevocationList;
 pub use table::CapabilityTable;

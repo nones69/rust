@@ -42,10 +42,26 @@ impl BuiltinContext<'_> {
     }
 
     pub fn audit(&self, parsed: &ParsedLine<'_>) -> Result<()> {
-        let n: usize = parsed.arg(0).and_then(|s| s.parse().ok()).unwrap_or(10);
-        println!("{}", SysTools::audit_summary(&self.runtime.audit, n));
-        let ok = self.runtime.audit.verify_chain()?;
-        println!("chain_ok={ok} head={}", self.runtime.audit.head_hash()?);
+        let sub = parsed.arg(0).unwrap_or("tail");
+        match sub {
+            "tail" => {
+                let n: usize = parsed.arg(1).and_then(|s| s.parse().ok()).unwrap_or(10);
+                for entry in self.runtime.audit.tail(n)? {
+                    println!(
+                        "[{}] {:?} actor={} {}",
+                        entry.ts_ms, entry.kind, entry.actor, entry.detail
+                    );
+                }
+                let ok = self.runtime.audit.verify_chain()?;
+                let total = self.runtime.audit.len()?;
+                println!("chain_ok={ok} tail={n} total={total} head={}", self.runtime.audit.head_hash()?);
+            }
+            "verify" => {
+                let ok = self.runtime.audit.verify_chain()?;
+                println!("chain_ok={ok} head={}", self.runtime.audit.head_hash()?);
+            }
+            other => anyhow::bail!("usage: audit tail [n] | verify (got: {other})"),
+        }
         Ok(())
     }
 
@@ -770,7 +786,9 @@ IntentOS shell — tier 2 (native, no RPC):
   ai status|enable|disable|infer  AI gateway (disabled until `ai enable`)
   loom export|import     Signed Loom session transfer between machines
   hal                    Show hardware abstraction probe
-  audit [n]              Show last n audit entries + chain verify
+  audit tail [n]|verify  Append-only audit trail (persisted locally)
+  policy list|use        Personal vs enterprise policy packs
+  kb preview <card_id>   Preview caps/ttl/risk before execution
   recognize <text>       Intent recognition (enterprise map / Ollama / stub)
   enterprise list        Show mapped enterprise commands
   enterprise compat      Run app compatibility matrix (pass/fail)

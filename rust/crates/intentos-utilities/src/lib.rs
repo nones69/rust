@@ -45,7 +45,7 @@ pub use sectors::public_safety::{
     PublicSafetyAssessor, PublicSafetyMapper, PublicSafetyPilotReport,
 };
 pub use loom_export::{LoomExportPayload, LoomSignedExport, LOOM_EXPORT_VERSION};
-pub use loom_store::{LoomError, LoomStore};
+pub use loom_store::{CardPreview, LoomError, LoomStore};
 pub use tools::SysTools;
 pub use vfs::{VfsError, VirtualFs};
 
@@ -92,7 +92,12 @@ pub struct OsRuntime {
 
 impl OsRuntime {
     pub fn boot() -> Result<Self, intentos_kernel::KernelError> {
-        Self::boot_with_audit(Arc::new(AuditLog::new()))
+        let audit = Arc::new(
+            AuditLog::open_default().map_err(|e| {
+                intentos_kernel::KernelError::Serialize(format!("audit open: {e}"))
+            })?,
+        );
+        Self::boot_with_audit(audit)
     }
 
     pub fn boot_with_audit(audit: Arc<AuditLog>) -> Result<Self, intentos_kernel::KernelError> {
@@ -141,6 +146,13 @@ impl OsRuntime {
         let loom = Arc::new(LoomStore::open().map_err(|e| {
             intentos_kernel::KernelError::Serialize(format!("loom open: {e}"))
         })?);
+        if loom.corruption_recovered() {
+            let _ = audit.record(
+                AuditEventKind::LoomRecovery,
+                "system",
+                "loom state checksum mismatch — reset to safe defaults",
+            );
+        }
 
         Ok(Self {
             platform,

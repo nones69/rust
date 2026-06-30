@@ -157,6 +157,10 @@ impl ShellSession {
                 ctx.loom_cmd(&parsed)?;
                 Ok(true)
             }
+            "policy" => {
+                ctx.policy_cmd(&parsed)?;
+                Ok(true)
+            }
             "hal" => {
                 ctx.hal()?;
                 Ok(true)
