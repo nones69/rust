@@ -98,10 +98,25 @@ pub struct Intent {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PolicyDecision {
+    pub outcome: crate::threshold::PolicyOutcome,
     pub allowed: bool,
+    pub requires_confirmation: bool,
+    pub threshold_level: crate::threshold::ThresholdLevel,
     pub reason: String,
+    pub reason_code: String,
+    pub cap_summary: String,
     pub ttl_ms: u64,
     pub max_uses: u32,
+}
+
+impl PolicyDecision {
+    pub fn can_mint(&self, user_confirmed: bool) -> bool {
+        match self.outcome {
+            crate::threshold::PolicyOutcome::Allow => self.allowed,
+            crate::threshold::PolicyOutcome::Confirm => user_confirmed && self.allowed,
+            crate::threshold::PolicyOutcome::Deny => false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

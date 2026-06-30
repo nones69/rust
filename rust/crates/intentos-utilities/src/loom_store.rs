@@ -1,0 +1,400 @@
+//! Local Loom persistence — atomic writes with checksum recovery.
+
+use intentos_audit::{AuditEventKind, AuditLog};
+use intentos_kernel::{
+    Intent, IntentCard, LoomSession, PolicyEngine, ThresholdLevel, TrustAnchor, wall_ms,
+    Handle, Kernel, KernelError,
+};
+use serde::{Deserialize, Serialize};
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum LoomError {
+    #[error("loom I/O: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("loom JSON: {0}")]
+    Json(#[from] serde_json::Error),
+    #[error("loom state: {0}")]
+    State(String),
+    #[error("kernel: {0}")]
+    Kernel(#[from] KernelError),
+}
+
+/// On-disk envelope with checksum for corruption detection.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct LoomEnvelope {
+    session: LoomSession,
+}
+
+/// Thread-safe local Loom store.
+pub struct LoomStore {
+    path: PathBuf,
+    inner: Mutex<LoomSession>,
+}
+
+impl LoomStore {
+    pub fn open() -> Result<Self, LoomError> {
+        let path = state_file_path();
+        if path.exists() {
+            Self::load_from(&path)
+        } else {
+            let store = Self {
+                path,
+                inner: Mutex::new(LoomSession::default()),
+            };
+            store.save()?;
+            Ok(store)
+        }
+    }
+
+    pub fn open_in(dir: impl AsRef<Path>) -> Result<Self, LoomError> {
+        let path = dir.as_ref().join("loom_state.json");
+        if path.exists() {
+            Self::load_from(&path)
+        } else {
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            let store = Self {
+                path,
+                inner: Mutex::new(LoomSession::default()),
+            };
+            store.save()?;
+            Ok(store)
+        }
+    }
+
+    fn load_from(path: &Path) -> Result<Self, LoomError> {
+        let bytes = fs::read(path)?;
+        let envelope: LoomEnvelope = serde_json::from_slice(&bytes)?;
+        let mut session = envelope.session;
+        if !session.verify_checksum() {
+            session = LoomSession::default();
+            let store = Self {
+                path: path.to_path_buf(),
+                inner: Mutex::new(session),
+            };
+            store.save()?;
+            return Ok(store);
+        }
+        Ok(Self {
+            path: path.to_path_buf(),
+            inner: Mutex::new(session),
+        })
+    }
+
+    pub fn session(&self) -> LoomSession {
+        self.inner.lock().unwrap().clone()
+    }
+
+    pub fn is_oobe_complete(&self) -> bool {
+        self.inner.lock().unwrap().oobe_complete
+    }
+
+    pub fn complete_oobe(&self, threshold: ThresholdLevel) -> Result<(), LoomError> {
+        self.ensure_signing_keys()?;
+        let mut session = self.inner.lock().unwrap();
+        session.oobe_complete = true;
+        session.default_threshold = threshold;
+        session.telemetry_enabled = false;
+        session.ai_enabled = false;
+        session.ensure_default_field(wall_ms());
+        session.refresh_checksum();
+        drop(session);
+        self.save()
+    }
+
+    pub fn reset_oobe(&self) -> Result<(), LoomError> {
+        let mut session = self.inner.lock().unwrap();
+        *session = LoomSession::default();
+        session.refresh_checksum();
+        drop(session);
+        self.save()
+    }
+
+    pub fn create_field(&self, name: &str) -> Result<intentos_kernel::Field, LoomError> {
+        let mut session = self.inner.lock().unwrap();
+        let field = session.add_field(name, wall_ms());
+        drop(session);
+        self.save()?;
+        Ok(field)
+    }
+
+    pub fn use_field(&self, field_id: &str) -> Result<(), LoomError> {
+        let mut session = self.inner.lock().unwrap();
+        session
+            .set_active_field(field_id)
+            .map_err(LoomError::State)?;
+        drop(session);
+        self.save()
+    }
+
+    pub fn create_card(
+        &self,
+        title: &str,
+        resource: &str,
+        action: &str,
+    ) -> Result<IntentCard, LoomError> {
+        let mut session = self.inner.lock().unwrap();
+        session.ensure_default_field(wall_ms());
+        let field_id = session
+            .active_field_id
+            .clone()
+            .ok_or_else(|| LoomError::State("no active field".into()))?;
+        let risk = intentos_kernel::risk_for(resource, action);
+        let card = IntentCard::new(title, &field_id, resource, action, risk);
+        session
+            .add_card(card.clone())
+            .map_err(LoomError::State)?;
+        drop(session);
+        self.save()?;
+        Ok(card)
+    }
+
+    pub fn run_card(
+        &self,
+        kernel: &Kernel,
+        audit: &AuditLog,
+        card_id: &str,
+        actor: &str,
+        user_confirmed: bool,
+    ) -> Result<(Handle, intentos_kernel::PolicyDecision), LoomError> {
+        let session = self.inner.lock().unwrap();
+        let active_field = session.active_field_id.as_deref();
+        let card = session
+            .find_card(card_id)
+            .ok_or_else(|| LoomError::State(format!("unknown card: {card_id}")))?
+            .clone();
+        let profile = session.default_threshold;
+        if active_field != Some(card.field_id.as_str()) {
+            return Err(LoomError::State(format!(
+                "card field {} != active field {:?}",
+                card.field_id, active_field
+            )));
+        }
+        drop(session);
+
+        let cap = card
+            .primary_cap()
+            .ok_or_else(|| LoomError::State("card has no capability".into()))?;
+        let intent = Intent {
+            actor: actor.into(),
+            resource: cap.resource.clone(),
+            action: cap.action.clone(),
+            anchor: TrustAnchor::UiEvent,
+            timestamp_ms: wall_ms(),
+            metadata: Default::default(),
+        };
+
+        let decision = PolicyEngine::evaluate_with_threshold(&intent, profile);
+
+        if decision.requires_confirmation && !user_confirmed {
+            let _ = audit.record(
+                AuditEventKind::UserDenied,
+                actor,
+                format!(
+                    "card={card_id} field={} caps={} — confirmation required",
+                    card.field_id,
+                    card.cap_summary()
+                ),
+            );
+            return Err(LoomError::State(
+                "high-risk card requires confirmation — re-run with --confirm".into(),
+            ));
+        }
+
+        if !decision.can_mint(user_confirmed) {
+            let _ = audit.record(
+                AuditEventKind::UserDenied,
+                actor,
+                format!(
+                    "card={card_id} outcome={} — {}",
+                    decision.outcome.as_str(),
+                    decision.reason
+                ),
+            );
+            return Err(LoomError::State(decision.reason.clone()));
+        }
+
+        if user_confirmed {
+            let _ = audit.record(
+                AuditEventKind::UserConfirmed,
+                actor,
+                format!(
+                    "card={card_id} caps={} ttl={}ms uses={}",
+                    card.cap_summary(),
+                    card.ttl_ms,
+                    card.uses
+                ),
+            );
+        }
+
+        let handle =
+            kernel.intent_to_handle_with_profile(intent, profile, user_confirmed)?;
+        let _ = audit.record(
+            AuditEventKind::CardExecuted,
+            actor,
+            format!(
+                "card={card_id} field={} handle=0x{:X} caps={}",
+                card.field_id,
+                handle.as_u64(),
+                card.cap_summary()
+            ),
+        );
+        Ok((handle, decision))
+    }
+
+    pub fn ensure_signing_keys(&self) -> Result<(), LoomError> {
+        let mut session = self.inner.lock().unwrap();
+        if !session.signing_secret_key_hex.is_empty() {
+            return Ok(());
+        }
+        let keys = intentos_kernel::generate_broker_keys()
+            .map_err(|e| LoomError::State(format!("keygen: {e}")))?;
+        session.signing_public_key_hex =
+            hex_bytes(&keys.public_key_bytes()[..32]);
+        session.signing_secret_key_hex = hex_bytes(keys.secret_key_bytes());
+        session.refresh_checksum();
+        drop(session);
+        self.save()
+    }
+
+    pub fn set_ai_enabled(&self, enabled: bool) -> Result<(), LoomError> {
+        let mut session = self.inner.lock().unwrap();
+        session.ai_enabled = enabled;
+        session.refresh_checksum();
+        drop(session);
+        self.save()
+    }
+
+    pub fn is_ai_enabled(&self) -> bool {
+        self.inner.lock().unwrap().ai_enabled
+    }
+
+    pub fn merge_import_payload(
+        &self,
+        payload: &crate::loom_export::LoomExportPayload,
+    ) -> Result<(), LoomError> {
+        let mut session = self.inner.lock().unwrap();
+        for field in &payload.fields {
+            if !session.fields.iter().any(|f| f.id == field.id) {
+                session.fields.push(field.clone());
+            }
+        }
+        for card in &payload.cards {
+            if session.cards.iter().any(|c| c.id == card.id) {
+                continue;
+            }
+            if session.fields.iter().any(|f| f.id == card.field_id) {
+                let _ = session.add_card(card.clone());
+            }
+        }
+        if session.active_field_id.is_none() {
+            session.active_field_id = payload.active_field_id.clone();
+        }
+        session.refresh_checksum();
+        drop(session);
+        self.save()
+    }
+
+    pub fn suggest_cards(&self, n: usize) -> Vec<IntentCard> {
+        let session = self.inner.lock().unwrap();
+        if session.cards.len() >= n {
+            return session.cards.iter().rev().take(n).cloned().collect();
+        }
+        let mut out: Vec<IntentCard> = session.cards.clone();
+        let field_id = session
+            .active_field_id
+            .clone()
+            .unwrap_or_else(|| "default".into());
+        let defaults = [
+            ("List workspace", "dir", "list"),
+            ("Read a file", "file", "read"),
+            ("Write a file", "file", "write"),
+        ];
+        for (title, res, act) in defaults {
+            if out.len() >= n {
+                break;
+            }
+            if out.iter().any(|c| {
+                c.primary_cap()
+                    .map(|p| p.resource == res && p.action == act)
+                    .unwrap_or(false)
+            }) {
+                continue;
+            }
+            out.push(IntentCard::new(
+                title,
+                &field_id,
+                res,
+                act,
+                intentos_kernel::risk_for(res, act),
+            ));
+        }
+        out.truncate(n);
+        out
+    }
+
+    pub(crate) fn save(&self) -> Result<(), LoomError> {
+        let session = self.inner.lock().unwrap();
+        let mut copy = session.clone();
+        copy.refresh_checksum();
+        let envelope = LoomEnvelope { session: copy };
+        let bytes = serde_json::to_vec_pretty(&envelope)?;
+        if let Some(parent) = self.path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let tmp = self.path.with_extension("json.tmp");
+        fs::write(&tmp, &bytes)?;
+        fs::rename(&tmp, &self.path)?;
+        Ok(())
+    }
+}
+
+pub(crate) fn hex_bytes(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+fn state_file_path() -> PathBuf {
+    if let Ok(dir) = std::env::var("INTENTOS_STATE_DIR") {
+        return PathBuf::from(dir).join("loom_state.json");
+    }
+    if let Ok(home) = std::env::var("USERPROFILE").or_else(|_| std::env::var("HOME")) {
+        return PathBuf::from(home).join(".intentos").join("loom_state.json");
+    }
+    PathBuf::from(".intentos").join("loom_state.json")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_dir() -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!("intentos-loom-test-{nanos}"))
+    }
+
+    #[test]
+    fn round_trip_persistence() {
+        let dir = temp_dir();
+        let store = LoomStore::open_in(&dir).unwrap();
+        store.complete_oobe(ThresholdLevel::Medium).unwrap();
+        let field = store.create_field("work").unwrap();
+        store.use_field(&field.id).unwrap();
+        let card = store.create_card("Read doc", "file", "read").unwrap();
+        drop(store);
+
+        let store2 = LoomStore::open_in(&dir).unwrap();
+        let session = store2.session();
+        assert!(session.oobe_complete);
+        assert!(session.find_card(&card.id).is_some());
+        let _ = fs::remove_dir_all(dir);
+    }
+}

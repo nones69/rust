@@ -165,7 +165,10 @@ impl BuiltinContext<'_> {
             intent.resource, intent.action, decision.allowed, decision.reason
         );
         if decision.allowed {
-            let handle = self.runtime.kernel().intent_to_handle(intent)?;
+            let handle = self
+                .runtime
+                .kernel()
+                .intent_to_handle_confirmed(intent, true)?;
             self.state.last_handle = Some(handle);
             println!("handle=0x{:X}", handle.as_u64());
         }
@@ -199,7 +202,10 @@ impl BuiltinContext<'_> {
             intent.resource, intent.action, decision.allowed, decision.reason
         );
         if decision.allowed {
-            let handle = self.runtime.kernel().intent_to_handle(intent)?;
+            let handle = self
+                .runtime
+                .kernel()
+                .intent_to_handle_confirmed(intent, true)?;
             self.state.last_handle = Some(handle);
             println!("handle=0x{:X}", handle.as_u64());
         }
@@ -239,7 +245,10 @@ impl BuiltinContext<'_> {
             intent.resource, intent.action, decision.allowed, decision.reason
         );
         if decision.allowed {
-            let handle = self.runtime.kernel().intent_to_handle(intent)?;
+            let handle = self
+                .runtime
+                .kernel()
+                .intent_to_handle_confirmed(intent, true)?;
             self.state.last_handle = Some(handle);
             println!("handle=0x{:X}", handle.as_u64());
         }
@@ -274,7 +283,10 @@ impl BuiltinContext<'_> {
             intent.resource, intent.action, decision.allowed, decision.reason
         );
         if decision.allowed {
-            let handle = self.runtime.kernel().intent_to_handle(intent)?;
+            let handle = self
+                .runtime
+                .kernel()
+                .intent_to_handle_confirmed(intent, true)?;
             self.state.last_handle = Some(handle);
             println!("handle=0x{:X}", handle.as_u64());
         }
@@ -312,7 +324,10 @@ impl BuiltinContext<'_> {
             intent.resource, intent.action, decision.allowed, decision.reason
         );
         if decision.allowed {
-            let handle = self.runtime.kernel().intent_to_handle(intent)?;
+            let handle = self
+                .runtime
+                .kernel()
+                .intent_to_handle_confirmed(intent, true)?;
             self.state.last_handle = Some(handle);
             println!("handle=0x{:X}", handle.as_u64());
         }
@@ -371,9 +386,48 @@ impl BuiltinContext<'_> {
             intent.resource, intent.action, decision.allowed, decision.reason
         );
         if decision.allowed {
-            let handle = self.runtime.kernel().intent_to_handle(intent)?;
+            let handle = self
+                .runtime
+                .kernel()
+                .intent_to_handle_confirmed(intent, true)?;
             self.state.last_handle = Some(handle);
             println!("handle=0x{:X}", handle.as_u64());
+        }
+        Ok(())
+    }
+
+    pub fn kernel_cmd(&mut self, parsed: &ParsedLine<'_>) -> Result<()> {
+        let sub = parsed.arg(0).unwrap_or("stats");
+        match sub {
+            "stats" => {
+                let stats = self.runtime.kernel().stats();
+                println!("{}", serde_json::to_string_pretty(&stats)?);
+            }
+            "revoke" => {
+                let arg = parsed
+                    .arg(1)
+                    .context("usage: kernel revoke <jti|0xHANDLE>")?;
+                let jti = if arg.starts_with("0x") || arg.starts_with("0X") {
+                    let raw = u64::from_str_radix(&arg[2..], 16)
+                        .context("invalid handle hex")?;
+                    let handle = Handle::from_u64(raw);
+                    self.runtime
+                        .kernel()
+                        .jti_for_handle(handle)
+                        .context("no active capability for handle")?
+                } else {
+                    arg.to_string()
+                };
+                let fresh = self
+                    .runtime
+                    .kernel()
+                    .revoke_jti(&jti, &self.state.actor);
+                println!(
+                    "revoked={} jti={jti}",
+                    if fresh { "new" } else { "already" }
+                );
+            }
+            other => anyhow::bail!("usage: kernel stats | revoke <jti|0xHANDLE> (got: {other})"),
         }
         Ok(())
     }
@@ -455,7 +509,10 @@ impl BuiltinContext<'_> {
                         timestamp_ms: wall_ms(),
                         metadata: meta,
                     };
-                    let handle = self.runtime.kernel().intent_to_handle(intent)?;
+                    let handle = self
+                        .runtime
+                        .kernel()
+                        .intent_to_handle_confirmed(intent, true)?;
                     self.state.last_handle = Some(handle);
                     println!("network/descramble handle=0x{:X}", handle.as_u64());
                 }
@@ -508,7 +565,7 @@ impl BuiltinContext<'_> {
         let handle = self
             .runtime
             .kernel()
-            .intent_to_handle(self.make_intent(resource, action))?;
+            .intent_to_handle_confirmed(self.make_intent(resource, action), true)?;
         self.state.last_handle = Some(handle);
         println!("flow ok  handle=0x{:X}", handle.as_u64());
         Ok(())
@@ -577,7 +634,40 @@ impl BuiltinContext<'_> {
         Ok(())
     }
 
+    pub fn ai_status(&self) -> Result<()> {
+        let enabled = self.runtime.loom.is_ai_enabled();
+        println!(
+            "ai_enabled={enabled} (run `ai enable` for this session profile)"
+        );
+        Ok(())
+    }
+
+    pub fn ai_enable(&self) -> Result<()> {
+        self.runtime.loom.set_ai_enabled(true)?;
+        let _ = self.runtime.audit.record(
+            intentos_audit::AuditEventKind::AiEnabled,
+            &self.state.actor,
+            "ai gateway enabled for active profile".to_string(),
+        );
+        println!("ai enabled for this profile");
+        Ok(())
+    }
+
+    pub fn ai_disable(&self) -> Result<()> {
+        self.runtime.loom.set_ai_enabled(false)?;
+        let _ = self.runtime.audit.record(
+            intentos_audit::AuditEventKind::AiDisabled,
+            &self.state.actor,
+            "ai gateway disabled for active profile".to_string(),
+        );
+        println!("ai disabled for this profile");
+        Ok(())
+    }
+
     pub fn ai_infer(&mut self, parsed: &ParsedLine<'_>) -> Result<()> {
+        if !self.runtime.loom.is_ai_enabled() {
+            anyhow::bail!("ai gateway disabled — run `ai enable` first (privacy-by-default)");
+        }
         let prompt = parsed.rest_from(1);
         if prompt.is_empty() {
             anyhow::bail!("usage: ai infer <prompt>");
@@ -613,13 +703,14 @@ impl BuiltinContext<'_> {
     }
 
     fn ensure_file_read_handle(&mut self) -> Result<Handle> {
-        if let Some(h) = self.state.last_handle {
-            return Ok(h);
-        }
+        // Always mint a fresh single-use `file/read` capability. Reusing
+        // `last_handle` is incorrect: after a `write`, the cached handle is an
+        // exhausted `file/write` capability, so a `cat` would be denied
+        // ("syscall Read not allowed for FileWrite" / "capability exhausted").
         let h = self
             .runtime
             .kernel()
-            .intent_to_handle(self.make_intent("file", "read"))?;
+            .intent_to_handle_confirmed(self.make_intent("file", "read"), true)?;
         self.state.last_handle = Some(h);
         Ok(h)
     }
@@ -628,7 +719,7 @@ impl BuiltinContext<'_> {
         let h = self
             .runtime
             .kernel()
-            .intent_to_handle(self.make_intent("file", "write"))?;
+            .intent_to_handle_confirmed(self.make_intent("file", "write"), true)?;
         self.state.last_handle = Some(h);
         Ok(h)
     }
@@ -637,7 +728,7 @@ impl BuiltinContext<'_> {
         let h = self
             .runtime
             .kernel()
-            .intent_to_handle(self.make_intent("dir", "list"))?;
+            .intent_to_handle_confirmed(self.make_intent("dir", "list"), true)?;
         self.state.last_handle = Some(h);
         Ok(h)
     }
@@ -646,7 +737,7 @@ impl BuiltinContext<'_> {
         let h = self
             .runtime
             .kernel()
-            .intent_to_handle(self.make_intent("ai", "infer"))?;
+            .intent_to_handle_confirmed(self.make_intent("ai", "infer"), true)?;
         self.state.last_handle = Some(h);
         Ok(h)
     }
@@ -665,13 +756,19 @@ IntentOS shell — tier 2 (native, no RPC):
 
   tier                   Show tier numbering (1=utilities 2=shell 3=kernel)
   status                 Kernel stats + HAL probe
+  field create|use|list  Field context management
+  kb open|suggest|run    Kernel Bar — intent cards
+  oobe status|run|reset  First-run onboarding (privacy defaults)
+  kernel stats           Kernel uptime, caps, leases, revocations (JSON)
+  kernel revoke <jti>    Revoke capability token (or 0xHANDLE)
   intent <res> <act>     Evaluate policy
   flow <res> <act>       Mint token + register handle
   syscall <op> [target]  Direct kernel syscall
   ls [path]              List VFS (needs dir capability)
   cat <path>             Read VFS file
   write <path> <text>    Write VFS file
-  ai infer <prompt>      Capability-gated inference
+  ai status|enable|disable|infer  AI gateway (disabled until `ai enable`)
+  loom export|import     Signed Loom session transfer between machines
   hal                    Show hardware abstraction probe
   audit [n]              Show last n audit entries + chain verify
   recognize <text>       Intent recognition (enterprise map / Ollama / stub)

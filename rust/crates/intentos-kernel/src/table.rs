@@ -115,6 +115,20 @@ impl CapabilityTable {
             .filter(|s| s.as_ref().map(|e| e.expires_ns >= now && e.uses_left > 0).unwrap_or(false))
             .count()
     }
+
+    pub fn jti_for_handle(&self, handle: Handle) -> Option<String> {
+        if handle.slot as usize >= CAP_TABLE_SIZE {
+            return None;
+        }
+        if handle.checksum != handle_checksum(handle.slot, handle.generation) {
+            return None;
+        }
+        self.slots.get(handle.slot as usize).and_then(|slot| {
+            slot.as_ref()
+                .filter(|e| e.generation == handle.generation)
+                .map(|e| e.token_jti.clone())
+        })
+    }
 }
 
 impl Default for CapabilityTable {
@@ -150,6 +164,119 @@ mod tests {
             timestamp_ms: wall_ms(),
             metadata: Default::default(),
         }
+    }
+
+    fn write_intent() -> Intent {
+        Intent {
+            actor: "user".into(),
+            resource: "file".into(),
+            action: "write".into(),
+            anchor: TrustAnchor::UiEvent,
+            timestamp_ms: wall_ms(),
+            metadata: Default::default(),
+        }
+    }
+
+    fn mint(broker: &TokenBroker, intent: &Intent) -> Token {
+        let decision = PolicyEngine::evaluate(intent);
+        broker.mint(intent, &decision).unwrap()
+    }
+
+    #[test]
+    fn replay_same_jti_is_denied() {
+        // Registering the same token (same jti) twice must be rejected even
+        // though the token itself is otherwise valid (anti-replay).
+        let broker = TokenBroker::generate("test-broker").unwrap();
+        let mut table = CapabilityTable::new();
+        let token = mint(&broker, &read_intent());
+
+        assert!(table.register(&token).is_ok());
+        let err = table.register(&token).unwrap_err();
+        assert!(matches!(err, KernelError::Replay));
+    }
+
+    #[test]
+    fn single_use_capability_exhausts_after_one_syscall() {
+        // A single-use (max_uses=1) capability allows exactly one matching
+        // syscall, then every subsequent matching syscall is denied.
+        let broker = TokenBroker::generate("test-broker").unwrap();
+        let mut table = CapabilityTable::new();
+        let token = mint(&broker, &read_intent());
+        assert_eq!(token.uses, 1, "file/read policy mints single-use tokens");
+        let handle = table.register(&token).unwrap();
+
+        let first = table.syscall(
+            handle,
+            &SyscallRequest { op: SyscallOp::Read, target: "/tmp/x".into(), payload: vec![] },
+        );
+        assert!(matches!(
+            first,
+            SyscallResult::Allowed { remaining_uses: 0, .. }
+        ));
+
+        let second = table.syscall(
+            handle,
+            &SyscallRequest { op: SyscallOp::Read, target: "/tmp/x".into(), payload: vec![] },
+        );
+        // After exhaustion the slot expires (expires_ns=0), so a stale-capability
+        // denial is what actually fires here — still a hard deny.
+        assert!(matches!(second, SyscallResult::Denied(_)));
+    }
+
+    #[test]
+    fn read_capability_rejects_write_syscall() {
+        let broker = TokenBroker::generate("test-broker").unwrap();
+        let mut table = CapabilityTable::new();
+        let token = mint(&broker, &read_intent());
+        let handle = table.register(&token).unwrap();
+
+        let denied = table.syscall(
+            handle,
+            &SyscallRequest { op: SyscallOp::Write, target: "/tmp/x".into(), payload: vec![] },
+        );
+        match denied {
+            SyscallResult::Denied(reason) => assert!(reason.contains("not allowed")),
+            other => panic!("expected denial, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn write_capability_rejects_read_syscall() {
+        let broker = TokenBroker::generate("test-broker").unwrap();
+        let mut table = CapabilityTable::new();
+        let token = mint(&broker, &write_intent());
+        let handle = table.register(&token).unwrap();
+
+        let denied = table.syscall(
+            handle,
+            &SyscallRequest { op: SyscallOp::Read, target: "/tmp/x".into(), payload: vec![] },
+        );
+        match denied {
+            SyscallResult::Denied(reason) => assert!(reason.contains("not allowed")),
+            other => panic!("expected denial, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn syscall_denied_when_slot_expired_in_time() {
+        // Drive expiry deterministically: register, then force the slot's
+        // monotonic expiry into the past. A syscall must be denied at
+        // enforcement time even though the handle/checksum are valid.
+        let broker = TokenBroker::generate("test-broker").unwrap();
+        let mut table = CapabilityTable::new();
+        let token = mint(&broker, &read_intent());
+        let handle = table.register(&token).unwrap();
+
+        table.slots[handle.slot as usize]
+            .as_mut()
+            .unwrap()
+            .expires_ns = 0;
+
+        let result = table.syscall(
+            handle,
+            &SyscallRequest { op: SyscallOp::Read, target: "/tmp/x".into(), payload: vec![] },
+        );
+        assert_eq!(result, SyscallResult::Denied("capability expired".into()));
     }
 
     #[test]

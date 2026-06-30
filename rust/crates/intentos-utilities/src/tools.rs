@@ -8,13 +8,14 @@ impl SysTools {
     pub fn kernel_report(kernel: &Kernel, platform: &PlatformInfo) -> String {
         let stats = kernel.stats();
         format!(
-            "host={} arch={:?} os={:?} uptime_ms={} caps={} leases={} recognizer={}",
+            "host={} arch={:?} os={:?} uptime_ms={} caps={} leases={} revoked={} recognizer={}",
             platform.hostname,
             platform.arch,
             platform.os,
             stats.uptime_ms,
             stats.active_capabilities,
             stats.active_leases,
+            stats.revoked_tokens,
             stats.recognizer
         )
     }

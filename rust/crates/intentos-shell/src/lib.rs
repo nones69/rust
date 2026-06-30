@@ -9,6 +9,7 @@
 //! The shell is the user session: it parses commands and calls into utilities
 //! and the kernel directly. No TCP RPC, no external daemons.
 
+mod ai_os;
 mod builtins;
 mod parser;
 mod session;

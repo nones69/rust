@@ -2,9 +2,17 @@ use crate::builtins::{help_text, BuiltinContext, BuiltinState};
 use crate::parser::ParsedLine;
 use crate::tier::PROMPT;
 use anyhow::{Context, Result};
+use intentos_audit::AuditEventKind;
+use intentos_kernel::ThresholdLevel;
 use intentos_utilities::OsRuntime;
 use std::io::{self, Write};
 use std::sync::Arc;
+
+fn skip_auto_oobe() -> bool {
+    std::env::var("INTENTOS_SKIP_OOBE")
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false)
+}
 
 pub struct ShellSession {
     runtime: Arc<OsRuntime>,
@@ -14,13 +22,43 @@ pub struct ShellSession {
 impl ShellSession {
     pub fn new(runtime: Arc<OsRuntime>) -> Self {
         let actor = runtime.boot_actor();
-        Self {
-            runtime,
+        let mut session = Self {
+            runtime: Arc::clone(&runtime),
             state: BuiltinState {
                 actor,
                 last_handle: None,
             },
+        };
+        session.maybe_run_auto_oobe();
+        session
+    }
+
+    /// First-run OOBE when profile is uninitialized (skipped if `INTENTOS_SKIP_OOBE=1`).
+    fn maybe_run_auto_oobe(&mut self) {
+        if skip_auto_oobe() || self.runtime.loom.is_oobe_complete() {
+            return;
         }
+        println!("Welcome to IntentOS — first-run setup (OOBE-lite)");
+        println!("Privacy defaults: telemetry=off, ai=off");
+        let threshold = ThresholdLevel::Medium;
+        if let Err(e) = self.runtime.loom.complete_oobe(threshold) {
+            eprintln!("oobe error: {e}");
+            return;
+        }
+        let profile = self.runtime.loom.session();
+        let _ = self.runtime.audit.record(
+            AuditEventKind::OobeComplete,
+            &self.state.actor,
+            format!(
+                "auto_oobe profile={} threshold={:?} telemetry=off ai=off",
+                profile.profile_id, profile.default_threshold
+            ),
+        );
+        println!(
+            "OOBE complete — profile={} threshold={:?}",
+            profile.profile_id, profile.default_threshold
+        );
+        println!("Try: kb suggest | field list | help");
     }
 
     pub fn actor(&self) -> &str {
@@ -98,10 +136,25 @@ impl ShellSession {
                 Ok(true)
             }
             "ai" => {
-                if parsed.arg(0) != Some("infer") {
-                    anyhow::bail!("usage: ai infer <prompt>");
+                match parsed.arg(0) {
+                    Some("infer") => {
+                        ctx.ai_infer(&parsed)?;
+                    }
+                    Some("enable") => {
+                        ctx.ai_enable()?;
+                    }
+                    Some("disable") => {
+                        ctx.ai_disable()?;
+                    }
+                    Some("status") => {
+                        ctx.ai_status()?;
+                    }
+                    _ => anyhow::bail!("usage: ai status | enable | disable | infer <prompt>"),
                 }
-                ctx.ai_infer(&parsed)?;
+                Ok(true)
+            }
+            "loom" => {
+                ctx.loom_cmd(&parsed)?;
                 Ok(true)
             }
             "hal" => {
@@ -153,6 +206,22 @@ impl ShellSession {
             }
             "markets" | "trading" | "exchange" | "fm" => {
                 ctx.markets(&parsed)?;
+                Ok(true)
+            }
+            "kernel" => {
+                ctx.kernel_cmd(&parsed)?;
+                Ok(true)
+            }
+            "field" => {
+                ctx.field_cmd(&parsed)?;
+                Ok(true)
+            }
+            "kb" | "kernelbar" => {
+                ctx.kb_cmd(&parsed)?;
+                Ok(true)
+            }
+            "oobe" => {
+                ctx.oobe_cmd(&parsed)?;
                 Ok(true)
             }
             "bench" => {

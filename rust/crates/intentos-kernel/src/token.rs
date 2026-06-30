@@ -117,4 +117,64 @@ mod tests {
 
         assert!(matches!(broker.verify(&token), Err(KernelError::NotYetValid)));
     }
+
+    #[test]
+    fn verify_rejects_exhausted_token() {
+        let broker = TokenBroker::generate("test-broker").unwrap();
+        let intent = read_intent();
+        let decision = PolicyEngine::evaluate(&intent);
+        let mut token = broker.mint(&intent, &decision).unwrap();
+        token.uses = 0;
+
+        assert!(matches!(broker.verify(&token), Err(KernelError::Exhausted)));
+    }
+
+    #[test]
+    fn verify_rejects_tampered_signature() {
+        let broker = TokenBroker::generate("test-broker").unwrap();
+        let intent = read_intent();
+        let decision = PolicyEngine::evaluate(&intent);
+        let mut token = broker.mint(&intent, &decision).unwrap();
+        // Flip a bit in the raw Ed25519 signature region.
+        token.signature[0] ^= 0xFF;
+
+        assert!(matches!(broker.verify(&token), Err(KernelError::BadSignature)));
+    }
+
+    #[test]
+    fn verify_rejects_tampered_payload() {
+        let broker = TokenBroker::generate("test-broker").unwrap();
+        let intent = read_intent();
+        let decision = PolicyEngine::evaluate(&intent);
+        let mut token = broker.mint(&intent, &decision).unwrap();
+        // Mutate a signed field; signature is over the encoded (unsigned) token,
+        // so changing the subject must invalidate it (privilege-escalation attempt).
+        token.sub = "attacker".into();
+
+        assert!(matches!(broker.verify(&token), Err(KernelError::BadSignature)));
+    }
+
+    #[test]
+    fn verify_rejects_wrong_signing_key() {
+        let broker = TokenBroker::generate("broker-a").unwrap();
+        let attacker = TokenBroker::generate("broker-b").unwrap();
+        let intent = read_intent();
+        let decision = PolicyEngine::evaluate(&intent);
+        // Token minted by a different broker (different key) must not verify
+        // against the legitimate broker.
+        let token = attacker.mint(&intent, &decision).unwrap();
+
+        assert!(matches!(broker.verify(&token), Err(KernelError::BadSignature)));
+    }
+
+    #[test]
+    fn verify_rejects_truncated_signature() {
+        let broker = TokenBroker::generate("test-broker").unwrap();
+        let intent = read_intent();
+        let decision = PolicyEngine::evaluate(&intent);
+        let mut token = broker.mint(&intent, &decision).unwrap();
+        token.signature.truncate(10);
+
+        assert!(matches!(broker.verify(&token), Err(KernelError::BadSignature)));
+    }
 }

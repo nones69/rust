@@ -17,6 +17,8 @@ pub enum KernelError {
     BadSignature,
     #[error("token replay")]
     Replay,
+    #[error("token revoked")]
+    Revoked,
     #[error("serialize: {0}")]
     Serialize(String),
     #[error("crypto: {0}")]

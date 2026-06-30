@@ -12,6 +12,8 @@
 mod ai;
 mod federation;
 mod ip_discrambler;
+mod loom_export;
+mod loom_store;
 mod market_status;
 mod recognizer;
 mod sectors;
@@ -42,6 +44,8 @@ pub use sectors::iot::{IotAssessor, IotMapper, IotPilotReport};
 pub use sectors::public_safety::{
     PublicSafetyAssessor, PublicSafetyMapper, PublicSafetyPilotReport,
 };
+pub use loom_export::{LoomExportPayload, LoomSignedExport, LOOM_EXPORT_VERSION};
+pub use loom_store::{LoomError, LoomStore};
 pub use tools::SysTools;
 pub use vfs::{VfsError, VirtualFs};
 
@@ -82,6 +86,7 @@ pub struct OsRuntime {
     pub audit: Arc<AuditLog>,
     pub identity: IdentityBridge,
     pub ip_discrambler: Option<IpDiscramblerBridge>,
+    pub loom: Arc<LoomStore>,
     pub utilities: Arc<Mutex<Utilities>>,
 }
 
@@ -121,11 +126,84 @@ impl OsRuntime {
             );
         }
 
+        if !audit
+            .has_kind(AuditEventKind::RollbackCheckpoint)
+            .unwrap_or(false)
+        {
+            let _ = RollbackCheckpoint::record(
+                &audit,
+                "system",
+                "boot-baseline",
+                env!("CARGO_PKG_VERSION"),
+            );
+        }
+
+        let loom = Arc::new(LoomStore::open().map_err(|e| {
+            intentos_kernel::KernelError::Serialize(format!("loom open: {e}"))
+        })?);
+
         Ok(Self {
             platform,
             audit,
             identity: IdentityBridge::from_env(),
             ip_discrambler,
+            loom,
+            utilities: Arc::new(Mutex::new(Utilities::attach(kernel))),
+        })
+    }
+
+    pub fn boot_with_loom(
+        audit: Arc<AuditLog>,
+        loom: Arc<LoomStore>,
+    ) -> Result<Self, intentos_kernel::KernelError> {
+        let hal = native_hal();
+        let platform = hal.probe();
+
+        let kernel = Kernel::boot_with(KernelConfig {
+            audit: Some(Arc::clone(&audit)),
+            recognizer: Some(Arc::new(PilotRecognizer::boot())),
+        })?;
+
+        let _ = audit.record(
+            AuditEventKind::Boot,
+            "utilities",
+            format!(
+                "hal={} arch={:?} os={:?} cpus={} recognizer={}",
+                platform.backend,
+                platform.arch,
+                platform.os,
+                platform.logical_cpus,
+                kernel.recognizer_name()
+            ),
+        );
+
+        let ip_discrambler = IpDiscramblerBridge::discover().ok();
+        if let Some(ref bridge) = ip_discrambler {
+            let _ = audit.record(
+                AuditEventKind::Boot,
+                "utilities",
+                format!("ip-discrambler=online root={}", bridge.root().display()),
+            );
+        }
+
+        if !audit
+            .has_kind(AuditEventKind::RollbackCheckpoint)
+            .unwrap_or(false)
+        {
+            let _ = RollbackCheckpoint::record(
+                &audit,
+                "system",
+                "boot-baseline",
+                env!("CARGO_PKG_VERSION"),
+            );
+        }
+
+        Ok(Self {
+            platform,
+            audit,
+            identity: IdentityBridge::from_env(),
+            ip_discrambler,
+            loom,
             utilities: Arc::new(Mutex::new(Utilities::attach(kernel))),
         })
     }

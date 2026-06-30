@@ -9,19 +9,30 @@
 //! Owns policy, token minting, capability tables, leases, syscall
 //! enforcement, and pluggable intent recognition in-process.
 
+mod card;
 mod crypto;
 mod error;
+mod field;
 mod ip_policy;
 mod lease;
+mod loom;
 mod policy;
 mod recognizer;
+mod revocation;
 mod table;
+mod threshold;
 mod token;
 mod types;
 
-pub use crypto::CryptoError;
-
+pub use card::IntentCard;
+pub use crypto::{
+    generate_broker_keys, sign, verify, BrokerKeys, CryptoError, PUBLIC_KEY_LEN, SECRET_KEY_LEN,
+    SIGNATURE_LEN,
+};
+pub use field::Field;
 pub use error::KernelError;
+pub use loom::LoomSession;
+pub use threshold::{gate_outcome, risk_for, PolicyOutcome, ThresholdLevel};
 pub use lease::LeaseManager;
 pub use ip_policy::{
     apply_ip_policy, evaluate_ip, extract_ipv4_literals, verdict_from_threat_score, IpVerdict,
@@ -29,6 +40,7 @@ pub use ip_policy::{
 };
 pub use policy::PolicyEngine;
 pub use recognizer::{IntentRecognizer, RecognizedIntent, StubRecognizer};
+pub use revocation::RevocationList;
 pub use table::CapabilityTable;
 pub use token::TokenBroker;
 pub use types::*;
@@ -65,6 +77,7 @@ struct KernelState {
     broker: TokenBroker,
     table: CapabilityTable,
     leases: LeaseManager,
+    revocations: RevocationList,
     boot_ms: u64,
 }
 
@@ -85,6 +98,7 @@ impl Kernel {
                 broker: TokenBroker::generate("intentos-kernel")?,
                 table: CapabilityTable::new(),
                 leases: LeaseManager::new(),
+                revocations: RevocationList::new(),
                 boot_ms: wall_ms(),
             })),
             audit: config.audit,
@@ -128,22 +142,54 @@ impl Kernel {
     }
 
     pub fn submit_intent(&self, intent: Intent) -> PolicyDecision {
-        let decision = PolicyEngine::evaluate(&intent);
+        self.submit_intent_with_threshold(intent, ThresholdLevel::Medium)
+    }
+
+    pub fn submit_intent_with_threshold(
+        &self,
+        intent: Intent,
+        profile: ThresholdLevel,
+    ) -> PolicyDecision {
+        let decision = PolicyEngine::evaluate_with_threshold(&intent, profile);
         self.audit_record(
             AuditEventKind::Policy,
             &intent.actor,
             format!(
-                "allowed={} {} {} — {}",
-                decision.allowed, intent.resource, intent.action, decision.reason
+                "outcome={} allowed={} {} {} — {}",
+                decision.outcome.as_str(),
+                decision.allowed,
+                intent.resource,
+                intent.action,
+                decision.reason
             ),
         );
         decision
     }
 
     pub fn mint_token(&self, intent: Intent) -> Result<Token, KernelError> {
+        self.mint_token_confirmed(intent, false)
+    }
+
+    pub fn mint_token_confirmed(
+        &self,
+        intent: Intent,
+        user_confirmed: bool,
+    ) -> Result<Token, KernelError> {
+        self.mint_token_with_profile(intent, ThresholdLevel::Medium, user_confirmed)
+    }
+
+    pub fn mint_token_with_profile(
+        &self,
+        intent: Intent,
+        profile: ThresholdLevel,
+        user_confirmed: bool,
+    ) -> Result<Token, KernelError> {
         let token = {
             let state = self.inner.lock().unwrap();
-            let decision = PolicyEngine::evaluate(&intent);
+            let decision = PolicyEngine::evaluate_with_threshold(&intent, profile);
+            if !decision.can_mint(user_confirmed) {
+                return Err(KernelError::PolicyDenied(decision.reason.clone()));
+            }
             state.broker.mint(&intent, &decision)?
         };
         self.audit_record(
@@ -158,6 +204,9 @@ impl Kernel {
         {
             let state = self.inner.lock().unwrap();
             state.broker.verify(&token)?;
+            if state.revocations.is_revoked(&token.jti) {
+                return Err(KernelError::Revoked);
+            }
         }
         let handle = {
             let mut state = self.inner.lock().unwrap();
@@ -172,12 +221,34 @@ impl Kernel {
     }
 
     pub fn intent_to_handle(&self, intent: Intent) -> Result<Handle, KernelError> {
-        let token = self.mint_token(intent)?;
+        self.intent_to_handle_confirmed(intent, false)
+    }
+
+    pub fn intent_to_handle_confirmed(
+        &self,
+        intent: Intent,
+        user_confirmed: bool,
+    ) -> Result<Handle, KernelError> {
+        self.intent_to_handle_with_profile(intent, ThresholdLevel::Medium, user_confirmed)
+    }
+
+    pub fn intent_to_handle_with_profile(
+        &self,
+        intent: Intent,
+        profile: ThresholdLevel,
+        user_confirmed: bool,
+    ) -> Result<Handle, KernelError> {
+        let token = self.mint_token_with_profile(intent, profile, user_confirmed)?;
         self.register_token(token)
     }
 
     pub fn syscall(&self, handle: Handle, req: SyscallRequest) -> SyscallResult {
         let mut state = self.inner.lock().unwrap();
+        if let Some(jti) = state.table.jti_for_handle(handle) {
+            if state.revocations.is_revoked(&jti) {
+                return SyscallResult::Denied("capability token revoked".into());
+            }
+        }
         let result = state.table.syscall(handle, &req);
         let detail = match &result {
             SyscallResult::Allowed { kind, remaining_uses } => {
@@ -215,6 +286,33 @@ impl Kernel {
         state.table.slot_count_active()
     }
 
+    /// Revoke a capability token by `jti`. Returns false if already revoked.
+    pub fn revoke_jti(&self, jti: &str, actor: &str) -> bool {
+        let inserted = {
+            let mut state = self.inner.lock().unwrap();
+            state.revocations.revoke(jti)
+        };
+        if inserted {
+            self.audit_record(
+                AuditEventKind::TokenRevoked,
+                actor,
+                format!("jti={jti}"),
+            );
+        }
+        inserted
+    }
+
+    /// Resolve the token JTI bound to an active capability handle.
+    pub fn jti_for_handle(&self, handle: Handle) -> Option<String> {
+        let state = self.inner.lock().unwrap();
+        state.table.jti_for_handle(handle)
+    }
+
+    pub fn revocation_count(&self) -> usize {
+        let state = self.inner.lock().unwrap();
+        state.revocations.len()
+    }
+
     pub fn stats(&self) -> KernelStats {
         let state = self.inner.lock().unwrap();
         KernelStats {
@@ -226,6 +324,7 @@ impl Kernel {
                 .iter()
                 .filter(|l| l.state == LeaseState::Granted)
                 .count(),
+            revoked_tokens: state.revocations.len(),
             recognizer: self.recognizer.name().to_string(),
         }
     }
@@ -237,11 +336,12 @@ impl Kernel {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct KernelStats {
     pub uptime_ms: u64,
     pub active_capabilities: usize,
     pub active_leases: usize,
+    pub revoked_tokens: usize,
     pub recognizer: String,
 }
 
@@ -292,6 +392,33 @@ mod tests {
         let err = k.mint_token(intent).unwrap_err();
 
         assert!(matches!(err, KernelError::PolicyDenied(_)));
+    }
+
+    #[test]
+    fn revoked_jti_blocks_syscall() {
+        let k = Kernel::boot().unwrap();
+        let intent = Intent {
+            actor: "shell".into(),
+            resource: "file".into(),
+            action: "read".into(),
+            anchor: TrustAnchor::UiEvent,
+            timestamp_ms: wall_ms(),
+            metadata: Default::default(),
+        };
+        let token = k.mint_token(intent).unwrap();
+        let jti = token.jti.clone();
+        let handle = k.register_token(token).unwrap();
+        assert!(k.revoke_jti(&jti, "admin"));
+        let result = k.syscall(
+            handle,
+            SyscallRequest {
+                op: SyscallOp::Read,
+                target: "x".into(),
+                payload: vec![],
+            },
+        );
+        assert!(matches!(result, SyscallResult::Denied(_)));
+        assert_eq!(k.revocation_count(), 1);
     }
 
     #[test]

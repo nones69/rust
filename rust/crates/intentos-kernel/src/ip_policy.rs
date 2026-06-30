@@ -203,8 +203,11 @@ pub fn apply_ip_policy(intent: &Intent, mut base: PolicyDecision) -> PolicyDecis
         };
 
         if !verdict.allowed {
+            base.outcome = crate::threshold::PolicyOutcome::Deny;
             base.allowed = false;
+            base.requires_confirmation = false;
             base.reason = format!("IP policy: {} — {}", verdict.ip, verdict.reason);
+            base.reason_code = "ip_blocked".into();
             base.ttl_ms = 0;
             base.max_uses = 0;
             return base;
@@ -255,8 +258,13 @@ mod tests {
             metadata: meta,
         };
         let base = PolicyDecision {
+            outcome: crate::threshold::PolicyOutcome::Allow,
             allowed: true,
+            requires_confirmation: false,
+            threshold_level: crate::threshold::ThresholdLevel::Low,
             reason: "ok".into(),
+            reason_code: "allow".into(),
+            cap_summary: "network/send".into(),
             ttl_ms: 1000,
             max_uses: 1,
         };

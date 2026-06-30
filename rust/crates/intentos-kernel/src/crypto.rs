@@ -65,6 +65,14 @@ pub fn generate_broker_keys() -> Result<BrokerKeys, CryptoError> {
 }
 
 impl BrokerKeys {
+    pub fn public_key_bytes(&self) -> &[u8; PUBLIC_KEY_LEN] {
+        &self.public_key
+    }
+
+    pub fn secret_key_bytes(&self) -> &[u8; SECRET_KEY_LEN] {
+        &self.secret_key
+    }
+
     pub fn sign(&self, message: &[u8]) -> Result<[u8; SIGNATURE_LEN], CryptoError> {
         sign(&self.secret_key, message)
     }

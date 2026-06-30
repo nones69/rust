@@ -79,6 +79,62 @@ mod tests {
     }
 
     #[test]
+    fn tick_before_expiry_keeps_lease_active() {
+        // Generous TTL: tick must NOT expire a still-live lease.
+        let mut manager = LeaseManager::new();
+        let lease = manager.grant(11, 60_000);
+
+        let expired = manager.tick();
+
+        assert!(expired.is_empty());
+        let stored = manager
+            .list()
+            .into_iter()
+            .find(|e| e.lease_id == lease.lease_id)
+            .unwrap();
+        assert_eq!(stored.state, LeaseState::Granted);
+    }
+
+    #[test]
+    fn tick_after_expiry_marks_expired_once() {
+        // 1ms TTL + short sleep crosses the strict `expires_at < now` boundary.
+        let mut manager = LeaseManager::new();
+        let lease = manager.grant(99, 1);
+        thread::sleep(Duration::from_millis(5));
+
+        let first = manager.tick();
+        assert_eq!(first, vec![99], "first tick reports the newly-expired pid");
+
+        let second = manager.tick();
+        assert!(second.is_empty(), "tick is idempotent: no double-report");
+
+        let stored = manager
+            .list()
+            .into_iter()
+            .find(|e| e.lease_id == lease.lease_id)
+            .unwrap();
+        assert_eq!(stored.state, LeaseState::Expired);
+    }
+
+    #[test]
+    fn renew_unknown_lease_returns_none() {
+        let mut manager = LeaseManager::new();
+        assert!(manager.renew("does-not-exist", 1000).is_none());
+    }
+
+    #[test]
+    fn renew_revives_expired_state_only_via_tick_path() {
+        // A lease expired by tick() cannot be renewed (matches code: renew
+        // refuses Expired/Revoked). Guards against zombie-lease revival.
+        let mut manager = LeaseManager::new();
+        let lease = manager.grant(5, 1);
+        thread::sleep(Duration::from_millis(5));
+        assert_eq!(manager.tick(), vec![5]);
+
+        assert!(manager.renew(&lease.lease_id, 60_000).is_none());
+    }
+
+    #[test]
     fn expired_lease_cannot_be_renewed() {
         let mut manager = LeaseManager::new();
         let lease = manager.grant(7, 1);

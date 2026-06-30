@@ -7,6 +7,7 @@ license.workspace = true
 description = "IntentOS native interactive shell"
 
 [dependencies]
+intentos-audit = { path = "../intentos-audit" }
 intentos-kernel = { path = "../intentos-kernel" }
 intentos-utilities = { path = "../intentos-utilities" }
 intentos-bench = { path = "../intentos-bench" }

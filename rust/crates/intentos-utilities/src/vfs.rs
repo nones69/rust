@@ -131,3 +131,61 @@ impl Default for VirtualFs {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use intentos_kernel::{Intent, TrustAnchor, wall_ms};
+
+    fn intent(resource: &str, action: &str) -> Intent {
+        Intent {
+            actor: "test".into(),
+            resource: resource.into(),
+            action: action.into(),
+            anchor: TrustAnchor::UiEvent,
+            timestamp_ms: wall_ms(),
+            metadata: Default::default(),
+        }
+    }
+
+    #[test]
+    fn write_then_read_round_trip_through_gate() {
+        let kernel = Kernel::boot().unwrap();
+        let mut vfs = VirtualFs::new();
+
+        // Each capability is single-use, so mint a fresh handle per syscall.
+        let write_h = kernel.intent_to_handle(intent("file", "write")).unwrap();
+        let n = vfs
+            .write(&kernel, write_h, "/home/user/note.txt", b"hello")
+            .unwrap();
+        assert_eq!(n, 5);
+
+        let read_h = kernel.intent_to_handle(intent("file", "read")).unwrap();
+        let data = vfs.read(&kernel, read_h, "/home/user/note.txt").unwrap();
+        assert_eq!(data, b"hello");
+    }
+
+    #[test]
+    fn read_without_read_capability_is_denied() {
+        let kernel = Kernel::boot().unwrap();
+        let vfs = VirtualFs::new();
+
+        // A `dir/list` capability must not authorize a file read.
+        let list_h = kernel.intent_to_handle(intent("dir", "list")).unwrap();
+        let err = vfs.read(&kernel, list_h, "/readme.txt").unwrap_err();
+        assert!(matches!(err, VfsError::Denied(_)), "got {err:?}");
+    }
+
+    #[test]
+    fn write_without_write_capability_is_denied() {
+        let kernel = Kernel::boot().unwrap();
+        let mut vfs = VirtualFs::new();
+
+        // A `file/read` capability must not authorize a write.
+        let read_h = kernel.intent_to_handle(intent("file", "read")).unwrap();
+        let err = vfs
+            .write(&kernel, read_h, "/home/user/note.txt", b"nope")
+            .unwrap_err();
+        assert!(matches!(err, VfsError::Denied(_)), "got {err:?}");
+    }
+}

@@ -23,6 +23,18 @@ pub enum AuditEventKind {
     SectorMap,
     Bench,
     RollbackCheckpoint,
+    TokenRevoked,
+    CardCreated,
+    CardExecuted,
+    UserConfirmed,
+    UserDenied,
+    FieldSwitched,
+    OobeComplete,
+    LoomRecovery,
+    LoomExported,
+    LoomImported,
+    AiEnabled,
+    AiDisabled,
 }
 
 /// Single immutable audit record.
@@ -180,5 +192,60 @@ mod tests {
         log.record(AuditEventKind::Policy, "shell", "allowed file read").unwrap();
         assert!(log.verify_chain().unwrap());
         assert_eq!(log.len().unwrap(), 2);
+    }
+
+    #[test]
+    fn empty_log_is_valid_and_starts_at_genesis() {
+        let log = AuditLog::new();
+        assert_eq!(log.len().unwrap(), 0);
+        assert!(log.verify_chain().unwrap());
+        assert_eq!(log.head_hash().unwrap(), genesis_hash());
+    }
+
+    #[test]
+    fn records_link_seq_and_prev_hash() {
+        let log = AuditLog::new();
+        let first = log.record(AuditEventKind::Boot, "kernel", "boot").unwrap();
+        let second = log.record(AuditEventKind::Syscall, "kernel", "read").unwrap();
+        assert_eq!(first.seq, 1);
+        assert_eq!(second.seq, 2);
+        // genesis -> first -> second forms an unbroken chain.
+        assert_eq!(first.prev_hash, genesis_hash());
+        assert_eq!(second.prev_hash, first.entry_hash);
+        // head_hash tracks the most recent entry.
+        assert_eq!(log.head_hash().unwrap(), second.entry_hash);
+    }
+
+    #[test]
+    fn tail_returns_most_recent_entries() {
+        let log = AuditLog::new();
+        for i in 0..5 {
+            log.record(AuditEventKind::Bench, "bench", format!("run-{i}"))
+                .unwrap();
+        }
+        let tail = log.tail(2).unwrap();
+        assert_eq!(tail.len(), 2);
+        assert_eq!(tail[0].detail, "run-3");
+        assert_eq!(tail[1].detail, "run-4");
+        // Requesting more than available is saturating, not panicking.
+        assert_eq!(log.tail(100).unwrap().len(), 5);
+    }
+
+    #[test]
+    fn has_kind_reflects_recorded_events() {
+        let log = AuditLog::new();
+        assert!(!log.has_kind(AuditEventKind::Policy).unwrap());
+        log.record(AuditEventKind::Policy, "shell", "deny").unwrap();
+        assert!(log.has_kind(AuditEventKind::Policy).unwrap());
+        assert!(!log.has_kind(AuditEventKind::Boot).unwrap());
+    }
+
+    #[test]
+    fn entry_hashes_are_unique_per_record() {
+        let log = AuditLog::new();
+        let a = log.record(AuditEventKind::Boot, "kernel", "same").unwrap();
+        let b = log.record(AuditEventKind::Boot, "kernel", "same").unwrap();
+        // Identical kind/actor/detail still differ via seq, id, ts, and prev_hash.
+        assert_ne!(a.entry_hash, b.entry_hash);
     }
 }
