@@ -285,3 +285,56 @@ fn threshold_signals_include_posture_trust_score() {
     assert!(!signals.posture_summary.is_empty());
     let _ = std::fs::remove_dir_all(dir);
 }
+
+#[test]
+fn pqc_token_path_mints_ver_2_tokens() {
+    use intentos_kernel::TOKEN_SIG_V2_PQC_HYBRID;
+    let (rt, dir) = boot_with_temp_loom();
+    rt.loom.complete_oobe(ThresholdLevel::Medium).unwrap();
+    rt.loom.set_pqc_tokens_enabled(true).unwrap();
+    rt.sync_pqc_tokens_from_loom();
+    assert_eq!(rt.kernel().token_sig_version(), TOKEN_SIG_V2_PQC_HYBRID);
+    let card = rt.loom.create_card("Read", "file", "read").unwrap();
+    let (handle, _) = rt
+        .loom
+        .run_card(
+            &rt.kernel(),
+            &rt.audit,
+            &card.id,
+            "user",
+            false,
+            None,
+        )
+        .unwrap();
+    assert!(handle.as_u64() > 0);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn broker_wire_send_recv_round_trip() {
+    use intentos_kernel::BrokerPeer;
+    use intentos_utilities::{BrokerWireHub, decode_payload_hex};
+    let (rt, dir) = boot_with_temp_loom();
+    rt.loom.complete_oobe(ThresholdLevel::Medium).unwrap();
+    rt.loom.ensure_signing_keys().unwrap();
+    let session = rt.loom.session();
+    let public_hex = session.signing_public_key_hex.clone();
+    let peer = BrokerPeer::new("peer-b", public_hex.clone(), 1);
+    rt.loom.register_broker_peer(peer).unwrap();
+    let secret = rt.loom.signing_secret_key_hex();
+    let wire = BrokerWireHub::open_in(dir.join("broker"));
+    let mut msg = BrokerWireHub::build_delegate(
+        &session.profile_id,
+        "peer-b",
+        b"wire-hello",
+        42,
+    );
+    BrokerWireHub::sign_message(&mut msg, &secret).unwrap();
+    let peer_ref = rt.loom.session().broker_peers[0].clone();
+    wire.enqueue_to_peer(&peer_ref, &msg).unwrap();
+    let inbox = wire.recv_inbox("peer-b", 5).unwrap();
+    assert_eq!(inbox.len(), 1);
+    BrokerWireHub::verify_message(&inbox[0], &public_hex).unwrap();
+    assert_eq!(decode_payload_hex(&inbox[0].payload_b64).unwrap(), b"wire-hello");
+    let _ = std::fs::remove_dir_all(dir);
+}

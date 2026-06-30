@@ -411,6 +411,26 @@ impl LoomStore {
         self.inner.lock().unwrap().telemetry_enabled
     }
 
+    pub fn set_pqc_tokens_enabled(&self, enabled: bool) -> Result<(), LoomError> {
+        let mut session = self.inner.lock().unwrap();
+        session.pqc_tokens_enabled = enabled;
+        session.refresh_checksum();
+        drop(session);
+        self.save()
+    }
+
+    pub fn is_pqc_tokens_enabled(&self) -> bool {
+        self.inner.lock().unwrap().pqc_tokens_enabled
+    }
+
+    pub fn signing_secret_key_hex(&self) -> String {
+        self.inner.lock().unwrap().signing_secret_key_hex.clone()
+    }
+
+    pub fn profile_id(&self) -> String {
+        self.inner.lock().unwrap().profile_id.clone()
+    }
+
     pub fn merge_import_payload(
         &self,
         payload: &crate::loom_export::LoomExportPayload,

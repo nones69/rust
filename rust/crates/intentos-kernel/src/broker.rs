@@ -10,6 +10,9 @@ pub struct BrokerPeer {
     pub registered_at_ms: u64,
     #[serde(default)]
     pub label: String,
+    /// Optional wire endpoint (`file://` inbox path prefix).
+    #[serde(default)]
+    pub endpoint: String,
 }
 
 impl BrokerPeer {
@@ -19,6 +22,7 @@ impl BrokerPeer {
             public_key_hex: public_key_hex.into(),
             registered_at_ms: at_ms,
             label: String::new(),
+            endpoint: String::new(),
         }
     }
 }

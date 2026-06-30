@@ -1,4 +1,4 @@
-use crate::crypto::{self, BrokerKeys, SIGNATURE_LEN};
+use crate::crypto::{self, BrokerKeys, SIGNATURE_LEN, TOKEN_SIG_V1_ED25519};
 use crate::error::KernelError;
 use crate::types::{Intent, PolicyDecision, Token, TokenType, wall_ms};
 
@@ -6,6 +6,7 @@ use crate::types::{Intent, PolicyDecision, Token, TokenType, wall_ms};
 pub struct TokenBroker {
     keys: BrokerKeys,
     issuer: String,
+    sig_version: u8,
 }
 
 impl TokenBroker {
@@ -13,7 +14,16 @@ impl TokenBroker {
         Ok(Self {
             keys: crypto::generate_broker_keys()?,
             issuer: issuer.to_string(),
+            sig_version: TOKEN_SIG_V1_ED25519,
         })
+    }
+
+    pub fn set_sig_version(&mut self, ver: u8) {
+        self.sig_version = ver;
+    }
+
+    pub fn sig_version(&self) -> u8 {
+        self.sig_version
     }
 
     pub fn mint(
@@ -27,7 +37,7 @@ impl TokenBroker {
 
         let now = wall_ms();
         let mut token = Token {
-            ver: 1,
+            ver: self.sig_version,
             typ: TokenType::Capability,
             anchor: intent.anchor,
             iss: self.issuer.clone(),
@@ -41,7 +51,7 @@ impl TokenBroker {
         };
 
         let payload = encode_unsigned(&token)?;
-        let sig = self.keys.sign(&payload)?;
+        let sig = self.keys.sign_versioned(&payload, self.sig_version)?;
         token.signature = sig.to_vec();
         Ok(token)
     }
@@ -65,7 +75,7 @@ impl TokenBroker {
             .try_into()
             .map_err(|_| KernelError::BadSignature)?;
         self.keys
-            .verify(&payload, &sig)
+            .verify_versioned(&payload, &sig, token.ver)
             .map_err(|_| KernelError::BadSignature)
     }
 }
@@ -165,6 +175,18 @@ mod tests {
         let token = attacker.mint(&intent, &decision).unwrap();
 
         assert!(matches!(broker.verify(&token), Err(KernelError::BadSignature)));
+    }
+
+    #[test]
+    fn pqc_hybrid_mint_and_verify() {
+        use crate::crypto::TOKEN_SIG_V2_PQC_HYBRID;
+        let mut broker = TokenBroker::generate("pqc-broker").unwrap();
+        broker.set_sig_version(TOKEN_SIG_V2_PQC_HYBRID);
+        let intent = read_intent();
+        let decision = PolicyEngine::evaluate(&intent);
+        let token = broker.mint(&intent, &decision).unwrap();
+        assert_eq!(token.ver, TOKEN_SIG_V2_PQC_HYBRID);
+        assert!(broker.verify(&token).is_ok());
     }
 
     #[test]

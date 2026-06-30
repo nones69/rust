@@ -30,8 +30,9 @@ mod types;
 pub use broker::BrokerPeer;
 pub use card::IntentCard;
 pub use crypto::{
-    generate_broker_keys, sign, verify, BrokerKeys, CryptoError, PUBLIC_KEY_LEN, SECRET_KEY_LEN,
-    SIGNATURE_LEN,
+    generate_broker_keys, sign, sign_with_version, verify, verify_with_version, BrokerKeys,
+    CryptoError, PUBLIC_KEY_LEN, SECRET_KEY_LEN, SIGNATURE_LEN, TOKEN_SIG_V1_ED25519,
+    TOKEN_SIG_V2_PQC_HYBRID,
 };
 pub use field::Field;
 pub use error::KernelError;
@@ -125,6 +126,15 @@ impl Kernel {
 
     pub fn boot_ms(&self) -> u64 {
         self.inner.lock().unwrap().boot_ms
+    }
+
+    /// Select capability token signature scheme (`TOKEN_SIG_V1_ED25519` or `TOKEN_SIG_V2_PQC_HYBRID`).
+    pub fn set_token_sig_version(&self, ver: u8) {
+        self.inner.lock().unwrap().broker.set_sig_version(ver);
+    }
+
+    pub fn token_sig_version(&self) -> u8 {
+        self.inner.lock().unwrap().broker.sig_version()
     }
 
     pub fn recognizer_name(&self) -> String {

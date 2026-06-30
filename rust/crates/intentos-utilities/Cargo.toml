@@ -13,5 +13,6 @@ intentos-kernel = { path = "../intentos-kernel" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+uuid = { workspace = true }
 reqwest = { workspace = true, features = ["blocking", "json"] }
 ldap3 = { version = "0.11", default-features = false, features = ["sync"] }

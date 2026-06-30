@@ -499,7 +499,50 @@ impl BuiltinContext<'_> {
                     if fresh { "new" } else { "already" }
                 );
             }
-            other => anyhow::bail!("usage: kernel stats | revoke <jti|0xHANDLE> (got: {other})"),
+            "crypto" => {
+                let sub = parsed.arg(1).unwrap_or("status");
+                match sub {
+                    "status" => {
+                        use intentos_kernel::TOKEN_SIG_V2_PQC_HYBRID;
+                        let ver = self.runtime.kernel().token_sig_version();
+                        let mode = if ver == TOKEN_SIG_V2_PQC_HYBRID {
+                            "pqc_hybrid"
+                        } else {
+                            "ed25519_dev"
+                        };
+                        println!(
+                            "token_sig_version={ver} mode={mode} loom_pqc={}",
+                            self.runtime.loom.is_pqc_tokens_enabled()
+                        );
+                    }
+                    "enable-pqc" => {
+                        self.runtime.loom.set_pqc_tokens_enabled(true)?;
+                        self.runtime.sync_pqc_tokens_from_loom();
+                        let _ = self.runtime.audit.record(
+                            intentos_audit::AuditEventKind::PqcTokensEnabled,
+                            &self.state.actor,
+                            "PQC hybrid token path enabled (TOKEN_SIG_V2)".to_string(),
+                        );
+                        println!("PQC hybrid tokens enabled (ver=2)");
+                    }
+                    "disable-pqc" => {
+                        self.runtime.loom.set_pqc_tokens_enabled(false)?;
+                        self.runtime.sync_pqc_tokens_from_loom();
+                        let _ = self.runtime.audit.record(
+                            intentos_audit::AuditEventKind::PqcTokensDisabled,
+                            &self.state.actor,
+                            "reverted to Ed25519 dev token path (TOKEN_SIG_V1)".to_string(),
+                        );
+                        println!("PQC hybrid tokens disabled (ver=1)");
+                    }
+                    other => anyhow::bail!(
+                        "usage: kernel crypto status|enable-pqc|disable-pqc (got: {other})"
+                    ),
+                }
+            }
+            other => anyhow::bail!(
+                "usage: kernel stats | revoke <jti|0xHANDLE> | crypto (got: {other})"
+            ),
         }
         Ok(())
     }
@@ -836,6 +879,8 @@ IntentOS shell — tier 2 (native, no RPC):
   broker status|register|delegate  Intent Broker federation peers
   kernel stats           Kernel uptime, caps, leases, revocations (JSON)
   kernel revoke <jti>    Revoke capability token (or 0xHANDLE)
+  kernel crypto status|enable-pqc|disable-pqc  Token signature scheme (PQC hybrid path)
+  broker send|recv       Signed wire protocol over local file transport
   intent <res> <act>     Evaluate policy
   flow <res> <act>       Mint token + register handle
   syscall <op> [target]  Direct kernel syscall

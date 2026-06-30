@@ -10,6 +10,7 @@
 //! and system tools — all gated through the kernel.
 
 mod ai;
+mod broker_wire;
 mod federation;
 mod ip_discrambler;
 mod loom_export;
@@ -24,6 +25,10 @@ mod vfs;
 pub use ai::{AiError, AiGateway};
 pub use ip_discrambler::{
     IpDiscramblerBridge, IpDiscramblerError, IpLookupResult, IpPolicyVerdict,
+};
+pub use broker_wire::{
+    decode_payload_hex, BrokerWireError, BrokerWireHub, BrokerWireKind, BrokerWireMessage,
+    BROKER_WIRE_VERSION,
 };
 pub use federation::{FederationError, FederationHub};
 pub use market_status::{MarketDeploymentReporter, MarketDeploymentStatus, SectorStatus};
@@ -174,6 +179,7 @@ impl OsRuntime {
             utilities: Arc::new(Mutex::new(Utilities::attach(kernel))),
         };
         runtime.sync_federation_from_loom();
+        runtime.sync_pqc_tokens_from_loom();
         Ok(runtime)
     }
 
@@ -232,7 +238,19 @@ impl OsRuntime {
             utilities: Arc::new(Mutex::new(Utilities::attach(kernel))),
         };
         runtime.sync_federation_from_loom();
+        runtime.sync_pqc_tokens_from_loom();
         Ok(runtime)
+    }
+
+    /// Apply loom PQC token preference to the kernel broker.
+    pub fn sync_pqc_tokens_from_loom(&self) {
+        use intentos_kernel::{TOKEN_SIG_V1_ED25519, TOKEN_SIG_V2_PQC_HYBRID};
+        let ver = if self.loom.is_pqc_tokens_enabled() {
+            TOKEN_SIG_V2_PQC_HYBRID
+        } else {
+            TOKEN_SIG_V1_ED25519
+        };
+        self.kernel().set_token_sig_version(ver);
     }
 
     /// Reload broker peers from Loom into the in-process federation hub.

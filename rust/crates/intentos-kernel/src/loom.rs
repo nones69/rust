@@ -25,6 +25,8 @@ pub struct LoomSession {
     pub default_threshold: ThresholdLevel,
     pub telemetry_enabled: bool,
     pub ai_enabled: bool,
+    #[serde(default)]
+    pub pqc_tokens_enabled: bool,
     pub oobe_complete: bool,
     /// Ed25519 public key (hex, first 32 bytes of broker public key).
     #[serde(default)]
@@ -53,6 +55,7 @@ impl Default for LoomSession {
             default_threshold: PolicyPack::Personal.default_threshold(),
             telemetry_enabled: false,
             ai_enabled: false,
+            pqc_tokens_enabled: false,
             oobe_complete: false,
             signing_public_key_hex: String::new(),
             signing_secret_key_hex: String::new(),
