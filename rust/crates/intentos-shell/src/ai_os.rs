@@ -139,6 +139,9 @@ impl BuiltinContext<'_> {
             "run" => {
                 let card_id = parsed.arg(1).context("usage: kb run <card_id> [--confirm]")?;
                 let confirmed = parsed.args.iter().any(|a| *a == "--confirm");
+                let signals = intentos_utilities::LoomStore::threshold_signals(
+                    &self.runtime.platform,
+                );
                 let (handle, decision) = self
                     .runtime
                     .loom
@@ -148,6 +151,7 @@ impl BuiltinContext<'_> {
                         card_id,
                         &self.state.actor,
                         confirmed,
+                        Some(&signals),
                     )
                     .map_err(|e| anyhow::anyhow!("{e}"))?;
                 self.state.last_handle = Some(handle);
@@ -224,7 +228,47 @@ impl BuiltinContext<'_> {
                 self.runtime.loom.reset_oobe()?;
                 println!("OOBE reset — run `oobe run` on next session");
             }
-            other => anyhow::bail!("usage: oobe status|run [low|medium|high]|reset (got: {other})"),
+            "hook" => {
+                let sub = parsed.arg(1).unwrap_or("status");
+                match sub {
+                    "status" => {
+                        let session = self.runtime.loom.session();
+                        let manifest =
+                            intentos_utilities::emit_oobe_hook(&self.runtime.platform, &session.profile_id);
+                        println!(
+                            "oobe_hook platform={} path={} profile={}",
+                            manifest.platform, manifest.hook_path, manifest.profile_id
+                        );
+                    }
+                    "emit" => {
+                        let session = self.runtime.loom.session();
+                        let path = parsed
+                            .arg(2)
+                            .context("usage: oobe hook emit <path>")?;
+                        let manifest =
+                            intentos_utilities::emit_oobe_hook(&self.runtime.platform, &session.profile_id);
+                        std::fs::create_dir_all(
+                            std::path::Path::new(path)
+                                .parent()
+                                .unwrap_or(std::path::Path::new(".")),
+                        )?;
+                        std::fs::write(path, &manifest.script)?;
+                        let _ = self.runtime.audit.record(
+                            AuditEventKind::OobeHookEmitted,
+                            &self.state.actor,
+                            format!(
+                                "platform={} path={} profile={}",
+                                manifest.platform, path, manifest.profile_id
+                            ),
+                        );
+                        println!("oobe hook written to {path}");
+                    }
+                    other => anyhow::bail!("usage: oobe hook status|emit <path> (got: {other})"),
+                }
+            }
+            other => anyhow::bail!(
+                "usage: oobe status|run [low|medium|high]|reset|hook (got: {other})"
+            ),
         }
         Ok(())
     }

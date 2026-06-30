@@ -40,6 +40,9 @@ pub enum AuditEventKind {
     AiDisabled,
     TelemetryEnabled,
     TelemetryDisabled,
+    BrokerPeerRegistered,
+    BrokerDelegated,
+    OobeHookEmitted,
     AuditRecovery,
 }
 

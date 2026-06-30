@@ -10,6 +10,7 @@
 //! and the kernel directly. No TCP RPC, no external daemons.
 
 mod ai_os;
+mod broker_cmd;
 mod builtins;
 mod kb_tui;
 mod policy_cmd;

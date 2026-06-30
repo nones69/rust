@@ -1,5 +1,6 @@
 //! Loom — local session continuity for fields, cards, and profile settings.
 
+use crate::broker::BrokerPeer;
 use crate::card::IntentCard;
 use crate::field::Field;
 use crate::policy_pack::PolicyPack;
@@ -31,6 +32,12 @@ pub struct LoomSession {
     /// Broker secret key material for signing exports (hex, local-only).
     #[serde(default)]
     pub signing_secret_key_hex: String,
+    /// Federated intent broker peers (public keys only).
+    #[serde(default)]
+    pub broker_peers: Vec<BrokerPeer>,
+    /// Recent shell commands for Kernel Bar suggestions.
+    #[serde(default)]
+    pub recent_commands: Vec<String>,
     pub checksum: String,
 }
 
@@ -49,6 +56,8 @@ impl Default for LoomSession {
             oobe_complete: false,
             signing_public_key_hex: String::new(),
             signing_secret_key_hex: String::new(),
+            broker_peers: Vec::new(),
+            recent_commands: Vec::new(),
             checksum: String::new(),
         };
         session.checksum = session.compute_checksum();

@@ -14,6 +14,7 @@ mod federation;
 mod ip_discrambler;
 mod loom_export;
 mod loom_store;
+mod oobe_hooks;
 mod market_status;
 mod recognizer;
 mod sectors;
@@ -27,7 +28,10 @@ pub use ip_discrambler::{
 pub use federation::{FederationError, FederationHub};
 pub use market_status::{MarketDeploymentReporter, MarketDeploymentStatus, SectorStatus};
 pub use intentos_audit::{AuditEntry, AuditEventKind, AuditLog};
-pub use intentos_hal::{native_hal, CpuArch, HardwareAbstraction, HostOs, PlatformInfo};
+pub use intentos_hal::{
+    native_hal, CpuArch, DevicePosture, HardwareAbstraction, HostOs, PlatformInfo,
+};
+pub use oobe_hooks::{emit_oobe_hook, OobeHookManifest};
 pub use recognizer::{OllamaClient, PilotRecognizer};
 pub use sectors::enterprise::{
     CompatReport, CompatibilityMatrix, EnterpriseHardeningAssessor, EnterpriseHardeningReport,
@@ -161,14 +165,16 @@ impl OsRuntime {
             );
         }
 
-        Ok(Self {
+        let runtime = Self {
             platform,
             audit,
             identity: IdentityBridge::from_env(),
             ip_discrambler,
             loom,
             utilities: Arc::new(Mutex::new(Utilities::attach(kernel))),
-        })
+        };
+        runtime.sync_federation_from_loom();
+        Ok(runtime)
     }
 
     pub fn boot_with_loom(
@@ -217,14 +223,26 @@ impl OsRuntime {
             );
         }
 
-        Ok(Self {
+        let runtime = Self {
             platform,
             audit,
             identity: IdentityBridge::from_env(),
             ip_discrambler,
             loom,
             utilities: Arc::new(Mutex::new(Utilities::attach(kernel))),
-        })
+        };
+        runtime.sync_federation_from_loom();
+        Ok(runtime)
+    }
+
+    /// Reload broker peers from Loom into the in-process federation hub.
+    pub fn sync_federation_from_loom(&self) {
+        let session = self.loom.session();
+        let mut utils = self.utilities.lock().unwrap();
+        utils.federation = FederationHub::from_peers(
+            &session.profile_id,
+            session.broker_peers.clone(),
+        );
     }
 
     pub fn kernel(&self) -> Arc<Kernel> {

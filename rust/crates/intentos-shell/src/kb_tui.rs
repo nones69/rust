@@ -168,6 +168,8 @@ fn preview_card(ctx: &BuiltinContext<'_>, card_id: &str) -> Result<()> {
 }
 
 fn run_card(ctx: &mut BuiltinContext<'_>, card_id: &str, confirmed: bool) -> Result<()> {
+    let signals =
+        intentos_utilities::LoomStore::threshold_signals(&ctx.runtime.platform);
     let (handle, decision) = ctx
         .runtime
         .loom
@@ -177,6 +179,7 @@ fn run_card(ctx: &mut BuiltinContext<'_>, card_id: &str, confirmed: bool) -> Res
             card_id,
             &ctx.state.actor,
             confirmed,
+            Some(&signals),
         )
         .map_err(|e| anyhow::anyhow!("{e}"))?;
     ctx.state.last_handle = Some(handle);

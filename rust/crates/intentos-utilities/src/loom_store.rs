@@ -1,9 +1,10 @@
 //! Local Loom persistence — atomic writes with checksum recovery.
 
 use intentos_audit::{AuditEventKind, AuditLog, CardAuditDetail};
+use intentos_hal::{DevicePosture, PlatformInfo};
 use intentos_kernel::{
-    Intent, IntentCard, LoomSession, PolicyEngine, PolicyOutcome, PolicyPack, ThresholdLevel,
-    TrustAnchor, wall_ms, Handle, Kernel, KernelError,
+    BrokerPeer, Intent, IntentCard, LoomSession, PolicyEngine, PolicyOutcome, PolicyPack,
+    ThresholdLevel, ThresholdSignals, TrustAnchor, wall_ms, Handle, Kernel, KernelError,
 };
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -229,6 +230,49 @@ impl LoomStore {
         Ok(card)
     }
 
+    pub fn threshold_signals(platform: &PlatformInfo) -> ThresholdSignals {
+        let posture = DevicePosture::probe();
+        ThresholdSignals::from_platform_and_posture(
+            &format!("{:?}", platform.arch),
+            &format!("{:?}", platform.os),
+            platform.logical_cpus,
+            platform.backend,
+            posture.developer_mode,
+            posture.secure_boot_attested,
+            posture.biometric_available,
+            posture.trust_score(),
+        )
+    }
+
+    pub fn record_recent_command(&self, command: &str) -> Result<(), LoomError> {
+        if command.is_empty() || matches!(command, "exit" | "quit") {
+            return Ok(());
+        }
+        let mut session = self.inner.lock().unwrap();
+        session.recent_commands.retain(|c| c != command);
+        session.recent_commands.insert(0, command.to_string());
+        session.recent_commands.truncate(32);
+        session.refresh_checksum();
+        drop(session);
+        self.save()
+    }
+
+    pub fn register_broker_peer(&self, peer: BrokerPeer) -> Result<(), LoomError> {
+        let mut session = self.inner.lock().unwrap();
+        if let Some(existing) = session
+            .broker_peers
+            .iter_mut()
+            .find(|p| p.peer_id == peer.peer_id)
+        {
+            *existing = peer;
+        } else {
+            session.broker_peers.push(peer);
+        }
+        session.refresh_checksum();
+        drop(session);
+        self.save()
+    }
+
     pub fn run_card(
         &self,
         kernel: &Kernel,
@@ -236,6 +280,7 @@ impl LoomStore {
         card_id: &str,
         actor: &str,
         user_confirmed: bool,
+        signals: Option<&ThresholdSignals>,
     ) -> Result<(Handle, intentos_kernel::PolicyDecision), LoomError> {
         let session = self.inner.lock().unwrap();
         let active_field = session.active_field_id.as_deref();
@@ -264,7 +309,7 @@ impl LoomStore {
             metadata: Default::default(),
         };
 
-        let decision = PolicyEngine::evaluate_with_threshold(&intent, profile);
+        let decision = PolicyEngine::evaluate_with_signals(&intent, profile, signals);
 
         if decision.requires_confirmation && !user_confirmed {
             let detail = CardAuditDetail {
@@ -394,10 +439,18 @@ impl LoomStore {
 
     pub fn suggest_cards(&self, n: usize) -> Vec<IntentCard> {
         let session = self.inner.lock().unwrap();
-        if session.cards.len() >= n {
-            return session.cards.iter().rev().take(n).cloned().collect();
+        let mut ranked: Vec<IntentCard> = session.cards.clone();
+        for cmd in &session.recent_commands {
+            ranked.sort_by(|a, b| {
+                let a_match = Self::card_matches_command(a, cmd);
+                let b_match = Self::card_matches_command(b, cmd);
+                b_match.cmp(&a_match)
+            });
         }
-        let mut out: Vec<IntentCard> = session.cards.clone();
+        if ranked.len() >= n {
+            return ranked.into_iter().take(n).collect();
+        }
+        let mut out = ranked;
         let field_id = session
             .active_field_id
             .clone()
@@ -428,6 +481,18 @@ impl LoomStore {
         }
         out.truncate(n);
         out
+    }
+
+    fn card_matches_command(card: &IntentCard, cmd: &str) -> bool {
+        let cmd = cmd.to_lowercase();
+        let cap = card.cap_summary().to_lowercase();
+        if cmd.contains(&cap) {
+            return true;
+        }
+        card.title
+            .to_lowercase()
+            .split_whitespace()
+            .any(|w| w.len() > 3 && cmd.contains(w))
     }
 
     pub(crate) fn save(&self) -> Result<(), LoomError> {

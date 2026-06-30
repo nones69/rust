@@ -46,7 +46,7 @@ fn field_isolation_blocks_cross_field_card_execution() {
     rt.loom.use_field(&b.id).unwrap();
     let err = rt
         .loom
-        .run_card(&rt.kernel(), &rt.audit, &card.id, "user", false)
+        .run_card(&rt.kernel(), &rt.audit, &card.id, "user", false, None)
         .unwrap_err();
     assert!(err.to_string().contains("field"));
     let _ = std::fs::remove_dir_all(dir);
@@ -59,12 +59,12 @@ fn high_risk_card_requires_confirmation() {
     let card = rt.loom.create_card("Send packet", "network", "send").unwrap();
     assert!(rt
         .loom
-        .run_card(&rt.kernel(), &rt.audit, &card.id, "user", false)
+        .run_card(&rt.kernel(), &rt.audit, &card.id, "user", false, None)
         .is_err());
     assert!(rt.audit.has_kind(AuditEventKind::UserDenied).unwrap());
     let (handle, _) = rt
         .loom
-        .run_card(&rt.kernel(), &rt.audit, &card.id, "user", true)
+        .run_card(&rt.kernel(), &rt.audit, &card.id, "user", true, None)
         .unwrap();
     assert!(handle.as_u64() > 0);
     assert!(rt.audit.has_kind(AuditEventKind::UserConfirmed).unwrap());
@@ -156,7 +156,7 @@ fn card_confirm_then_vfs_read() {
 
     let (handle, _) = rt
         .loom
-        .run_card(&rt.kernel(), &rt.audit, &card.id, "user", false)
+        .run_card(&rt.kernel(), &rt.audit, &card.id, "user", false, None)
         .unwrap();
 
     let k = rt.kernel();
@@ -233,4 +233,55 @@ fn audit_redact_masks_sensitive_caps() {
     assert!(redacted.contains("path=[REDACTED]"));
     let plain = intentos_audit::AuditLog::format_entry(&entry, false);
     assert!(plain.contains("file/read"));
+}
+
+#[test]
+fn broker_peer_persists_in_loom() {
+    use intentos_kernel::BrokerPeer;
+    let (rt, dir) = boot_with_temp_loom();
+    rt.loom.complete_oobe(ThresholdLevel::Medium).unwrap();
+    let peer = BrokerPeer::new("peer-remote", "aa".repeat(64), 1_700_000_000);
+    rt.loom.register_broker_peer(peer).unwrap();
+    rt.sync_federation_from_loom();
+    assert_eq!(
+        rt.utilities.lock().unwrap().federation.peers().len(),
+        1
+    );
+    let session = rt.loom.session();
+    assert_eq!(session.broker_peers[0].peer_id, "peer-remote");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn recent_commands_influence_suggest_ordering() {
+    let (rt, dir) = boot_with_temp_loom();
+    rt.loom.complete_oobe(ThresholdLevel::Medium).unwrap();
+    rt.loom.create_card("Alpha", "file", "read").unwrap();
+    rt.loom.create_card("Beta write", "file", "write").unwrap();
+    rt.loom.record_recent_command("write").unwrap();
+    let suggested = rt.loom.suggest_cards(2);
+    assert!(suggested.iter().any(|c| c.cap_summary().contains("write")));
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn oobe_hook_manifest_for_host_platform() {
+    use intentos_utilities::emit_oobe_hook;
+    let (rt, dir) = boot_with_temp_loom();
+    rt.loom.complete_oobe(ThresholdLevel::Medium).unwrap();
+    let profile = rt.loom.session().profile_id;
+    let hook = emit_oobe_hook(&rt.platform, &profile);
+    assert!(hook.script.contains(&profile));
+    assert!(!hook.platform.is_empty());
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn threshold_signals_include_posture_trust_score() {
+    use intentos_utilities::LoomStore;
+    let (rt, dir) = boot_with_temp_loom();
+    let signals = LoomStore::threshold_signals(&rt.platform);
+    assert!(signals.trust_score <= 100);
+    assert!(!signals.posture_summary.is_empty());
+    let _ = std::fs::remove_dir_all(dir);
 }

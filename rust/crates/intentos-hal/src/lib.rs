@@ -33,6 +33,50 @@ pub struct PlatformInfo {
     pub backend: &'static str,
 }
 
+/// Device posture signals for Threshold gating (no network calls).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DevicePosture {
+    pub developer_mode: bool,
+    pub secure_boot_attested: bool,
+    pub biometric_available: bool,
+    pub screen_lock_enabled: bool,
+}
+
+impl DevicePosture {
+    /// Probe posture from host environment (opt-in flags, no external telemetry).
+    pub fn probe() -> Self {
+        Self {
+            developer_mode: env_flag("INTENTOS_DEV_MODE"),
+            secure_boot_attested: env_flag("INTENTOS_SECURE_BOOT"),
+            biometric_available: env_flag("INTENTOS_BIOMETRIC"),
+            screen_lock_enabled: !env_flag("INTENTOS_SCREEN_UNLOCKED"),
+        }
+    }
+
+    pub fn trust_score(&self) -> u8 {
+        let mut score = 50u8;
+        if self.secure_boot_attested {
+            score = score.saturating_add(20);
+        }
+        if self.biometric_available {
+            score = score.saturating_add(15);
+        }
+        if self.screen_lock_enabled {
+            score = score.saturating_add(10);
+        }
+        if self.developer_mode {
+            score = score.saturating_sub(25);
+        }
+        score
+    }
+}
+
+fn env_flag(name: &str) -> bool {
+    std::env::var(name)
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true") || v.eq_ignore_ascii_case("yes"))
+        .unwrap_or(false)
+}
+
 /// Hardware abstraction — probe host and report platform capabilities.
 pub trait HardwareAbstraction: Send + Sync {
     fn probe(&self) -> PlatformInfo;
@@ -163,5 +207,52 @@ mod tests {
         let info = hal.probe();
         assert!(info.logical_cpus >= 1);
         assert!(!info.hostname.is_empty());
+    }
+
+    #[test]
+    fn explicit_backends_report_stable_names() {
+        assert_eq!(LinuxHal.backend_name(), "linux-native");
+        assert_eq!(WindowsHal.backend_name(), "win32-native");
+        assert_eq!(GenericHal.backend_name(), "generic");
+    }
+
+    #[test]
+    fn probe_backend_matches_backend_name() {
+        for hal in [
+            Box::new(LinuxHal) as Box<dyn HardwareAbstraction>,
+            Box::new(WindowsHal),
+            Box::new(GenericHal),
+        ] {
+            assert_eq!(hal.probe().backend, hal.backend_name());
+        }
+    }
+
+    #[test]
+    fn detected_arch_is_never_unknown_on_supported_targets() {
+        // CI/dev hosts are x86_64 or aarch64; either way arch must be concrete.
+        let arch = detect_arch();
+        assert!(matches!(arch, CpuArch::X86_64 | CpuArch::Aarch64));
+    }
+
+    #[test]
+    fn platform_info_is_cloneable_and_eq() {
+        let info = native_hal().probe();
+        assert_eq!(info.clone(), info);
+    }
+
+    #[test]
+    fn posture_trust_score_bounds() {
+        let p = DevicePosture {
+            developer_mode: false,
+            secure_boot_attested: true,
+            biometric_available: true,
+            screen_lock_enabled: true,
+        };
+        assert!(p.trust_score() >= 80);
+        let dev = DevicePosture {
+            developer_mode: true,
+            ..p
+        };
+        assert!(dev.trust_score() < p.trust_score());
     }
 }

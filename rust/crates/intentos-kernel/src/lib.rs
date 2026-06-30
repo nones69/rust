@@ -9,6 +9,7 @@
 //! Owns policy, token minting, capability tables, leases, syscall
 //! enforcement, and pluggable intent recognition in-process.
 
+mod broker;
 mod card;
 mod crypto;
 mod error;
@@ -26,6 +27,7 @@ mod threshold;
 mod token;
 mod types;
 
+pub use broker::BrokerPeer;
 pub use card::IntentCard;
 pub use crypto::{
     generate_broker_keys, sign, verify, BrokerKeys, CryptoError, PUBLIC_KEY_LEN, SECRET_KEY_LEN,

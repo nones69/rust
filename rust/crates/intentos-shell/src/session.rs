@@ -92,11 +92,22 @@ impl ShellSession {
 
     pub fn eval(&mut self, line: &str) -> Result<bool> {
         let parsed = ParsedLine::parse(line).context("empty line")?;
-        let mut ctx = BuiltinContext {
-            runtime: &self.runtime,
-            state: &mut self.state,
+        let cmd_name = parsed.command.to_string();
+        let runtime = Arc::clone(&self.runtime);
+        let result = {
+            let mut ctx = BuiltinContext {
+                runtime: &runtime,
+                state: &mut self.state,
+            };
+            Self::eval_parsed(&mut ctx, &parsed)
         };
+        if result.is_ok() {
+            let _ = runtime.loom.record_recent_command(&cmd_name);
+        }
+        result
+    }
 
+    fn eval_parsed(ctx: &mut BuiltinContext<'_>, parsed: &ParsedLine<'_>) -> Result<bool> {
         match parsed.command {
             "help" | "?" => {
                 println!("{}", help_text());
@@ -179,6 +190,14 @@ impl ShellSession {
                         other
                     ),
                 }
+                Ok(true)
+            }
+            "posture" => {
+                ctx.posture_status()?;
+                Ok(true)
+            }
+            "broker" => {
+                ctx.broker_cmd(parsed)?;
                 Ok(true)
             }
             "recognize" => {

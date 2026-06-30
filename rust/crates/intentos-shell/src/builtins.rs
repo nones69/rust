@@ -94,6 +94,22 @@ impl BuiltinContext<'_> {
         Ok(())
     }
 
+    pub fn posture_status(&self) -> Result<()> {
+        use intentos_utilities::{DevicePosture, LoomStore};
+        let posture = DevicePosture::probe();
+        let signals = LoomStore::threshold_signals(&self.runtime.platform);
+        println!(
+            "posture dev={} secure_boot={} biometric={} screen_lock={} trust_score={}",
+            posture.developer_mode,
+            posture.secure_boot_attested,
+            posture.biometric_available,
+            posture.screen_lock_enabled,
+            posture.trust_score()
+        );
+        println!("{}", serde_json::to_string_pretty(&signals)?);
+        Ok(())
+    }
+
     pub fn telemetry_disable(&self) -> Result<()> {
         self.runtime.loom.set_telemetry_enabled(false)?;
         let _ = self.runtime.audit.record(
@@ -815,7 +831,9 @@ IntentOS shell — tier 2 (native, no RPC):
   field create|use|list  Field context management
   kb open|suggest|run|tui Kernel Bar — intent cards (tui = numbered picker)
   telemetry status|enable|disable  Outbound analytics opt-in (off by default)
-  oobe status|run|reset  First-run onboarding (privacy defaults)
+  oobe status|run|reset|hook  First-run onboarding + platform bootstrap hooks
+  posture                Device posture + Threshold signals (HAL probe)
+  broker status|register|delegate  Intent Broker federation peers
   kernel stats           Kernel uptime, caps, leases, revocations (JSON)
   kernel revoke <jti>    Revoke capability token (or 0xHANDLE)
   intent <res> <act>     Evaluate policy
