@@ -19,6 +19,7 @@ pub struct LoomSession {
     pub active_field_id: Option<String>,
     pub fields: Vec<Field>,
     pub cards: Vec<IntentCard>,
+    #[serde(default)]
     pub policy_pack: PolicyPack,
     pub default_threshold: ThresholdLevel,
     pub telemetry_enabled: bool,

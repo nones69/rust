@@ -38,6 +38,9 @@ pub enum AuditEventKind {
     LoomImported,
     AiEnabled,
     AiDisabled,
+    TelemetryEnabled,
+    TelemetryDisabled,
+    AuditRecovery,
 }
 
 /// Single immutable audit record.
@@ -57,6 +60,7 @@ pub struct AuditEntry {
 pub struct AuditLog {
     inner: Mutex<AuditState>,
     persist_path: Option<PathBuf>,
+    recovered: Mutex<bool>,
 }
 
 struct AuditState {
@@ -103,6 +107,7 @@ impl AuditLog {
                 last_hash: genesis_hash(),
             }),
             persist_path: None,
+            recovered: Mutex::new(false),
         }
     }
 
@@ -118,15 +123,32 @@ impl AuditLog {
                 last_hash: genesis_hash(),
             }),
             persist_path: Some(path.clone()),
+            recovered: Mutex::new(false),
         };
         if path.exists() {
-            log.reload_from_disk()?;
+            if let Err(_err) = log.reload_from_disk() {
+                *log.inner.lock().map_err(|_| AuditError::LockPoisoned)? = AuditState {
+                    entries: Vec::new(),
+                    last_hash: genesis_hash(),
+                };
+                *log.recovered.lock().map_err(|_| AuditError::LockPoisoned)? = true;
+            } else if !log.verify_chain().unwrap_or(false) {
+                *log.inner.lock().map_err(|_| AuditError::LockPoisoned)? = AuditState {
+                    entries: Vec::new(),
+                    last_hash: genesis_hash(),
+                };
+                *log.recovered.lock().map_err(|_| AuditError::LockPoisoned)? = true;
+            }
         }
         Ok(log)
     }
 
     pub fn open_default() -> Result<Self, AuditError> {
         Self::open_persisted(default_audit_path())
+    }
+
+    pub fn corruption_recovered(&self) -> Result<bool, AuditError> {
+        Ok(*self.recovered.lock().map_err(|_| AuditError::LockPoisoned)?)
     }
 
     fn reload_from_disk(&mut self) -> Result<(), AuditError> {
@@ -240,6 +262,73 @@ impl AuditLog {
         let state = self.inner.lock().map_err(|_| AuditError::LockPoisoned)?;
         Ok(state.last_hash.clone())
     }
+
+    /// Format an audit entry for display, optionally redacting sensitive resource names.
+    pub fn format_entry(entry: &AuditEntry, redact: bool) -> String {
+        let detail = if redact {
+            redact_detail(&entry.detail)
+        } else {
+            entry.detail.clone()
+        };
+        format!(
+            "[{}] {:?} actor={} {}",
+            entry.ts_ms, entry.kind, entry.actor, detail
+        )
+    }
+}
+
+/// Redact path-like segments, IPs, and resource/cap identifiers in audit detail strings.
+pub fn redact_detail(detail: &str) -> String {
+    let mut out = detail.to_string();
+    for token in out.split_whitespace().collect::<Vec<_>>() {
+        if looks_sensitive_token(token) {
+            let redacted = "[REDACTED]";
+            if token.contains('=') {
+                let key = token.split('=').next().unwrap_or(token);
+                let replacement = format!("{key}={redacted}");
+                out = out.replace(token, &replacement);
+            } else {
+                out = out.replace(token, redacted);
+            }
+        }
+    }
+    out
+}
+
+fn looks_sensitive_token(token: &str) -> bool {
+    let value = token.split_once('=').map(|(_, v)| v).unwrap_or(token);
+    if value.eq_ignore_ascii_case("[REDACTED]") {
+        return false;
+    }
+    if value.contains('/') || value.contains('\\') {
+        return true;
+    }
+    if value.contains('.') && value.chars().all(|c| c.is_ascii_digit() || c == '.') {
+        let parts: Vec<_> = value.split('.').collect();
+        if parts.len() == 4 && parts.iter().all(|p| p.parse::<u8>().is_ok()) {
+            return true;
+        }
+    }
+    let sensitive_keys = [
+        "resource",
+        "caps",
+        "cap_summary",
+        "path",
+        "file",
+        "patient",
+        "account",
+        "pan",
+        "ssn",
+    ];
+    if let Some((key, val)) = token.split_once('=') {
+        if sensitive_keys.iter().any(|k| key.eq_ignore_ascii_case(k)) && !val.is_empty() {
+            return true;
+        }
+    }
+    if value.contains('/') && !value.starts_with("http") {
+        return true;
+    }
+    false
 }
 
 impl Default for AuditLog {
@@ -341,6 +430,20 @@ mod tests {
     }
 
     #[test]
+    fn corrupt_audit_file_recovers_on_open() {
+        let dir = std::env::temp_dir().join(format!("intentos-audit-bad-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("audit.jsonl");
+        std::fs::write(&path, b"{not valid jsonl}\n").unwrap();
+        let log = AuditLog::open_persisted(&path).unwrap();
+        assert!(log.corruption_recovered().unwrap());
+        assert_eq!(log.len().unwrap(), 0);
+        log.record(AuditEventKind::Boot, "kernel", "after recovery").unwrap();
+        assert_eq!(log.len().unwrap(), 1);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
     fn persisted_log_survives_reload() {
         let dir = std::env::temp_dir().join(format!(
             "intentos-audit-{}",
@@ -369,6 +472,15 @@ mod tests {
             cap_summary: "file/read".into(),
         };
         assert!(d.to_detail_string().contains("card-1"));
+    }
+
+    #[test]
+    fn redact_detail_masks_paths_and_caps() {
+        let raw = "card=card-1 field=fld-1 caps=file/read path=C:\\Users\\secret\\doc.txt";
+        let redacted = redact_detail(raw);
+        assert!(redacted.contains("caps=[REDACTED]"));
+        assert!(redacted.contains("path=[REDACTED]"));
+        assert!(redacted.contains("card=card-1"));
     }
 
     #[test]

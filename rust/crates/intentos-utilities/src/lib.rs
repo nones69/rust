@@ -153,6 +153,13 @@ impl OsRuntime {
                 "loom state checksum mismatch — reset to safe defaults",
             );
         }
+        if audit.corruption_recovered().unwrap_or(false) {
+            let _ = audit.record(
+                AuditEventKind::AuditRecovery,
+                "system",
+                "audit log reload failed — started fresh chain at genesis",
+            );
+        }
 
         Ok(Self {
             platform,
