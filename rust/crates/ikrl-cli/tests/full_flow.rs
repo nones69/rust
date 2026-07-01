@@ -99,10 +99,9 @@ impl Drop for ChildGuard {
 #[test]
 fn ikrl_cli_full_flow_hits_real_daemons() {
     let cli_bin = current_bin("ikrl-cli");
-    let bin_dir = cli_bin.parent().expect("ikrl-cli parent dir").to_path_buf();
-    let capd_bin = sibling_bin(&bin_dir, "capd");
-    let intentd_bin = sibling_bin(&bin_dir, "intentd");
-    let eventscope_bin = sibling_bin(&bin_dir, "eventscope");
+    let capd_bin = current_bin("capd");
+    let intentd_bin = current_bin("intentd");
+    let eventscope_bin = current_bin("eventscope");
 
     let capd_port = reserve_port();
     let intentd_port = reserve_port();
@@ -150,6 +149,7 @@ fn ikrl_cli_full_flow_hits_real_daemons() {
     wait_for_tcp(&format!("127.0.0.1:{intentd_port}"));
 
     let output = Command::new(cli_bin)
+        .env("RUST_LOG", "info")
         .arg("--intentd")
         .arg(&intentd_addr)
         .arg("--capd")
