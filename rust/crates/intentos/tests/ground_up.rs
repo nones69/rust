@@ -126,7 +126,7 @@ fn test_direct_bypass_attempt_denied() {
 fn test_reuse_burned_token_denied() {
     let kernel = Kernel::boot().unwrap();
     let handle = kernel
-        .intent_to_handle(make_intent("mailer", "network", "send"))
+        .intent_to_handle_confirmed(make_intent("mailer", "network", "send"), true)
         .unwrap();
 
     let first = kernel.syscall(
