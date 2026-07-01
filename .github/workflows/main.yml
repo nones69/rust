@@ -1,3 +1,11 @@
-ci.yml
-deploy.yml
-lint.yml
+name: Main
+
+on:
+  workflow_dispatch:
+
+jobs:
+  placeholder:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Workflow metadata placeholder
+        run: echo "Use build.yml and ip-discrambler.yml for active CI."
