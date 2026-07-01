@@ -35,20 +35,23 @@ function Show-GuestCommands {
     Write-Host @"
 
 ══════════════════════════════════════════════════════════════
-  Paste this ENTIRE block into the Ubuntu VM (dan@home)
-  Works even when vmware-hgfsclient shows nothing
+  Step 1 — fix network (paste in Ubuntu VM as dan@home)
+══════════════════════════════════════════════════════════════
+
+sudo ip link set ens33 up 2>/dev/null || sudo ip link set eth0 up 2>/dev/null || true
+sudo dhclient -v ens33 2>/dev/null || sudo dhclient -v eth0 2>/dev/null || sudo dhclient -v
+printf 'nameserver 8.8.8.8\nnameserver 1.1.1.1\n' | sudo tee /etc/resolv.conf
+ping -c2 8.8.8.8
+ping -c2 github.com
+
+══════════════════════════════════════════════════════════════
+  Step 2 — IntentOS test (after ping works)
 ══════════════════════════════════════════════════════════════
 
 sudo apt-get update
 sudo apt-get install -y git pkg-config libssl-dev libldap2-dev build-essential rustc cargo
 git clone https://github.com/nones69/rust.git ~/rust
 cd ~/rust && bash tools/vm/intentos-wsl-test.sh
-
-You should see:
-  Cloning into 'rust'...
-  Building release...
-
-First build takes 5-15 minutes. If git fails, run: ping -c1 github.com
 
 "@ -ForegroundColor Yellow
 }
@@ -148,7 +151,25 @@ function Set-BridgedNetwork([string]$Vmx) {
         $lines += 'ethernet0.bridgeName = "Automatic"'
     }
     $lines | Set-Content $Vmx -Encoding UTF8
-    Write-Host "Network: NAT -> bridged (uses your home router DHCP)." -ForegroundColor Green
+    Write-Host "Network set to bridged (home router DHCP)." -ForegroundColor Green
+    Write-Host "Backup: $backup"
+}
+
+function Set-NatNetwork([string]$Vmx) {
+    $backup = "$Vmx.nat.bak"
+    Copy-Item $Vmx $backup -Force
+    $lines = Get-Content $Vmx | Where-Object {
+        $_ -notmatch '^ethernet0\.bridgeName' -and $_ -notmatch '^ethernet0\.vnet'
+    }
+    $lines = foreach ($line in $lines) {
+        if ($line -match '^ethernet0\.connectionType') {
+            'ethernet0.connectionType = "nat"'
+        } else {
+            $line
+        }
+    }
+    $lines | Set-Content $Vmx -Encoding UTF8
+    Write-Host "Network set to NAT (VMware VMnet8 — recommended)." -ForegroundColor Green
     Write-Host "Backup: $backup"
 }
 
@@ -353,22 +374,16 @@ Windows guest alternative:
             & $vmrun -T ws stop $cfg.vmx_path soft
             Start-Sleep -Seconds 5
         }
-        Set-BridgedNetwork $cfg.vmx_path
+        Set-NatNetwork $cfg.vmx_path
         Set-PostInstallBoot $cfg.vmx_path
         Enable-HgfsInVmx $cfg.vmx_path
         Write-Step "Starting VM"
         & $vmrun -T ws start $cfg.vmx_path gui
         Write-Host @"
 
-VM rebooted with bridged networking (internet via your router).
+VM rebooted with NAT networking (VMnet8). VMware NAT/DHCP must stay running on Windows.
 
-In the VM terminal (dan@home), paste:
-
-  ip addr show
-  ping -c2 8.8.8.8
-  ping -c2 github.com
-
-Then run the IntentOS test:
+In the VM terminal (dan@home), run Step 1 then Step 2 below:
 
 "@ -ForegroundColor Green
         Show-GuestCommands
