@@ -21,19 +21,18 @@ All /api/* routes then require the header:
 
     Authorization: ******
 
-If INTENTOS_API_TOKEN is not set, the server starts in WARNING mode: all
-/api/* routes are accessible without a token, and a prominent warning is
-printed at startup.  Never run without a token in a shared or networked
-environment.
+If INTENTOS_API_TOKEN is not set (or is an empty string), the server starts in
+WARNING mode: all /api/* routes are accessible without a token, and a prominent
+warning is printed at startup.  Never run without a token in a shared or
+networked environment.
 """
 
 import os
+import secrets
 import sys
 
 # Make sure `core` and `api` are importable when run from the platform/ dir
 sys.path.insert(0, os.path.dirname(__file__))
-
-from functools import wraps
 
 from flask import Flask, jsonify, request, send_from_directory
 from api.control    import control_bp
@@ -48,34 +47,33 @@ app = Flask(__name__, static_folder="ui", static_url_path="")
 # Shared-secret bearer-token guard
 # ---------------------------------------------------------------------------
 
-_API_TOKEN: str | None = os.environ.get("INTENTOS_API_TOKEN") or None
-
-
-def _require_api_token(f):
-    """Decorator: reject requests that lack the correct bearer token.
-
-    If INTENTOS_API_TOKEN is not set the check is skipped (dev convenience),
-    but a warning is emitted at startup so operators know auth is disabled.
-    """
-    @wraps(f)
-    def wrapper(*args, **kwargs):
-        if _API_TOKEN is None:
-            # Auth disabled — allow through (startup warning already printed).
-            return f(*args, **kwargs)
-        auth = request.headers.get("Authorization", "")
-        if not auth.startswith("Bearer "):
-            return jsonify({"error": "Unauthorized"}), 401
-        if auth[len("Bearer "):] != _API_TOKEN:
-            return jsonify({"error": "Forbidden"}), 403
-        return f(*args, **kwargs)
-    return wrapper
+_raw_token = os.environ.get("INTENTOS_API_TOKEN", "")
+# Treat an empty string the same as unset — an empty token provides no security.
+_API_TOKEN: str | None = _raw_token if _raw_token else None
 
 
 @app.before_request
 def _api_auth_guard():
-    """Apply bearer-token check to every /api/* route."""
-    if request.path.startswith("/api/"):
-        return _require_api_token(lambda: None)()
+    """Reject /api/* requests that lack the correct bearer token.
+
+    If INTENTOS_API_TOKEN is not set the check is skipped (dev convenience),
+    but a warning is emitted at startup so operators know auth is disabled.
+    Uses secrets.compare_digest for constant-time comparison to prevent
+    timing-based token enumeration.
+    """
+    if not request.path.startswith("/api/"):
+        return None
+    if _API_TOKEN is None:
+        return None
+    auth = request.headers.get("Authorization", "")
+    # Accept "Bearer" with any casing (RFC 7235 token is case-insensitive).
+    if not auth.lower().startswith("bearer "):
+        return jsonify({"error": "Unauthorized"}), 401
+    provided = auth[len("Bearer "):]
+    # Constant-time comparison prevents timing-based token enumeration.
+    if not secrets.compare_digest(provided, _API_TOKEN):
+        return jsonify({"error": "Forbidden"}), 403
+    return None
 
 
 # Register API blueprints
