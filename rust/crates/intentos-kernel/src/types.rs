@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 pub const CAP_TABLE_SIZE: usize = 4096;
+pub const META_REQUESTED_TTL_MS: &str = "requested_ttl_ms";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
@@ -94,6 +95,26 @@ pub struct Intent {
     pub anchor: TrustAnchor,
     pub timestamp_ms: u64,
     pub metadata: BTreeMap<String, String>,
+}
+
+impl Intent {
+    pub fn is_well_formed(&self) -> bool {
+        !self.actor.trim().is_empty()
+            && !self.resource.trim().is_empty()
+            && !self.action.trim().is_empty()
+            && self.timestamp_ms > 0
+    }
+
+    pub fn requested_ttl_ms(&self) -> Result<Option<u64>, ()> {
+        let Some(raw) = self.metadata.get(META_REQUESTED_TTL_MS) else {
+            return Ok(None);
+        };
+        let parsed = raw.parse::<i64>().map_err(|_| ())?;
+        if parsed <= 0 {
+            return Err(());
+        }
+        Ok(Some(parsed as u64))
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

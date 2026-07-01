@@ -6,6 +6,13 @@ pub struct LeaseManager {
     leases: HashMap<String, ProcessLease>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LeaseRenewError {
+    UnknownLease,
+    Expired,
+    Revoked,
+}
+
 impl LeaseManager {
     pub fn new() -> Self {
         Self {
@@ -26,24 +33,31 @@ impl LeaseManager {
         lease
     }
 
-    pub fn renew(&mut self, lease_id: &str, ttl_ms: u64) -> Option<ProcessLease> {
+    pub fn renew(&mut self, lease_id: &str, ttl_ms: u64) -> Result<ProcessLease, LeaseRenewError> {
         let now = wall_ms();
-        let lease = self.leases.get_mut(lease_id)?;
-        if lease.state == LeaseState::Revoked || lease.state == LeaseState::Expired {
-            return None;
+        let lease = self
+            .leases
+            .get_mut(lease_id)
+            .ok_or(LeaseRenewError::UnknownLease)?;
+        if lease.state == LeaseState::Revoked {
+            return Err(LeaseRenewError::Revoked);
+        }
+        if lease.state == LeaseState::Expired || lease.expires_at <= now {
+            lease.state = LeaseState::Expired;
+            return Err(LeaseRenewError::Expired);
         }
         lease.expires_at = now + ttl_ms;
         lease.state = LeaseState::Granted;
-        Some(lease.clone())
+        Ok(lease.clone())
     }
 
-    pub fn tick(&mut self) -> Vec<u32> {
+    pub fn tick(&mut self) -> Vec<ProcessLease> {
         let now = wall_ms();
         let mut expired = Vec::new();
         for lease in self.leases.values_mut() {
-            if lease.expires_at < now && lease.state != LeaseState::Expired {
+            if lease.expires_at <= now && lease.state != LeaseState::Expired {
                 lease.state = LeaseState::Expired;
-                expired.push(lease.pid);
+                expired.push(lease.clone());
             }
         }
         expired
@@ -103,7 +117,11 @@ mod tests {
         thread::sleep(Duration::from_millis(5));
 
         let first = manager.tick();
-        assert_eq!(first, vec![99], "first tick reports the newly-expired pid");
+        assert_eq!(
+            first.iter().map(|lease| lease.pid).collect::<Vec<_>>(),
+            vec![99],
+            "first tick reports the newly-expired pid"
+        );
 
         let second = manager.tick();
         assert!(second.is_empty(), "tick is idempotent: no double-report");
@@ -119,7 +137,10 @@ mod tests {
     #[test]
     fn renew_unknown_lease_returns_none() {
         let mut manager = LeaseManager::new();
-        assert!(manager.renew("does-not-exist", 1000).is_none());
+        assert_eq!(
+            manager.renew("does-not-exist", 1000),
+            Err(LeaseRenewError::UnknownLease)
+        );
     }
 
     #[test]
@@ -129,9 +150,15 @@ mod tests {
         let mut manager = LeaseManager::new();
         let lease = manager.grant(5, 1);
         thread::sleep(Duration::from_millis(5));
-        assert_eq!(manager.tick(), vec![5]);
+        assert_eq!(
+            manager.tick().iter().map(|lease| lease.pid).collect::<Vec<_>>(),
+            vec![5]
+        );
 
-        assert!(manager.renew(&lease.lease_id, 60_000).is_none());
+        assert_eq!(
+            manager.renew(&lease.lease_id, 60_000),
+            Err(LeaseRenewError::Expired)
+        );
     }
 
     #[test]
@@ -148,8 +175,8 @@ mod tests {
             .find(|entry| entry.lease_id == lease.lease_id)
             .unwrap();
 
-        assert_eq!(expired, vec![7]);
-        assert!(renewed.is_none());
+        assert_eq!(expired.iter().map(|lease| lease.pid).collect::<Vec<_>>(), vec![7]);
+        assert_eq!(renewed, Err(LeaseRenewError::Expired));
         assert_eq!(stored.state, LeaseState::Expired);
     }
 }

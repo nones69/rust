@@ -18,6 +18,21 @@ pub struct BuiltinState {
     pub last_handle: Option<Handle>,
 }
 
+fn latest_audit_reason(
+    audit: &intentos_audit::AuditLog,
+    lease_id: Option<&str>,
+) -> Option<String> {
+    audit.tail(32).ok()?.into_iter().rev().find_map(|entry| {
+        let detail: serde_json::Value = serde_json::from_str(&entry.detail).ok()?;
+        if let Some(target_lease_id) = lease_id {
+            if detail.get("lease_id")?.as_str()? != target_lease_id {
+                return None;
+            }
+        }
+        detail.get("reason")?.as_str().map(str::to_string)
+    })
+}
+
 pub struct BuiltinContext<'a> {
     pub runtime: &'a Arc<OsRuntime>,
     pub state: &'a mut BuiltinState,
@@ -794,15 +809,61 @@ impl BuiltinContext<'_> {
     }
 
     pub fn lease(&self, parsed: &ParsedLine<'_>) -> Result<()> {
-        let pid: u32 = parsed
-            .arg(0)
-            .and_then(|p| p.parse().ok())
-            .unwrap_or(std::process::id());
-        let lease = self.runtime.kernel().grant_lease(pid, 30_000);
-        println!(
-            "lease {} pid={} expires={}",
-            lease.lease_id, lease.pid, lease.expires_at
-        );
+        match parsed.arg(0) {
+            None | Some("grant") => {
+                let pid: u32 = parsed
+                    .arg(if parsed.arg(0) == Some("grant") { 1 } else { 0 })
+                    .and_then(|p| p.parse().ok())
+                    .unwrap_or(std::process::id());
+                let ttl_ms: u64 = parsed
+                    .arg(if parsed.arg(0) == Some("grant") { 2 } else { 1 })
+                    .and_then(|p| p.parse().ok())
+                    .unwrap_or(30_000);
+                let lease = self.runtime.kernel().grant_lease(pid, ttl_ms);
+                println!(
+                    "lease {} pid={} expires={}",
+                    lease.lease_id, lease.pid, lease.expires_at
+                );
+            }
+            Some("renew") => {
+                let lease_id = parsed
+                    .arg(1)
+                    .context("usage: lease renew <lease_id> [ttl_ms]")?;
+                let ttl_ms: u64 = parsed.arg(2).and_then(|p| p.parse().ok()).unwrap_or(30_000);
+                match self.runtime.kernel().renew_lease(lease_id, ttl_ms) {
+                    Some(lease) => println!(
+                        "lease {} pid={} renewed expires={}",
+                        lease.lease_id, lease.pid, lease.expires_at
+                    ),
+                    None => println!(
+                        "lease renew denied: {}",
+                        latest_audit_reason(&self.runtime.audit, Some(lease_id))
+                            .unwrap_or_else(|| "unknown reason".into())
+                    ),
+                }
+            }
+            Some("tick") => {
+                let expired = self.runtime.kernel().tick_leases();
+                if expired.is_empty() {
+                    println!("lease tick: no expiries");
+                } else {
+                    for pid in expired {
+                        println!("lease expired pid={pid}");
+                    }
+                }
+            }
+            Some("list") => {
+                for lease in self.runtime.kernel().list_leases() {
+                    println!(
+                        "lease {} pid={} state={:?} expires={}",
+                        lease.lease_id, lease.pid, lease.state, lease.expires_at
+                    );
+                }
+            }
+            Some(other) => anyhow::bail!(
+                "usage: lease [grant [pid] [ttl_ms]] | renew <lease_id> [ttl_ms] | tick | list (got: {other})"
+            ),
+        }
         Ok(())
     }
 
@@ -927,7 +988,7 @@ IntentOS shell — tier 2 (native, no RPC):
   ipdis subnet <cidr>    Analyze CIDR block
   ipdis policy <ip>      Kernel policy + enrichment; mint network/descramble handle
   ipdis serve [host] [port]  Spawn REST API (background process)
-  lease [pid]            Grant background lease
+  lease ...              Grant/list/renew/tick background leases
   actor [name]           Show/set actor id
   exit                   End session
 "#

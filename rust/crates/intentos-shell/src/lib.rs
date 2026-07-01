@@ -38,8 +38,11 @@ impl Shell {
         self.session.run_repl()
     }
 
+    pub fn run_script(&mut self, script: &str) -> anyhow::Result<()> {
+        self.session.run_script(script)
+    }
+
     pub fn eval(&mut self, line: &str) -> anyhow::Result<bool> {
         self.session.eval(line)
     }
 }
-

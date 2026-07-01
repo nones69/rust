@@ -39,6 +39,7 @@ pub use error::KernelError;
 pub use loom::LoomSession;
 pub use threshold::{gate_outcome, risk_for, PolicyOutcome, ThresholdLevel};
 pub use lease::LeaseManager;
+use lease::LeaseRenewError;
 pub use ip_policy::{
     apply_ip_policy, evaluate_ip, extract_ipv4_literals, verdict_from_threat_score, IpVerdict,
     ThreatLevel, META_DEST_IP, META_THREAT_SCORE,
@@ -53,6 +54,7 @@ pub use token::TokenBroker;
 pub use types::*;
 
 use intentos_audit::{AuditEventKind, AuditLog};
+use serde::Serialize;
 use std::sync::{Arc, Mutex};
 
 /// IntentOS tier number for the kernel.
@@ -86,6 +88,21 @@ struct KernelState {
     leases: LeaseManager,
     revocations: RevocationList,
     boot_ms: u64,
+}
+
+#[derive(Debug, Serialize)]
+struct DecisionAuditDetail {
+    timestamp_ms: u64,
+    subject: String,
+    action: String,
+    resource: String,
+    decision: String,
+    reason: String,
+    reason_code: Option<String>,
+    handle: Option<u64>,
+    jti: Option<String>,
+    lease_id: Option<String>,
+    expires_at: Option<u64>,
 }
 
 impl Kernel {
@@ -166,20 +183,7 @@ impl Kernel {
         intent: Intent,
         profile: ThresholdLevel,
     ) -> PolicyDecision {
-        let decision = PolicyEngine::evaluate_with_threshold(&intent, profile);
-        self.audit_record(
-            AuditEventKind::Policy,
-            &intent.actor,
-            format!(
-                "outcome={} allowed={} {} {} — {}",
-                decision.outcome.as_str(),
-                decision.allowed,
-                intent.resource,
-                intent.action,
-                decision.reason
-            ),
-        );
-        decision
+        self.evaluate_intent(&intent, profile)
     }
 
     pub fn mint_token(&self, intent: Intent) -> Result<Token, KernelError> {
@@ -200,18 +204,39 @@ impl Kernel {
         profile: ThresholdLevel,
         user_confirmed: bool,
     ) -> Result<Token, KernelError> {
+        let decision = self.evaluate_intent(&intent, profile);
+        if !decision.can_mint(user_confirmed) {
+            self.audit_decision(
+                AuditEventKind::Policy,
+                &intent.actor,
+                &intent.resource,
+                &intent.action,
+                "deny",
+                &decision.reason,
+                Some(decision.reason_code.as_str()),
+                None,
+                None,
+                None,
+                None,
+            );
+            return Err(KernelError::PolicyDenied(decision.reason.clone()));
+        }
         let token = {
             let state = self.inner.lock().unwrap();
-            let decision = PolicyEngine::evaluate_with_threshold(&intent, profile);
-            if !decision.can_mint(user_confirmed) {
-                return Err(KernelError::PolicyDenied(decision.reason.clone()));
-            }
             state.broker.mint(&intent, &decision)?
         };
-        self.audit_record(
+        self.audit_decision(
             AuditEventKind::TokenMinted,
             &intent.actor,
-            format!("jti={} scope={}/{}", token.jti, intent.resource, intent.action),
+            &intent.resource,
+            &intent.action,
+            "grant",
+            "capability token minted",
+            Some(decision.reason_code.as_str()),
+            None,
+            Some(token.jti.as_str()),
+            None,
+            Some(token.exp),
         );
         Ok(token)
     }
@@ -219,19 +244,26 @@ impl Kernel {
     pub fn register_token(&self, token: Token) -> Result<Handle, KernelError> {
         {
             let state = self.inner.lock().unwrap();
-            state.broker.verify(&token)?;
-            if state.revocations.is_revoked(&token.jti) {
-                return Err(KernelError::Revoked);
-            }
+            state
+                .broker
+                .verify_with_revocations(&token, &state.revocations)?;
         }
         let handle = {
             let mut state = self.inner.lock().unwrap();
             state.table.register(&token)?
         };
-        self.audit_record(
+        self.audit_decision(
             AuditEventKind::HandleRegistered,
             &token.sub,
-            format!("handle=0x{:X} jti={}", handle.as_u64(), token.jti),
+            &token.scope.resource,
+            &token.scope.action,
+            "grant",
+            "capability handle registered",
+            None,
+            Some(handle.as_u64()),
+            Some(token.jti.as_str()),
+            None,
+            Some(token.exp),
         );
         Ok(handle)
     }
@@ -279,17 +311,89 @@ impl Kernel {
 
     pub fn grant_lease(&self, pid: u32, ttl_ms: u64) -> ProcessLease {
         let mut state = self.inner.lock().unwrap();
-        state.leases.grant(pid, ttl_ms)
+        let lease = state.leases.grant(pid, ttl_ms);
+        drop(state);
+        self.audit_decision(
+            AuditEventKind::Policy,
+            &format!("pid:{pid}"),
+            "lease",
+            "grant",
+            "grant",
+            "background lease granted",
+            Some("lease_granted"),
+            None,
+            None,
+            Some(lease.lease_id.as_str()),
+            Some(lease.expires_at),
+        );
+        lease
     }
 
     pub fn renew_lease(&self, lease_id: &str, ttl_ms: u64) -> Option<ProcessLease> {
         let mut state = self.inner.lock().unwrap();
-        state.leases.renew(lease_id, ttl_ms)
+        match state.leases.renew(lease_id, ttl_ms) {
+            Ok(lease) => {
+                drop(state);
+                self.audit_decision(
+                    AuditEventKind::Policy,
+                    &format!("pid:{}", lease.pid),
+                    "lease",
+                    "renew",
+                    "grant",
+                    "background lease renewed",
+                    Some("lease_renewed"),
+                    None,
+                    None,
+                    Some(lease.lease_id.as_str()),
+                    Some(lease.expires_at),
+                );
+                Some(lease)
+            }
+            Err(reason) => {
+                let reason_text = match reason {
+                    LeaseRenewError::UnknownLease => "unknown lease id",
+                    LeaseRenewError::Expired => "lease already expired",
+                    LeaseRenewError::Revoked => "lease revoked",
+                };
+                drop(state);
+                self.audit_decision(
+                    AuditEventKind::Policy,
+                    "lease",
+                    "lease",
+                    "renew",
+                    "deny",
+                    reason_text,
+                    Some("lease_renew_denied"),
+                    None,
+                    None,
+                    Some(lease_id),
+                    None,
+                );
+                None
+            }
+        }
     }
 
     pub fn tick_leases(&self) -> Vec<u32> {
         let mut state = self.inner.lock().unwrap();
-        state.leases.tick()
+        let expired = state.leases.tick();
+        drop(state);
+        for lease in &expired {
+            self.audit_decision(
+                AuditEventKind::Policy,
+                &format!("pid:{}", lease.pid),
+                "lease",
+                "expire",
+                "expiry",
+                "background lease expired",
+                Some("lease_expired"),
+                None,
+                None,
+                Some(lease.lease_id.as_str()),
+                Some(lease.expires_at),
+            );
+        }
+        expired.into_iter().map(|lease| lease.pid).collect()
     }
 
     pub fn list_leases(&self) -> Vec<ProcessLease> {
@@ -350,6 +454,64 @@ impl Kernel {
             let _ = audit.record(kind, actor, detail);
         }
     }
+
+    fn evaluate_intent(&self, intent: &Intent, profile: ThresholdLevel) -> PolicyDecision {
+        let decision = PolicyEngine::evaluate_with_threshold(intent, profile);
+        self.audit_decision(
+            AuditEventKind::Policy,
+            &intent.actor,
+            &intent.resource,
+            &intent.action,
+            decision.outcome.as_str(),
+            &decision.reason,
+            Some(decision.reason_code.as_str()),
+            None,
+            None,
+            None,
+            None,
+        );
+        decision
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn audit_decision(
+        &self,
+        kind: AuditEventKind,
+        subject: &str,
+        resource: &str,
+        action: &str,
+        decision: &str,
+        reason: &str,
+        reason_code: Option<&str>,
+        handle: Option<u64>,
+        jti: Option<&str>,
+        lease_id: Option<&str>,
+        expires_at: Option<u64>,
+    ) {
+        let detail = DecisionAuditDetail {
+            timestamp_ms: wall_ms(),
+            subject: subject.to_string(),
+            action: action.to_string(),
+            resource: resource.to_string(),
+            decision: decision.to_string(),
+            reason: reason.to_string(),
+            reason_code: reason_code.map(str::to_string),
+            handle,
+            jti: jti.map(str::to_string),
+            lease_id: lease_id.map(str::to_string),
+            expires_at,
+        };
+        self.audit_record(
+            kind,
+            subject,
+            serde_json::to_string(&detail).unwrap_or_else(|_| {
+                format!(
+                    "subject={} resource={} action={} decision={} reason={}",
+                    detail.subject, detail.resource, detail.action, detail.decision, detail.reason
+                )
+            }),
+        );
+    }
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -364,6 +526,7 @@ pub struct KernelStats {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{thread, time::Duration};
 
     #[test]
     fn kernel_is_tier_3() {
@@ -435,6 +598,77 @@ mod tests {
         );
         assert!(matches!(result, SyscallResult::Denied(_)));
         assert_eq!(k.revocation_count(), 1);
+    }
+
+    #[test]
+    fn test_handle_creation_requires_valid_token() {
+        let k = Kernel::boot().unwrap();
+        let intent = Intent {
+            actor: "shell".into(),
+            resource: "file".into(),
+            action: "read".into(),
+            anchor: TrustAnchor::UiEvent,
+            timestamp_ms: wall_ms(),
+            metadata: Default::default(),
+        };
+        let mut token = k.mint_token(intent).unwrap();
+        token.signature[0] ^= 0xAA;
+        assert!(matches!(k.register_token(token), Err(KernelError::BadSignature)));
+    }
+
+    #[test]
+    fn test_concurrent_lease_renew_and_expiry_race() {
+        let k = Arc::new(Kernel::boot().unwrap());
+        let lease = k.grant_lease(77, 1);
+        thread::sleep(Duration::from_millis(5));
+
+        let renew_kernel = Arc::clone(&k);
+        let renew_id = lease.lease_id.clone();
+        let renew_thread = thread::spawn(move || renew_kernel.renew_lease(&renew_id, 60_000));
+
+        let tick_kernel = Arc::clone(&k);
+        let tick_thread = thread::spawn(move || tick_kernel.tick_leases());
+
+        let renewed = renew_thread.join().unwrap();
+        let expired = tick_thread.join().unwrap();
+        let lease_state = k
+            .list_leases()
+            .into_iter()
+            .find(|entry| entry.lease_id == lease.lease_id)
+            .unwrap();
+
+        assert!(renewed.is_none());
+        assert!(expired.contains(&77) || lease_state.state == LeaseState::Expired);
+        assert_eq!(lease_state.state, LeaseState::Expired);
+    }
+
+    #[test]
+    fn test_audit_log_records_every_decision() {
+        let audit = Arc::new(AuditLog::new());
+        let k = Kernel::boot_with(KernelConfig {
+            audit: Some(Arc::clone(&audit)),
+            recognizer: None,
+        })
+        .unwrap();
+        let intent = Intent {
+            actor: "shell".into(),
+            resource: "file".into(),
+            action: "read".into(),
+            anchor: TrustAnchor::UiEvent,
+            timestamp_ms: wall_ms(),
+            metadata: Default::default(),
+        };
+        let _ = k.submit_intent(intent.clone());
+        let _ = k.mint_token(intent);
+        let _ = k.grant_lease(42, 1);
+        thread::sleep(Duration::from_millis(5));
+        let _ = k.tick_leases();
+
+        let entries = audit.tail(8).unwrap();
+        assert!(entries.iter().any(|entry| entry.detail.contains("\"decision\"")));
+        assert!(entries.iter().any(|entry| entry.detail.contains("\"resource\":\"file\"")));
+        assert!(entries.iter().any(|entry| entry.detail.contains("\"resource\":\"lease\"")));
+        assert!(entries.iter().any(|entry| entry.detail.contains("\"decision\":\"expiry\"")));
     }
 
     #[test]

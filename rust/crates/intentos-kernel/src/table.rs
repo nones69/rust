@@ -30,7 +30,7 @@ impl CapabilityTable {
         if token.nbf > now_ms {
             return Err(KernelError::NotYetValid);
         }
-        if token.exp < now_ms {
+        if token.exp <= now_ms {
             return Err(KernelError::Expired);
         }
         if token.uses == 0 {
@@ -42,7 +42,7 @@ impl CapabilityTable {
         let kind = CapabilityKind::from_scope(&token.scope.resource, &token.scope.action);
 
         for (idx, slot) in self.slots.iter_mut().enumerate() {
-            let stale = slot.as_ref().map(|e| e.expires_ns < now).unwrap_or(true);
+            let stale = slot.as_ref().map(|e| e.expires_ns <= now).unwrap_or(true);
             if !stale {
                 continue;
             }
@@ -83,7 +83,7 @@ impl CapabilityTable {
         };
 
         let now = mono_ns();
-        if slot.expires_ns < now {
+        if slot.expires_ns <= now {
             return SyscallResult::Denied("capability expired".into());
         }
         if slot.uses_left == 0 {
@@ -112,7 +112,7 @@ impl CapabilityTable {
         let now = mono_ns();
         self.slots
             .iter()
-            .filter(|s| s.as_ref().map(|e| e.expires_ns >= now && e.uses_left > 0).unwrap_or(false))
+            .filter(|s| s.as_ref().map(|e| e.expires_ns > now && e.uses_left > 0).unwrap_or(false))
             .count()
     }
 

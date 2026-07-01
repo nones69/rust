@@ -90,6 +90,19 @@ impl ShellSession {
         Ok(())
     }
 
+    pub fn run_script(&mut self, script: &str) -> Result<()> {
+        for raw_line in script.lines() {
+            let line = raw_line.trim();
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+            if !self.eval(line)? {
+                break;
+            }
+        }
+        Ok(())
+    }
+
     pub fn eval(&mut self, line: &str) -> Result<bool> {
         let parsed = ParsedLine::parse(line).context("empty line")?;
         let cmd_name = parsed.command.to_string();

@@ -1,7 +1,12 @@
 //! Ensures IntentOS crates never depend on IKRL / legacy daemon stack.
 
+use intentos_audit::AuditLog;
+use intentos_kernel::{Intent, SyscallOp, SyscallRequest, SyscallResult, TrustAnchor, wall_ms};
+use intentos_shell::Shell;
+use intentos_utilities::OsRuntime;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 const FORBIDDEN: &[&str] = &[
     "intentkernel-core",
@@ -64,4 +69,84 @@ fn phase1_crates_exist() {
             "Phase 1 crate missing: {name}"
         );
     }
+}
+
+fn make_intent(actor: &str, resource: &str, action: &str) -> Intent {
+    Intent {
+        actor: actor.into(),
+        resource: resource.into(),
+        action: action.into(),
+        anchor: TrustAnchor::UiEvent,
+        timestamp_ms: wall_ms(),
+        metadata: Default::default(),
+    }
+}
+
+#[test]
+fn test_full_email_send_scenario() {
+    let audit = Arc::new(AuditLog::new());
+    let runtime = Arc::new(OsRuntime::boot_with_audit(Arc::clone(&audit)).unwrap());
+    let mut shell = Shell::open(runtime);
+
+    shell
+        .run_script(
+            r#"
+            flow network send
+            syscall send smtp://mail.example
+            syscall send smtp://mail.example
+            "#,
+        )
+        .unwrap();
+
+    let entries = audit.tail(16).unwrap();
+    assert!(entries.iter().any(|entry| {
+        entry.detail.contains("\"resource\":\"network\"")
+            && entry.detail.contains("\"action\":\"send\"")
+            && entry.detail.contains("\"decision\":\"grant\"")
+    }));
+    assert!(entries.iter().any(|entry| entry.detail.contains("allowed NetSend")));
+    assert!(entries
+        .iter()
+        .any(|entry| entry.detail.contains("denied capability expired")));
+}
+
+#[test]
+fn test_direct_bypass_attempt_denied() {
+    let runtime = OsRuntime::boot_with_audit(Arc::new(AuditLog::new())).unwrap();
+    let kernel = runtime.kernel();
+    let vfs_handle = kernel.intent_to_handle(make_intent("test", "dir", "list")).unwrap();
+    let err = {
+        let utils = runtime.utilities.lock().unwrap();
+        utils.vfs.read(&kernel, vfs_handle, "/readme.txt").unwrap_err()
+    };
+    assert!(matches!(err, intentos_utilities::VfsError::Denied(_)));
+}
+
+#[test]
+fn test_reuse_burned_token_denied() {
+    let runtime = OsRuntime::boot_with_audit(Arc::new(AuditLog::new())).unwrap();
+    let kernel = runtime.kernel();
+    let handle = kernel
+        .intent_to_handle(make_intent("mailer", "network", "send"))
+        .unwrap();
+
+    let first = kernel.syscall(
+        handle,
+        SyscallRequest {
+            op: SyscallOp::Send,
+            target: "smtp://mail.example".into(),
+            payload: vec![],
+        },
+    );
+    assert!(matches!(first, SyscallResult::Allowed { .. }));
+
+    let second = kernel.syscall(
+        handle,
+        SyscallRequest {
+            op: SyscallOp::Send,
+            target: "smtp://mail.example".into(),
+            payload: vec![],
+        },
+    );
+    assert!(matches!(second, SyscallResult::Denied(_)));
 }

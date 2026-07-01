@@ -55,18 +55,29 @@ impl VirtualFs {
         out
     }
 
-    pub fn list(&self, kernel: &Kernel, handle: Handle, path: &str) -> Result<Vec<String>, VfsError> {
+    fn authorize(
+        kernel: &Kernel,
+        handle: Handle,
+        op: SyscallOp,
+        target: &str,
+        payload: Vec<u8>,
+    ) -> Result<(), VfsError> {
         match kernel.syscall(
             handle,
             SyscallRequest {
-                op: SyscallOp::List,
-                target: path.into(),
-                payload: vec![],
+                op,
+                target: target.into(),
+                payload,
             },
         ) {
             SyscallResult::Allowed { .. } => {}
             SyscallResult::Denied(r) => return Err(VfsError::Denied(r)),
         }
+        Ok(())
+    }
+
+    pub fn list(&self, kernel: &Kernel, handle: Handle, path: &str) -> Result<Vec<String>, VfsError> {
+        Self::authorize(kernel, handle, SyscallOp::List, path, vec![])?;
 
         let base = self.resolve(path);
         let mut names = Vec::new();
@@ -82,17 +93,7 @@ impl VirtualFs {
     }
 
     pub fn read(&self, kernel: &Kernel, handle: Handle, path: &str) -> Result<Vec<u8>, VfsError> {
-        match kernel.syscall(
-            handle,
-            SyscallRequest {
-                op: SyscallOp::Read,
-                target: path.into(),
-                payload: vec![],
-            },
-        ) {
-            SyscallResult::Allowed { .. } => {}
-            SyscallResult::Denied(r) => return Err(VfsError::Denied(r)),
-        }
+        Self::authorize(kernel, handle, SyscallOp::Read, path, vec![])?;
 
         let key = self.resolve(path);
         self.files
@@ -108,21 +109,40 @@ impl VirtualFs {
         path: &str,
         data: &[u8],
     ) -> Result<usize, VfsError> {
-        match kernel.syscall(
-            handle,
-            SyscallRequest {
-                op: SyscallOp::Write,
-                target: path.into(),
-                payload: data.to_vec(),
-            },
-        ) {
-            SyscallResult::Allowed { .. } => {}
-            SyscallResult::Denied(r) => return Err(VfsError::Denied(r)),
-        }
+        Self::authorize(kernel, handle, SyscallOp::Write, path, data.to_vec())?;
 
         let key = self.resolve(path);
         self.files.insert(key, data.to_vec());
         Ok(data.len())
+    }
+
+    pub fn delete(&mut self, kernel: &Kernel, handle: Handle, path: &str) -> Result<(), VfsError> {
+        Self::authorize(kernel, handle, SyscallOp::Write, path, vec![])?;
+        let key = self.resolve(path);
+        self.files
+            .remove(&key)
+            .map(|_| ())
+            .ok_or_else(|| VfsError::NotFound(path.into()))
+    }
+
+    pub fn rename(
+        &mut self,
+        kernel: &Kernel,
+        source_handle: Handle,
+        dest_handle: Handle,
+        from: &str,
+        to: &str,
+    ) -> Result<(), VfsError> {
+        Self::authorize(kernel, source_handle, SyscallOp::Write, from, vec![])?;
+        Self::authorize(kernel, dest_handle, SyscallOp::Write, to, vec![])?;
+        let source = self.resolve(from);
+        let dest = self.resolve(to);
+        let data = self
+            .files
+            .remove(&source)
+            .ok_or_else(|| VfsError::NotFound(from.into()))?;
+        self.files.insert(dest, data);
+        Ok(())
     }
 }
 
@@ -187,5 +207,54 @@ mod tests {
             .write(&kernel, read_h, "/home/user/note.txt", b"nope")
             .unwrap_err();
         assert!(matches!(err, VfsError::Denied(_)), "got {err:?}");
+    }
+
+    #[test]
+    fn test_vfs_read_denied_without_token() {
+        let kernel = Kernel::boot().unwrap();
+        let vfs = VirtualFs::new();
+        let invalid = Handle::from_u64(0);
+
+        let err = vfs.read(&kernel, invalid, "/readme.txt").unwrap_err();
+        assert!(matches!(err, VfsError::Denied(_)));
+    }
+
+    #[test]
+    fn test_vfs_write_denied_after_token_expiry_mid_operation() {
+        let kernel = Kernel::boot().unwrap();
+        let mut vfs = VirtualFs::new();
+        let mut intent = intent("file", "write");
+        intent
+            .metadata
+            .insert(intentos_kernel::META_REQUESTED_TTL_MS.into(), "1".into());
+        let handle = kernel.intent_to_handle(intent).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(5));
+
+        let err = vfs
+            .write(&kernel, handle, "/home/user/note.txt", b"late write")
+            .unwrap_err();
+        assert!(matches!(err, VfsError::Denied(_)));
+    }
+
+    #[test]
+    fn test_vfs_rename_requires_authorization_on_both_paths() {
+        let kernel = Kernel::boot().unwrap();
+        let mut vfs = VirtualFs::new();
+        let write_h = kernel.intent_to_handle(intent("file", "write")).unwrap();
+        vfs.write(&kernel, write_h, "/home/user/src.txt", b"rename me")
+            .unwrap();
+
+        let src_h = kernel.intent_to_handle(intent("file", "write")).unwrap();
+        let wrong_h = kernel.intent_to_handle(intent("file", "read")).unwrap();
+        let err = vfs
+            .rename(
+                &kernel,
+                src_h,
+                wrong_h,
+                "/home/user/src.txt",
+                "/home/user/dst.txt",
+            )
+            .unwrap_err();
+        assert!(matches!(err, VfsError::Denied(_)));
     }
 }

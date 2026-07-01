@@ -19,6 +19,8 @@ pub enum KernelError {
     Replay,
     #[error("token revoked")]
     Revoked,
+    #[error("token scope mismatch")]
+    ScopeMismatch,
     #[error("serialize: {0}")]
     Serialize(String),
     #[error("crypto: {0}")]

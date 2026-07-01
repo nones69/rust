@@ -9,6 +9,7 @@ use anyhow::Result;
 use clap::Parser;
 use intentos_shell::{banner, Shell, TIER_KERNEL, TIER_SHELL, TIER_UTILITIES};
 use intentos_utilities::OsRuntime;
+use std::io::Read;
 use std::sync::Arc;
 
 #[derive(Parser, Debug)]
@@ -18,6 +19,10 @@ struct Args {
     /// Run one command and exit (non-interactive).
     #[arg(short = 'c', long)]
     command: Option<String>,
+
+    /// Run commands from a script file. Use `-` to read from stdin.
+    #[arg(long)]
+    script: Option<String>,
 }
 
 fn main() -> Result<()> {
@@ -53,6 +58,15 @@ fn main() -> Result<()> {
 
     if let Some(cmd) = args.command {
         shell.eval(&cmd)?;
+    } else if let Some(path) = args.script {
+        let script = if path == "-" {
+            let mut buf = String::new();
+            std::io::stdin().read_to_string(&mut buf)?;
+            buf
+        } else {
+            std::fs::read_to_string(path)?
+        };
+        shell.run_script(&script)?;
     } else {
         shell.run()?;
     }

@@ -1,5 +1,6 @@
 use crate::crypto::{self, BrokerKeys, SIGNATURE_LEN, TOKEN_SIG_V1_ED25519};
 use crate::error::KernelError;
+use crate::revocation::RevocationList;
 use crate::types::{Intent, PolicyDecision, Token, TokenType, wall_ms};
 
 /// Broker identity and token signing — native IntentOS kernel code.
@@ -57,17 +58,46 @@ impl TokenBroker {
     }
 
     pub fn verify(&self, token: &Token) -> Result<(), KernelError> {
+        self.verify_with_revocations(token, &RevocationList::new())
+    }
+
+    pub fn verify_with_revocations(
+        &self,
+        token: &Token,
+        revocations: &RevocationList,
+    ) -> Result<(), KernelError> {
+        self.verify_signature(token)?;
         let now = wall_ms();
         if token.nbf > now {
             return Err(KernelError::NotYetValid);
         }
-        if token.exp < now {
+        if token.exp <= now {
             return Err(KernelError::Expired);
+        }
+        if revocations.is_revoked(&token.jti) {
+            return Err(KernelError::Revoked);
         }
         if token.uses == 0 {
             return Err(KernelError::Exhausted);
         }
+        Ok(())
+    }
 
+    pub fn verify_for_scope(
+        &self,
+        token: &Token,
+        revocations: &RevocationList,
+        resource: &str,
+        action: &str,
+    ) -> Result<(), KernelError> {
+        self.verify_with_revocations(token, revocations)?;
+        if token.scope.resource != resource || token.scope.action != action {
+            return Err(KernelError::ScopeMismatch);
+        }
+        Ok(())
+    }
+
+    fn verify_signature(&self, token: &Token) -> Result<(), KernelError> {
         let payload = encode_unsigned(token)?;
         let sig: [u8; SIGNATURE_LEN] = token
             .signature
@@ -118,6 +148,22 @@ mod tests {
     }
 
     #[test]
+    fn test_reject_expired_token() {
+        verify_rejects_expired_token();
+    }
+
+    #[test]
+    fn test_expiry_boundary_exact_tick() {
+        let broker = TokenBroker::generate("test-broker").unwrap();
+        let intent = read_intent();
+        let decision = PolicyEngine::evaluate(&intent);
+        let mut token = broker.mint(&intent, &decision).unwrap();
+        token.exp = wall_ms();
+
+        assert!(matches!(broker.verify(&token), Err(KernelError::Expired)));
+    }
+
+    #[test]
     fn verify_rejects_not_yet_valid_token() {
         let broker = TokenBroker::generate("test-broker").unwrap();
         let intent = read_intent();
@@ -152,6 +198,11 @@ mod tests {
     }
 
     #[test]
+    fn test_reject_tampered_signature() {
+        verify_rejects_tampered_signature();
+    }
+
+    #[test]
     fn verify_rejects_tampered_payload() {
         let broker = TokenBroker::generate("test-broker").unwrap();
         let intent = read_intent();
@@ -175,6 +226,35 @@ mod tests {
         let token = attacker.mint(&intent, &decision).unwrap();
 
         assert!(matches!(broker.verify(&token), Err(KernelError::BadSignature)));
+    }
+
+    #[test]
+    fn test_reject_wrong_scope_token() {
+        let broker = TokenBroker::generate("test-broker").unwrap();
+        let revocations = RevocationList::new();
+        let intent = read_intent();
+        let decision = PolicyEngine::evaluate(&intent);
+        let token = broker.mint(&intent, &decision).unwrap();
+
+        assert!(matches!(
+            broker.verify_for_scope(&token, &revocations, "file", "write"),
+            Err(KernelError::ScopeMismatch)
+        ));
+    }
+
+    #[test]
+    fn test_reject_replayed_token_after_burn() {
+        let broker = TokenBroker::generate("test-broker").unwrap();
+        let mut revocations = RevocationList::new();
+        let intent = read_intent();
+        let decision = PolicyEngine::evaluate(&intent);
+        let token = broker.mint(&intent, &decision).unwrap();
+        assert!(revocations.revoke(&token.jti));
+
+        assert!(matches!(
+            broker.verify_with_revocations(&token, &revocations),
+            Err(KernelError::Revoked)
+        ));
     }
 
     #[test]

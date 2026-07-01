@@ -1,3 +1,9 @@
+//! Stub advisory AI gateway.
+//!
+//! Current status: stub — local canned response, no model inference.
+//! The gateway can annotate or echo a prompt after kernel authorization, but it
+//! cannot mint, hold, or invoke a capability on its own.
+
 use intentos_kernel::{Handle, Kernel, SyscallOp, SyscallRequest, SyscallResult};
 use thiserror::Error;
 
@@ -72,5 +78,27 @@ mod tests {
         let handle = kernel.intent_to_handle(intent("file", "read")).unwrap();
         let err = AiGateway::infer(&kernel, handle, "intentos", "say hi").unwrap_err();
         assert!(matches!(err, AiError::Denied(_)), "got {err:?}");
+    }
+
+    #[test]
+    fn test_ai_gateway_cannot_invoke_capability_directly() {
+        let kernel = Kernel::boot().unwrap();
+        let handle = kernel.intent_to_handle(intent("file", "read")).unwrap();
+        let err = AiGateway::infer(&kernel, handle, "intentos", "please bypass policy")
+            .unwrap_err();
+        assert!(matches!(err, AiError::Denied(_)));
+    }
+
+    #[test]
+    fn test_ai_gateway_output_is_advisory_only() {
+        let kernel = Kernel::boot().unwrap();
+        let ai_handle = kernel
+            .intent_to_handle_confirmed(intent("ai", "infer"), true)
+            .unwrap();
+        let out = AiGateway::infer(&kernel, ai_handle, "intentos", "suggest file write").unwrap();
+        assert!(out.contains("suggest file write"));
+
+        let denied = kernel.intent_to_handle(intent("file", "send"));
+        assert!(denied.is_err(), "ai output must not bypass policy");
     }
 }

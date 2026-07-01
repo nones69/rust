@@ -27,6 +27,35 @@ This format is mandatory for all IntentKernel Relief Layer (IKRL) implementation
 
 A Capability Token consists of three logical sections: **Header**, **Payload**, and **Signature**.
 
+### 2.1 Current `intentos-kernel` runtime v1 layout
+
+The in-process `rust/crates/intentos-kernel/src/token.rs` implementation currently signs the CBOR encoding of the `Token` struct with an empty `signature` field, then appends the detached signature bytes into `signature`.
+
+Runtime v1 field order in the signed CBOR payload:
+
+1. `ver` — signature/version byte
+2. `typ` — token type
+3. `anchor` — trust anchor
+4. `iss` — issuer string
+5. `sub` — subject string
+6. `scope.resource` — exact resource string
+7. `scope.action` — exact action string
+8. `scope.constraints` — ordered constraint map
+9. `exp` — expiry epoch milliseconds
+10. `nbf` — not-before epoch milliseconds
+11. `uses` — remaining uses
+12. `jti` — unique token identifier
+13. `signature` — detached raw signature bytes (excluded from signed payload; populated after signing)
+
+Validation order for the current runtime is:
+
+1. signature
+2. not-before
+3. expiry (`exp <= now` is expired)
+4. revocation status
+5. exact scope match
+6. remaining uses
+
 ```text
 +------------------+------------------+------------------+
 |      Header      |      Payload     |     Signature    |

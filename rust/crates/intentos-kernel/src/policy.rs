@@ -7,6 +7,38 @@ use crate::types::{Intent, PolicyDecision, TrustAnchor};
 pub struct PolicyEngine;
 
 impl PolicyEngine {
+    fn deny(
+        profile: ThresholdLevel,
+        cap_summary: String,
+        reason: impl Into<String>,
+        reason_code: &str,
+    ) -> PolicyDecision {
+        PolicyDecision {
+            outcome: PolicyOutcome::Deny,
+            allowed: false,
+            requires_confirmation: false,
+            threshold_level: profile,
+            reason: reason.into(),
+            reason_code: reason_code.into(),
+            cap_summary,
+            ttl_ms: 0,
+            max_uses: 0,
+        }
+    }
+
+    fn explicit_rule(resource: &str, action: &str) -> Option<(u64, u32)> {
+        match (action, resource) {
+            ("read", "file") => Some((5_000, 1)),
+            ("write", "file") => Some((10_000, 1)),
+            ("list", "dir") | ("list", "file") => Some((5_000, 1)),
+            ("send", "network") => Some((30_000, 1)),
+            ("descramble", "network") => Some((15_000, 1)),
+            ("infer", "ai") => Some((60_000, 1)),
+            ("background", "lease") => Some((30_000, 1)),
+            _ => None,
+        }
+    }
+
     pub fn evaluate(intent: &Intent) -> PolicyDecision {
         Self::evaluate_with_threshold(intent, ThresholdLevel::Medium)
     }
@@ -22,56 +54,75 @@ impl PolicyEngine {
     ) -> PolicyDecision {
         let cap_summary = format!("{}/{}", intent.resource, intent.action);
 
+        if !intent.is_well_formed() {
+            return Self::deny(
+                profile,
+                cap_summary,
+                "malformed intent: actor, resource, action, and timestamp are required",
+                "malformed_intent",
+            );
+        }
+
         if let Some(sig) = signals {
             let risk = risk_for(&intent.resource, &intent.action);
             if risk == ThresholdLevel::High
                 && (intent.anchor as u8) < sig.min_anchor_for_high_risk() as u8
             {
                 return PolicyDecision {
-                    outcome: PolicyOutcome::Deny,
-                    allowed: false,
-                    requires_confirmation: false,
                     threshold_level: risk,
                     reason: format!(
                         "posture gate: high-risk intent needs anchor >= {:?} ({})",
                         sig.min_anchor_for_high_risk(),
                         sig.posture_summary
                     ),
-                    reason_code: "posture_deny".into(),
-                    cap_summary,
-                    ttl_ms: 0,
-                    max_uses: 0,
+                    ..Self::deny(risk, cap_summary, "", "posture_deny")
                 };
             }
         }
 
         if (intent.anchor as u8) < TrustAnchor::UiEvent as u8 {
-            return PolicyDecision {
-                outcome: PolicyOutcome::Deny,
-                allowed: false,
-                requires_confirmation: false,
-                threshold_level: profile,
-                reason: "intent anchor below UiEvent threshold".into(),
-                reason_code: "anchor_low".into(),
+            return Self::deny(
+                profile,
                 cap_summary,
-                ttl_ms: 0,
-                max_uses: 0,
-            };
+                "intent anchor below UiEvent threshold",
+                "anchor_low",
+            );
+        }
+
+        let requested_ttl_ms = match intent.requested_ttl_ms() {
+            Ok(ttl) => ttl,
+            Err(()) => {
+                return Self::deny(
+                    profile,
+                    cap_summary,
+                    "requested ttl must be a positive integer",
+                    "ttl_invalid",
+                );
+            }
+        };
+
+        let Some((base_ttl_ms, max_uses)) =
+            Self::explicit_rule(&intent.resource, &intent.action)
+        else {
+            return Self::deny(
+                profile,
+                cap_summary,
+                "no explicit policy rule for requested resource/action",
+                "unknown_scope",
+            );
+        };
+        let ttl_ms = requested_ttl_ms.map(|ttl| ttl.min(base_ttl_ms)).unwrap_or(base_ttl_ms);
+        if ttl_ms == 0 {
+            return Self::deny(
+                profile,
+                cap_summary,
+                "requested ttl must resolve to a positive value",
+                "ttl_invalid",
+            );
         }
 
         let risk = risk_for(&intent.resource, &intent.action);
         let outcome = gate_outcome(risk, profile);
-        let (ttl_ms, max_uses) = match (intent.action.as_str(), intent.resource.as_str()) {
-            ("read", "file") => (5_000, 1),
-            ("write", "file") => (10_000, 1),
-            ("list", "dir") | ("list", "file") => (5_000, 1),
-            ("send", "network") => (30_000, 1),
-            ("descramble", "network") => (15_000, 1),
-            ("infer", "ai") => (60_000, 1),
-            ("background", "lease") => (30_000, 1),
-            _ => (5_000, 1),
-        };
-
         let (allowed, requires_confirmation, reason, reason_code) = match outcome {
             PolicyOutcome::Allow => (
                 true,
@@ -113,7 +164,7 @@ impl PolicyEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::wall_ms;
+    use crate::types::{wall_ms, META_REQUESTED_TTL_MS};
     use std::collections::BTreeMap;
 
     #[test]
@@ -165,6 +216,70 @@ mod tests {
             metadata: meta,
         };
         assert!(!PolicyEngine::evaluate(&intent).allowed);
+    }
+
+    #[test]
+    fn test_deny_by_default_on_malformed_intent() {
+        let intent = Intent {
+            actor: "".into(),
+            resource: "".into(),
+            action: "read".into(),
+            anchor: TrustAnchor::UiEvent,
+            timestamp_ms: 0,
+            metadata: BTreeMap::new(),
+        };
+        let decision = PolicyEngine::evaluate(&intent);
+        assert!(!decision.allowed);
+        assert_eq!(decision.reason_code, "malformed_intent");
+    }
+
+    #[test]
+    fn test_deny_on_ttl_zero_or_negative() {
+        for raw in ["0", "-1"] {
+            let mut metadata = BTreeMap::new();
+            metadata.insert(META_REQUESTED_TTL_MS.into(), raw.into());
+            let intent = Intent {
+                actor: "app".into(),
+                resource: "file".into(),
+                action: "read".into(),
+                anchor: TrustAnchor::UiEvent,
+                timestamp_ms: wall_ms(),
+                metadata,
+            };
+            let decision = PolicyEngine::evaluate(&intent);
+            assert!(!decision.allowed, "raw={raw}");
+            assert_eq!(decision.reason_code, "ttl_invalid");
+        }
+    }
+
+    #[test]
+    fn test_deny_on_action_resource_mismatch() {
+        let intent = Intent {
+            actor: "app".into(),
+            resource: "file".into(),
+            action: "send".into(),
+            anchor: TrustAnchor::UiEvent,
+            timestamp_ms: wall_ms(),
+            metadata: BTreeMap::new(),
+        };
+        let decision = PolicyEngine::evaluate(&intent);
+        assert!(!decision.allowed);
+        assert_eq!(decision.reason_code, "unknown_scope");
+    }
+
+    #[test]
+    fn test_deny_on_unknown_action_type() {
+        let intent = Intent {
+            actor: "app".into(),
+            resource: "file".into(),
+            action: "chmod".into(),
+            anchor: TrustAnchor::UiEvent,
+            timestamp_ms: wall_ms(),
+            metadata: BTreeMap::new(),
+        };
+        let decision = PolicyEngine::evaluate(&intent);
+        assert!(!decision.allowed);
+        assert_eq!(decision.reason_code, "unknown_scope");
     }
 }
 
