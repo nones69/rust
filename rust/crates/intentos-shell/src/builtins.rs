@@ -811,12 +811,13 @@ impl BuiltinContext<'_> {
     pub fn lease(&self, parsed: &ParsedLine<'_>) -> Result<()> {
         match parsed.arg(0) {
             None | Some("grant") => {
+                let base_index = usize::from(parsed.arg(0) == Some("grant"));
                 let pid: u32 = parsed
-                    .arg(if parsed.arg(0) == Some("grant") { 1 } else { 0 })
+                    .arg(base_index)
                     .and_then(|p| p.parse().ok())
                     .unwrap_or(std::process::id());
                 let ttl_ms: u64 = parsed
-                    .arg(if parsed.arg(0) == Some("grant") { 2 } else { 1 })
+                    .arg(base_index + 1)
                     .and_then(|p| p.parse().ok())
                     .unwrap_or(30_000);
                 let lease = self.runtime.kernel().grant_lease(pid, ttl_ms);

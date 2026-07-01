@@ -110,14 +110,6 @@ impl PolicyEngine {
             );
         };
         let ttl_ms = requested_ttl_ms.map(|ttl| ttl.min(base_ttl_ms)).unwrap_or(base_ttl_ms);
-        if ttl_ms == 0 {
-            return Self::deny(
-                profile,
-                cap_summary,
-                "requested ttl must resolve to a positive value",
-                "ttl_invalid",
-            );
-        }
 
         let risk = risk_for(&intent.resource, &intent.action);
         let outcome = gate_outcome(risk, profile);
