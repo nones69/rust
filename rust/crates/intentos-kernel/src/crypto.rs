@@ -14,8 +14,12 @@ pub const SIGNATURE_LEN: usize = 4595;
 
 /// Ed25519 dev path — ML-DSA-sized slots with seed-bound padding.
 pub const TOKEN_SIG_V1_ED25519: u8 = 1;
-/// PQC-hybrid path — Ed25519 + public-key-bound SHA3-512 padding (verify without secret).
-pub const TOKEN_SIG_V2_PQC_HYBRID: u8 = 2;
+/// PQC-simulation path — Ed25519 + public-key-bound SHA3-512 padding sized to match
+/// ML-DSA-87 wire format.  **This is not post-quantum cryptography**: no lattice-based
+/// primitive is involved.  The name "simulation" reflects that the slot layout mimics a
+/// future PQC scheme so wire-format code can be exercised today; replace with a real
+/// ML-DSA implementation before any production use.
+pub const TOKEN_SIG_V2_PQC_SIMULATION: u8 = 2;
 
 const PQC_PAD_DOMAIN: &[u8] = b"INTENTOS-PQC-V2";
 
@@ -135,7 +139,7 @@ pub fn sign_with_version(
 ) -> Result<[u8; SIGNATURE_LEN], CryptoError> {
     match ver {
         TOKEN_SIG_V1_ED25519 => sign(secret_key, message),
-        TOKEN_SIG_V2_PQC_HYBRID => sign_pqc_hybrid(secret_key, message),
+        TOKEN_SIG_V2_PQC_SIMULATION => sign_pqc_simulation(secret_key, message),
         _ => Err(CryptoError::InvalidKey),
     }
 }
@@ -148,7 +152,7 @@ pub fn verify_with_version(
 ) -> Result<(), CryptoError> {
     match ver {
         TOKEN_SIG_V1_ED25519 => verify_ed25519(public_key, message, signature),
-        TOKEN_SIG_V2_PQC_HYBRID => verify_pqc_hybrid(public_key, message, signature),
+        TOKEN_SIG_V2_PQC_SIMULATION => verify_pqc_simulation(public_key, message, signature),
         _ => Err(CryptoError::InvalidKey),
     }
 }
@@ -169,7 +173,7 @@ fn verify_ed25519(
         .map_err(|_| CryptoError::VerifyFailed)
 }
 
-fn sign_pqc_hybrid(
+fn sign_pqc_simulation(
     secret_key: &[u8; SECRET_KEY_LEN],
     message: &[u8],
 ) -> Result<[u8; SIGNATURE_LEN], CryptoError> {
@@ -187,7 +191,7 @@ fn sign_pqc_hybrid(
     Ok(out)
 }
 
-fn verify_pqc_hybrid(
+fn verify_pqc_simulation(
     public_key: &[u8; PUBLIC_KEY_LEN],
     message: &[u8],
     signature: &[u8; SIGNATURE_LEN],
@@ -238,14 +242,14 @@ mod tests {
     }
 
     #[test]
-    fn pqc_hybrid_sign_verify_roundtrip() {
+    fn pqc_simulation_sign_verify_roundtrip() {
         let keys = generate_broker_keys().unwrap();
         let msg = b"pqc hybrid token path";
-        let sig = sign_with_version(&keys.secret_key, msg, TOKEN_SIG_V2_PQC_HYBRID).unwrap();
-        assert!(verify_with_version(&keys.public_key, msg, &sig, TOKEN_SIG_V2_PQC_HYBRID).is_ok());
+        let sig = sign_with_version(&keys.secret_key, msg, TOKEN_SIG_V2_PQC_SIMULATION).unwrap();
+        assert!(verify_with_version(&keys.public_key, msg, &sig, TOKEN_SIG_V2_PQC_SIMULATION).is_ok());
         let mut tampered = sig;
         tampered[200] ^= 0xFF;
-        assert!(verify_with_version(&keys.public_key, msg, &tampered, TOKEN_SIG_V2_PQC_HYBRID).is_err());
+        assert!(verify_with_version(&keys.public_key, msg, &tampered, TOKEN_SIG_V2_PQC_SIMULATION).is_err());
     }
 
     #[test]

@@ -246,9 +246,9 @@ impl OsRuntime {
 
     /// Apply loom PQC token preference to the kernel broker.
     pub fn sync_pqc_tokens_from_loom(&self) {
-        use intentos_kernel::{TOKEN_SIG_V1_ED25519, TOKEN_SIG_V2_PQC_HYBRID};
+        use intentos_kernel::{TOKEN_SIG_V1_ED25519, TOKEN_SIG_V2_PQC_SIMULATION};
         let ver = if self.loom.is_pqc_tokens_enabled() {
-            TOKEN_SIG_V2_PQC_HYBRID
+            TOKEN_SIG_V2_PQC_SIMULATION
         } else {
             TOKEN_SIG_V1_ED25519
         };

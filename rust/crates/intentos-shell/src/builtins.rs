@@ -503,10 +503,10 @@ impl BuiltinContext<'_> {
                 let sub = parsed.arg(1).unwrap_or("status");
                 match sub {
                     "status" => {
-                        use intentos_kernel::TOKEN_SIG_V2_PQC_HYBRID;
+                        use intentos_kernel::TOKEN_SIG_V2_PQC_SIMULATION;
                         let ver = self.runtime.kernel().token_sig_version();
-                        let mode = if ver == TOKEN_SIG_V2_PQC_HYBRID {
-                            "pqc_hybrid"
+                        let mode = if ver == TOKEN_SIG_V2_PQC_SIMULATION {
+                            "pqc_simulation"
                         } else {
                             "ed25519_dev"
                         };
@@ -521,9 +521,9 @@ impl BuiltinContext<'_> {
                         let _ = self.runtime.audit.record(
                             intentos_audit::AuditEventKind::PqcTokensEnabled,
                             &self.state.actor,
-                            "PQC hybrid token path enabled (TOKEN_SIG_V2)".to_string(),
+                            "PQC simulation token path enabled (TOKEN_SIG_V2)".to_string(),
                         );
-                        println!("PQC hybrid tokens enabled (ver=2)");
+                        println!("PQC simulation tokens enabled (ver=2)");
                     }
                     "disable-pqc" => {
                         self.runtime.loom.set_pqc_tokens_enabled(false)?;
@@ -533,7 +533,7 @@ impl BuiltinContext<'_> {
                             &self.state.actor,
                             "reverted to Ed25519 dev token path (TOKEN_SIG_V1)".to_string(),
                         );
-                        println!("PQC hybrid tokens disabled (ver=1)");
+                        println!("PQC simulation tokens disabled (ver=1)");
                     }
                     other => anyhow::bail!(
                         "usage: kernel crypto status|enable-pqc|disable-pqc (got: {other})"

@@ -288,12 +288,12 @@ fn threshold_signals_include_posture_trust_score() {
 
 #[test]
 fn pqc_token_path_mints_ver_2_tokens() {
-    use intentos_kernel::TOKEN_SIG_V2_PQC_HYBRID;
+    use intentos_kernel::TOKEN_SIG_V2_PQC_SIMULATION;
     let (rt, dir) = boot_with_temp_loom();
     rt.loom.complete_oobe(ThresholdLevel::Medium).unwrap();
     rt.loom.set_pqc_tokens_enabled(true).unwrap();
     rt.sync_pqc_tokens_from_loom();
-    assert_eq!(rt.kernel().token_sig_version(), TOKEN_SIG_V2_PQC_HYBRID);
+    assert_eq!(rt.kernel().token_sig_version(), TOKEN_SIG_V2_PQC_SIMULATION);
     let card = rt.loom.create_card("Read", "file", "read").unwrap();
     let (handle, _) = rt
         .loom

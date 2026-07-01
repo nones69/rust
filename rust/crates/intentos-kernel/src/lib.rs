@@ -32,7 +32,7 @@ pub use card::IntentCard;
 pub use crypto::{
     generate_broker_keys, sign, sign_with_version, verify, verify_with_version, BrokerKeys,
     CryptoError, PUBLIC_KEY_LEN, SECRET_KEY_LEN, SIGNATURE_LEN, TOKEN_SIG_V1_ED25519,
-    TOKEN_SIG_V2_PQC_HYBRID,
+    TOKEN_SIG_V2_PQC_SIMULATION,
 };
 pub use field::Field;
 pub use error::KernelError;
@@ -74,6 +74,14 @@ impl Default for KernelConfig {
 }
 
 /// The IntentOS kernel — single in-process authority for the whole OS.
+///
+/// **Locking note:** `inner` uses a single coarse-grained `Mutex` over the entire
+/// `KernelState`.  This is intentional for the reference implementation: a single lock
+/// is easier to audit, eliminates whole classes of subtle races, and is the right
+/// default while the adversarial test suite is still maturing.  Do not replace it with
+/// finer-grained locking until the correctness tests are comprehensive enough to catch
+/// what breaks — premature lock decomposition has historically introduced the race
+/// conditions the tests are designed to prevent.
 pub struct Kernel {
     inner: Arc<Mutex<KernelState>>,
     audit: Option<Arc<AuditLog>>,
@@ -128,7 +136,7 @@ impl Kernel {
         self.inner.lock().unwrap().boot_ms
     }
 
-    /// Select capability token signature scheme (`TOKEN_SIG_V1_ED25519` or `TOKEN_SIG_V2_PQC_HYBRID`).
+    /// Select capability token signature scheme (`TOKEN_SIG_V1_ED25519` or `TOKEN_SIG_V2_PQC_SIMULATION`).
     pub fn set_token_sig_version(&self, ver: u8) {
         self.inner.lock().unwrap().broker.set_sig_version(ver);
     }
