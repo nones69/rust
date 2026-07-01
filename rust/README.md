@@ -47,13 +47,13 @@ cargo run -p intentos --release -- -c "flow file read"
 
 ## Current behavior
 
-The current runtime demonstrates:
+The current runtime demonstrates the core reference flow:
 
 - policy evaluation from shell-generated intents
-- token minting and verification in the kernel
-- handle registration and gated operations
-- an in-memory virtual filesystem
-- a stubbed AI utility gated by kernel approval
+- development-signed token minting and verification in the kernel
+- handle registration and kernel-checked mediated runtime operations
+- gated access to an in-memory virtual filesystem
+- gated invocation of a stubbed AI utility
 - lease creation and reporting
 
 Important limits:

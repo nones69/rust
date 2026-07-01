@@ -49,16 +49,18 @@ Those parts are useful context, but they should not be confused with the current
 
 ## What the current Rust runtime demonstrates
 
-The current `intentos-*` crates provide a reference flow for:
+The active `intentos-*` crates provide a self-contained reference implementation of the IntentKernel execution flow. They currently demonstrate:
 
-- evaluating an intent in [`rust/crates/intentos-kernel/src/policy.rs`](rust/crates/intentos-kernel/src/policy.rs)
-- minting and verifying signed capability tokens in [`rust/crates/intentos-kernel/src/token.rs`](rust/crates/intentos-kernel/src/token.rs)
-- registering handles and enforcing simple gated syscalls in [`rust/crates/intentos-kernel/src/lib.rs`](rust/crates/intentos-kernel/src/lib.rs)
-- exposing gated utilities such as a virtual filesystem in [`rust/crates/intentos-utilities/src/vfs.rs`](rust/crates/intentos-utilities/src/vfs.rs)
-- exposing a stubbed AI utility in [`rust/crates/intentos-utilities/src/ai.rs`](rust/crates/intentos-utilities/src/ai.rs)
-- driving the flow from an interactive shell in [`rust/crates/intentos-shell/src/`](rust/crates/intentos-shell/src/)
+- evaluating intent in [`rust/crates/intentos-kernel/src/policy.rs`](rust/crates/intentos-kernel/src/policy.rs)
+- minting and verifying development-signed capability tokens in [`rust/crates/intentos-kernel/src/token.rs`](rust/crates/intentos-kernel/src/token.rs)
+- registering handles and mediating runtime operations through kernel-managed checks in [`rust/crates/intentos-kernel/src/lib.rs`](rust/crates/intentos-kernel/src/lib.rs)
+- exposing gated utilities such as an in-memory virtual filesystem in [`rust/crates/intentos-utilities/src/vfs.rs`](rust/crates/intentos-utilities/src/vfs.rs)
+- exposing a capability-gated stub AI utility in [`rust/crates/intentos-utilities/src/ai.rs`](rust/crates/intentos-utilities/src/ai.rs)
+- driving the end-to-end flow from an interactive shell in [`rust/crates/intentos-shell/src/`](rust/crates/intentos-shell/src/)
 
-The included ground-up test at [`rust/crates/intentos/tests/ground_up.rs`](rust/crates/intentos/tests/ground_up.rs) also checks that the `intentos-*` path does not depend on the legacy IKRL daemon crates.
+The included ground-up test at [`rust/crates/intentos/tests/ground_up.rs`](rust/crates/intentos/tests/ground_up.rs) also checks that the `intentos-*` runtime path is self-contained and does not depend on the legacy IKRL daemon crates.
+
+This demonstrates the core reference flow for event-scoped capability handling at the runtime level. It should not yet be interpreted as a production syscall-interception boundary or a complete operating-system enforcement layer.
 
 ---
 
