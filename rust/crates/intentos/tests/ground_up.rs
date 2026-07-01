@@ -1,7 +1,7 @@
 //! Ensures IntentOS crates never depend on IKRL / legacy daemon stack.
 
 use intentos_audit::AuditLog;
-use intentos_kernel::{Intent, SyscallOp, SyscallRequest, SyscallResult, TrustAnchor, wall_ms};
+use intentos_kernel::{Intent, Kernel, SyscallOp, SyscallRequest, SyscallResult, TrustAnchor, wall_ms};
 use intentos_shell::Shell;
 use intentos_utilities::OsRuntime;
 use std::fs;
@@ -124,8 +124,7 @@ fn test_direct_bypass_attempt_denied() {
 
 #[test]
 fn test_reuse_burned_token_denied() {
-    let runtime = OsRuntime::boot_with_audit(Arc::new(AuditLog::new())).unwrap();
-    let kernel = runtime.kernel();
+    let kernel = Kernel::boot().unwrap();
     let handle = kernel
         .intent_to_handle(make_intent("mailer", "network", "send"))
         .unwrap();
