@@ -10,7 +10,7 @@
   pwsh -File tools\vm\intentos-vmware.ps1 -Action RunTest -GuestUser dan
 #>
 param(
-    [ValidateSet("Status", "Setup", "Start", "Stop", "RunTest", "Open", "InstallUbuntu", "PostInstall", "Diagnose", "GuestCommands", "FixHgfs")]
+    [ValidateSet("Status", "Setup", "Start", "Stop", "RunTest", "Open", "InstallUbuntu", "PostInstall", "Diagnose", "GuestCommands", "FixHgfs", "FixNetwork", "Fix")]
     [string]$Action = "Status",
     [string]$VmxPath,
     [string]$GuestUser,
@@ -116,6 +116,52 @@ function Invoke-GuestProgram([object]$Cfg, [string[]]$GuestArgs) {
         "runProgramInGuest", $Cfg.vmx_path) + $GuestArgs
     & $vmrun @vmArgs 2>&1
     return $LASTEXITCODE
+}
+
+function Repair-HostVmwareNetworking {
+    $fixHost = Join-Path $VmTools "intentos-vmware-fix-host.ps1"
+    if (-not (Test-Path $fixHost)) {
+        Write-Host "Host fix script missing: $fixHost" -ForegroundColor Yellow
+        return
+    }
+    Write-Host "Starting VMware NAT/DHCP (UAC prompt may appear)..." -ForegroundColor Yellow
+    Start-Process pwsh -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$fixHost`"" -Wait
+    Get-Service VMnetDHCP, "VMware NAT Service" -ErrorAction SilentlyContinue |
+        Format-Table Name, Status -AutoSize
+}
+
+function Set-BridgedNetwork([string]$Vmx) {
+    $backup = "$Vmx.bridged.bak"
+    Copy-Item $Vmx $backup -Force
+    $seenBridge = $false
+    $lines = foreach ($line in Get-Content $Vmx) {
+        if ($line -match '^ethernet0\.connectionType') {
+            'ethernet0.connectionType = "bridged"'
+        } elseif ($line -match '^ethernet0\.(vnet|bridgeName)') {
+            $seenBridge = $true
+            'ethernet0.bridgeName = "Automatic"'
+        } else {
+            $line
+        }
+    }
+    if (-not $seenBridge) {
+        $lines += 'ethernet0.bridgeName = "Automatic"'
+    }
+    $lines | Set-Content $Vmx -Encoding UTF8
+    Write-Host "Network: NAT -> bridged (uses your home router DHCP)." -ForegroundColor Green
+    Write-Host "Backup: $backup"
+}
+
+function Invoke-GuestGitTest([object]$Cfg) {
+    $cmd = @'
+set -e
+export DEBIAN_FRONTEND=noninteractive
+sudo apt-get update -qq
+sudo apt-get install -y git pkg-config libssl-dev libldap2-dev build-essential rustc cargo
+[ -d "$HOME/rust/.git" ] || git clone --depth 1 https://github.com/nones69/rust.git "$HOME/rust"
+cd "$HOME/rust" && bash tools/vm/intentos-wsl-test.sh
+'@
+    return Invoke-GuestProgram $Cfg @("/bin/bash", "-lc", $cmd)
 }
 
 function Set-PostInstallBoot([string]$Vmx) {
@@ -296,6 +342,37 @@ Windows guest alternative:
         Enable-HgfsInVmx $cfg.vmx_path
         Add-SharedFolder $cfg
     }
+    "FixNetwork" {
+        & $PSCommandPath -Action Fix
+    }
+    "Fix" {
+        Write-Step "Fix VMware guest network + boot config"
+        Repair-HostVmwareNetworking
+        if (Test-VmRunning $cfg.vmx_path) {
+            Write-Host "Stopping VM to apply network changes..."
+            & $vmrun -T ws stop $cfg.vmx_path soft
+            Start-Sleep -Seconds 5
+        }
+        Set-BridgedNetwork $cfg.vmx_path
+        Set-PostInstallBoot $cfg.vmx_path
+        Enable-HgfsInVmx $cfg.vmx_path
+        Write-Step "Starting VM"
+        & $vmrun -T ws start $cfg.vmx_path gui
+        Write-Host @"
+
+VM rebooted with bridged networking (internet via your router).
+
+In the VM terminal (dan@home), paste:
+
+  ip addr show
+  ping -c2 8.8.8.8
+  ping -c2 github.com
+
+Then run the IntentOS test:
+
+"@ -ForegroundColor Green
+        Show-GuestCommands
+    }
     "RunTest" {
         if (-not (Test-VmRunning $cfg.vmx_path)) {
             throw "VM is not running. Start it first: -Action Start -Gui"
@@ -311,9 +388,8 @@ Manual (inside VM — use -Action GuestCommands for full copy/paste block):
 "@ -ForegroundColor Yellow
             exit 1
         }
-        Write-Step "Running IntentOS test in VMware guest (via runProgramInGuest)"
-        $guestScript = "/mnt/hgfs/IntentOS/tools/vm/intentos-vmware-guest.sh"
-        $code = Invoke-GuestProgram $cfg @("/bin/bash", $guestScript)
+        Write-Step "Running IntentOS test in VMware guest (git clone path)"
+        $code = Invoke-GuestGitTest $cfg
         if ($code -ne 0) {
             Write-Host @"
 
