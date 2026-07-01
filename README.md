@@ -36,14 +36,21 @@ See [`rust/README.md`](rust/README.md) for details.
 
 ### Other code in this repository
 
-The repository also includes:
+In addition to the active `intentos-*` reference runtime, the repository also includes several experimental and historical components:
 
-- A **legacy IKRL daemon stack** in Rust (`capd`, `intentd`, `leasebroker`, `eventscope`, `ikrl-*` crates)
-- A **C reference capability core** under [`src/reference/`](src/reference/)
-- A **bare-metal kernel skeleton** under [`src/kernel/`](src/kernel/) and [`src/arch/`](src/arch/)
-- Architecture and protocol documents in [`docs/`](docs/)
+- **Legacy IKRL daemon stack in Rust**  
+  Including `capd`, `intentd`, `leasebroker`, `eventscope`, and related `ikrl-*` crates. These represent an older multi-process compatibility path and remain useful design and implementation context.
 
-Those parts are useful context, but they should not be confused with the current three-component `intentos` runtime.
+- **C reference capability core** under [`src/reference/`](src/reference/)  
+  A small reference implementation of capability-oriented core logic used for low-level experimentation and comparison.
+
+- **Bare-metal kernel skeleton** under [`src/kernel/`](src/kernel/) and [`src/arch/`](src/arch/)  
+  Early low-level OS and architecture work. This is experimental and is not the main runnable path in the repository today.
+
+- **Architecture and protocol documents** under [`docs/`](docs/)  
+  Specifications, design notes, and thesis-related materials describing the broader IntentKernel model and roadmap.
+
+These components matter to the overall project, but they should not be confused with the current active Rust reference runtime centered on `intentos`, `intentos-kernel`, `intentos-shell`, and `intentos-utilities`.
 
 ---
 
@@ -78,7 +85,7 @@ This repo is best read as a **reference implementation plus architecture proposa
 
 ## Three-component architecture
 
-The active Rust reference runtime is organized around these three layers:
+The active Rust reference runtime is currently organized as three in-process layers:
 
 ```text
 user command / event
@@ -89,6 +96,7 @@ user command / event
 | intentos-shell     |
 | - parse commands   |
 | - session state    |
+| - dispatch flow    |
 +---------+----------+
           |
           v
@@ -111,40 +119,56 @@ user command / event
 +--------------------+
 ```
 
-This is an **in-process model**. It is separate from the older daemon-oriented IKRL path that remains in the workspace.
+### Layer roles
+
+- **`intentos-shell`**  
+  Accepts interactive commands, maintains shell and session state, and drives requests into the runtime.
+
+- **`intentos-kernel`**  
+  Evaluates policy, mints and verifies capability tokens, tracks leases, and mediates access decisions.
+
+- **`intentos-utilities`**  
+  Provides gated services used by the runtime, currently including an in-memory VFS and a stubbed AI utility.
+
+The `intentos` binary boots these three components together in a single process.
+
+This is an **in-process reference model**. It is separate from the older daemon-oriented IKRL path that also remains in the workspace.
 
 ---
 
 ## Claims table: reference implementation status
 
-The table below describes what the repository currently supports or illustrates, without claiming guaranteed protection.
+The table below summarizes what the repository currently implements, demonstrates, or includes, without claiming system-wide security guarantees.
 
 | Topic | Status in this repo | Notes |
 |------|----------------------|-------|
-| Event-scoped capability model | **Implemented as a reference flow** | `intentos-kernel` evaluates intents, mints tokens, registers handles, and gates operations |
-| Interactive shell workflow | **Implemented** | `intentos-shell` provides `status`, `flow`, `ls`, `cat`, `write`, `ai infer`, and lease commands |
-| File access mediation demo | **Implemented in-memory** | `intentos-utilities` gates reads/writes to an in-memory VFS, not the host filesystem |
-| AI capability gating | **Implemented as a stub** | `AiGateway` returns a local stub response after kernel authorization |
-| Lease tracking | **Implemented** | Lease grant, renew, tick, and list logic exists in `intentos-kernel` |
-| Legacy multi-process stack | **Present** | `capd`, `intentd`, `leasebroker`, `eventscope`, and related crates remain in the workspace |
-| Bare-metal OS | **Partial / experimental** | C and low-level kernel sources exist, but this is not the main runnable path |
-| Ransomware immunity | **Not proven** | The repo includes demos and architectural goals, not a universal guarantee |
-| Spyware immunity | **Not proven** | No formal or system-wide proof is provided |
-| Quantum resistance | **Not yet in `intentos-*` runtime** | Current `intentos-kernel` code uses Ed25519-based development signing, not production PQC |
+| Event-scoped capability flow | **Implemented as a reference flow** | `intentos-kernel` evaluates intents, mints tokens, registers handles, and mediates runtime operations |
+| Interactive shell workflow | **Implemented** | `intentos-shell` provides commands such as `status`, `flow`, `ls`, `cat`, `write`, `ai infer`, and `lease` |
+| File access mediation demo | **Implemented in-memory** | `intentos-utilities` gates reads and writes to an in-memory VFS, not the host filesystem |
+| AI capability gating | **Implemented as a stub** | The AI utility returns a local stub response after kernel authorization |
+| Lease tracking | **Implemented** | Grant, renew, tick, expire, and list logic exists in `intentos-kernel` |
+| Legacy multi-process IKRL stack | **Present** | `capd`, `intentd`, `leasebroker`, `eventscope`, and related crates remain in the workspace |
+| Bare-metal OS path | **Partial / experimental** | Low-level C and kernel sources exist, but this is not the primary runnable implementation |
+| Ransomware immunity | **Not proven** | The repository contains architecture work, demos, and prototype flows, not a universal guarantee |
+| Spyware immunity | **Not proven** | No formal or system-wide proof is currently provided |
+| Botnet immunity | **Not proven** | No host-wide or network-wide proof is currently provided |
+| Quantum resistance in active runtime | **Not yet implemented as production PQC** | The active `intentos-*` runtime uses development-oriented signing paths rather than a finished production post-quantum deployment |
 
 ---
 
 ## Cryptography note
 
-The current `intentos-*` runtime uses the code in [`rust/crates/intentos-kernel/src/crypto.rs`](rust/crates/intentos-kernel/src/crypto.rs), which is a **development-oriented signing path** built around `ed25519-dalek` and SHA-3. It is useful for exercising token flow, but it should not be described as a finished post-quantum deployment.
+The current `intentos-*` runtime uses the code in [`rust/crates/intentos-kernel/src/crypto.rs`](rust/crates/intentos-kernel/src/crypto.rs), which is a development-oriented signing path built around `ed25519-dalek` and SHA-3-derived padding, including the current versioned token signature flow.
 
-Separate crypto experiments also exist in the legacy Rust workspace, including [`rust/crates/intentkernel-crypto/`](rust/crates/intentkernel-crypto/).
+This is suitable for exercising token issuance, verification, and capability flow in the reference runtime, but it should **not** be described as a finished production post-quantum deployment.
+
+Separate cryptography experiments also exist elsewhere in the Rust workspace, including [`rust/crates/intentkernel-crypto/`](rust/crates/intentkernel-crypto/), but those are not the active cryptographic path used by the main `intentos-*` runtime.
 
 ---
 
 ## Repository structure
 
-This is the top-level layout as it exists today:
+The repository currently contains research, prototype, compatibility, and low-level implementation work. At a high level:
 
 ```text
 .
@@ -152,36 +176,36 @@ This is the top-level layout as it exists today:
 ├── BUILD.md
 ├── LICENSE
 ├── AUTHORS.md
-├── docs/                 # Architecture and protocol documents
-├── governance/           # Project principles
-├── install/              # Install-related assets
-├── mcps/                 # MCP tool definitions and related assets
+├── docs/                 # Architecture, specifications, and thesis-related documents
+├── governance/           # Project principles and architectural rules
+├── install/              # Installation-related assets
+├── mcps/                 # MCP-related tools and assets
 ├── platform/             # Platform-specific material
-├── roadmap/              # Implementation planning
-├── rust/                 # Rust workspace: intentos + IKRL crates
+├── roadmap/              # Implementation planning and roadmap documents
+├── rust/                 # Rust workspace: active runtime + legacy IKRL crates
 ├── scripts/              # Helper scripts
 ├── src/                  # C reference core and low-level kernel sources
-├── thesis/               # Thesis-related material
+├── thesis/               # Thesis and proposal material
 └── tools/                # Additional tooling
 ```
 
-Key subtrees:
+### Key subtrees
 
 ```text
 rust/
 ├── Cargo.toml
 ├── README.md
 └── crates/
-    ├── intentos/
-    ├── intentos-kernel/
-    ├── intentos-shell/
-    ├── intentos-utilities/
-    ├── capd/
-    ├── intentd/
-    ├── leasebroker/
-    ├── eventscope/
-    ├── ikrl-*/
-    └── ransomware-demo/
+    ├── intentos/              # Entry point for the in-process reference runtime
+    ├── intentos-kernel/       # Policy, tokens, capability tables, leases
+    ├── intentos-shell/        # Interactive shell and command flow
+    ├── intentos-utilities/    # In-memory VFS, AI stub, support utilities
+    ├── capd/                  # Legacy IKRL daemon component
+    ├── intentd/               # Legacy intent broker daemon
+    ├── leasebroker/           # Legacy lease broker component
+    ├── eventscope/            # Legacy event-scoping support
+    ├── ikrl-*/                # Legacy IKRL compatibility crates
+    └── ransomware-demo/       # Experimental/demo artifact
 
 src/
 ├── reference/
@@ -198,6 +222,8 @@ src/
 ---
 
 ## Documents and references
+
+The main design and specification documents currently include:
 
 - Architecture overview: [`docs/architecture_overview.md`](docs/architecture_overview.md)
 - IntentKernel thesis: [`docs/intentkernel_thesis.md`](docs/intentkernel_thesis.md)
