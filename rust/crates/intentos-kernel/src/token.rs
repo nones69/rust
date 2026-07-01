@@ -136,6 +136,15 @@ mod tests {
         }
     }
 
+    fn resign(broker: &TokenBroker, token: &mut Token) {
+        let payload = encode_unsigned(token).unwrap();
+        token.signature = broker
+            .keys
+            .sign_versioned(&payload, token.ver)
+            .unwrap()
+            .to_vec();
+    }
+
     #[test]
     fn verify_rejects_expired_token() {
         let broker = TokenBroker::generate("test-broker").unwrap();
@@ -143,6 +152,7 @@ mod tests {
         let decision = PolicyEngine::evaluate(&intent);
         let mut token = broker.mint(&intent, &decision).unwrap();
         token.exp = wall_ms().saturating_sub(1);
+        resign(&broker, &mut token);
 
         assert!(matches!(broker.verify(&token), Err(KernelError::Expired)));
     }
@@ -159,6 +169,7 @@ mod tests {
         let decision = PolicyEngine::evaluate(&intent);
         let mut token = broker.mint(&intent, &decision).unwrap();
         token.exp = wall_ms();
+        resign(&broker, &mut token);
 
         assert!(matches!(broker.verify(&token), Err(KernelError::Expired)));
     }
@@ -170,6 +181,7 @@ mod tests {
         let decision = PolicyEngine::evaluate(&intent);
         let mut token = broker.mint(&intent, &decision).unwrap();
         token.nbf = wall_ms() + 60_000;
+        resign(&broker, &mut token);
 
         assert!(matches!(broker.verify(&token), Err(KernelError::NotYetValid)));
     }
@@ -181,6 +193,7 @@ mod tests {
         let decision = PolicyEngine::evaluate(&intent);
         let mut token = broker.mint(&intent, &decision).unwrap();
         token.uses = 0;
+        resign(&broker, &mut token);
 
         assert!(matches!(broker.verify(&token), Err(KernelError::Exhausted)));
     }
