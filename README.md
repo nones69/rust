@@ -121,16 +121,16 @@ The table below describes what the repository currently supports or illustrates,
 
 | Topic | Status in this repo | Notes |
 |------|----------------------|-------|
-| Event-scoped capability model | **Implemented as a reference flow** | `intentos-kernel` evaluates intents, mints tokens, registers handles, and gates operations |
-| Interactive shell workflow | **Implemented** | `intentos-shell` provides `status`, `flow`, `ls`, `cat`, `write`, `ai infer`, and lease commands |
-| File access mediation demo | **Implemented in-memory** | `intentos-utilities` gates reads/writes to an in-memory VFS, not the host filesystem |
-| AI capability gating | **Implemented as a stub** | `AiGateway` returns a local stub response after kernel authorization |
-| Lease tracking | **Implemented** | Lease grant, renew, tick, and list logic exists in `intentos-kernel` |
-| Legacy multi-process stack | **Present** | `capd`, `intentd`, `leasebroker`, `eventscope`, and related crates remain in the workspace |
-| Bare-metal OS | **Partial / experimental** | C and low-level kernel sources exist, but this is not the main runnable path |
-| Ransomware immunity | **Not proven** | The repo includes demos and architectural goals, not a universal guarantee |
-| Spyware immunity | **Not proven** | No formal or system-wide proof is provided |
-| Quantum resistance | **Not yet in `intentos-*` runtime** | Current `intentos-kernel` code uses Ed25519-based development signing, not production PQC |
+| Event-scoped capability model | **Implemented as a reference flow; adversarially tested** | `intentos-kernel` evaluates intents, mints tokens, registers handles, and gates operations. Deny-by-default, replay rejection (TTL boundary), scope-mismatch, and tamper-detection tests pass; see `rust/crates/intentos-kernel/src/token.rs` and `rust/crates/intentos-kernel/src/policy.rs` |
+| Interactive shell workflow | **Implemented** | `intentos-shell` provides `status`, `flow`, `ls`, `cat`, `write`, `ai infer`, and lease commands. See `rust/crates/intentos-shell/` for the full command set; a scripted non-interactive mode is available for end-to-end scenario testing |
+| File access mediation demo | **Implemented in-memory** | `intentos-utilities` gates reads/writes to an in-memory VFS. **Not connected to any host OS filesystem; provides no protection for real files on disk.** A future "Host filesystem mediation" row will track the eBPF/LSM backend when it exists |
+| AI capability gating | **Implemented as a stub** | `AiGateway` is advisory-only — it cannot mint or invoke capabilities directly; it must pass a kernel syscall authorization check first. A mismatched capability (e.g. `file/read`) is denied with `AiError::Denied`. See `infer_without_ai_capability_is_denied` in `rust/crates/intentos-utilities/src/ai.rs` |
+| Lease tracking | **Implemented** | Lease grant, renew, tick, and expiry-boundary logic exists in `intentos-kernel`; time-dependent expiry tests pass (see `rust/crates/intentos-kernel/src/lease.rs`). Lease state transitions are recorded in the audit log via `AuditLog` in `rust/crates/intentos-audit/src/lib.rs` |
+| Legacy multi-process stack | **Present; status undecided** | `capd`, `intentd`, `leasebroker`, `eventscope`, and related crates remain in the workspace. **Decision needed:** actively developed toward a host-OS enforcement backend, frozen reference code, or deprecated. This row will be updated with one of those labels once the decision is made |
+| Bare-metal OS | **Partial / experimental** | C and low-level kernel sources exist under `src/`, but this is not the main runnable path. See [`src/kernel/STATUS.md`](src/kernel/STATUS.md) for what currently boots on which architectures |
+| Ransomware immunity | **Not proven** | The repo includes architectural goals, not a universal guarantee. Tested against mass-read/overwrite/rename patterns in the in-memory VFS only; no test suite yet for host-OS or real-storage scenarios |
+| Spyware immunity | **Not proven** | No formal or system-wide proof is provided. The architecture enforces single-scope capability tokens (a `file/read` handle authorizes one resource, not enumeration); misuse across scopes is rejected at the kernel syscall layer, but this has not been exhaustively audited |
+| Quantum resistance | **Not yet in `intentos-*` runtime** | Current `intentos-kernel` uses Ed25519-based development signing (see [`rust/crates/intentos-kernel/src/crypto.rs`](rust/crates/intentos-kernel/src/crypto.rs)); not production PQC. To graduate: swap to an audited ML-DSA-65 (FIPS 204) implementation with key lifecycle (generation, rotation, revocation) and link the commit here |
 
 ---
 
