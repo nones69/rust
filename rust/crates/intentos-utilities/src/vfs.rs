@@ -227,7 +227,8 @@ mod tests {
         intent
             .metadata
             .insert(intentos_kernel::META_REQUESTED_TTL_MS.into(), "1".into());
-        let handle = kernel.intent_to_handle(intent).unwrap();
+        let token = kernel.mint_token(intent).unwrap();
+        let handle = kernel.register_token(token).unwrap();
         std::thread::sleep(std::time::Duration::from_millis(5));
 
         let err = vfs
