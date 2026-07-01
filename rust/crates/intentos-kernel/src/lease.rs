@@ -137,10 +137,10 @@ mod tests {
     #[test]
     fn renew_unknown_lease_returns_none() {
         let mut manager = LeaseManager::new();
-        assert_eq!(
+        assert!(matches!(
             manager.renew("does-not-exist", 1000),
             Err(LeaseRenewError::UnknownLease)
-        );
+        ));
     }
 
     #[test]
@@ -155,10 +155,10 @@ mod tests {
             vec![5]
         );
 
-        assert_eq!(
+        assert!(matches!(
             manager.renew(&lease.lease_id, 60_000),
             Err(LeaseRenewError::Expired)
-        );
+        ));
     }
 
     #[test]
@@ -176,7 +176,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(expired.iter().map(|lease| lease.pid).collect::<Vec<_>>(), vec![7]);
-        assert_eq!(renewed, Err(LeaseRenewError::Expired));
+        assert!(matches!(renewed, Err(LeaseRenewError::Expired)));
         assert_eq!(stored.state, LeaseState::Expired);
     }
 }
