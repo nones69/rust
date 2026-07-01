@@ -226,10 +226,10 @@ mod tests {
         let mut intent = intent("file", "write");
         intent
             .metadata
-            .insert(intentos_kernel::META_REQUESTED_TTL_MS.into(), "20".into());
+            .insert(intentos_kernel::META_REQUESTED_TTL_MS.into(), "100".into());
         let token = kernel.mint_token(intent).unwrap();
         let handle = kernel.register_token(token).unwrap();
-        std::thread::sleep(std::time::Duration::from_millis(30));
+        std::thread::sleep(std::time::Duration::from_millis(150));
 
         let err = vfs
             .write(&kernel, handle, "/home/user/note.txt", b"late write")
