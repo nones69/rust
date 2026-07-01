@@ -86,9 +86,9 @@ Write-Host @"
   5. Network: enable DHCP (NAT — already configured)
   6. Storage: Use entire disk (Ubuntu (2).vmdk — ~20GB)
   7. Profile:
-       Your name:     intentos
-       Server name:   intentos-vm
-       Username:      intentos
+       Your name:     dan
+       Server name:   home
+       Username:      dan
        Password:      (pick one you'll remember)
   8. SSH: ✓ Install OpenSSH server
   9. Snaps: skip all (Tab to Done)
@@ -96,7 +96,7 @@ Write-Host @"
   11. When prompted, press ENTER to remove installation medium
       (or VM → Removable Devices → CD/DVD → Disconnect)
 
-After reboot, log in as 'intentos' and run:
+After reboot, log in as 'dan' and run:
 
   sudo apt-get update
   sudo apt-get install -y open-vm-tools open-vm-tools-desktop
@@ -105,7 +105,7 @@ After reboot, log in as 'intentos' and run:
   bash /mnt/hgfs/IntentOS/tools/vm/intentos-vmware-guest.sh
 
 Then from Windows (optional automated test):
-  pwsh -File tools\vm\intentos-vmware.ps1 -Action RunTest -GuestUser intentos -GuestPassword YOUR_PASS
+  pwsh -File tools\vm\intentos-vmware.ps1 -Action RunTest -GuestUser dan -GuestPassword YOUR_PASS
 
 "@ -ForegroundColor Yellow
 

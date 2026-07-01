@@ -10,7 +10,7 @@
   pwsh -File tools\vm\intentos-vmware.ps1 -Action RunTest -GuestUser dan
 #>
 param(
-    [ValidateSet("Status", "Setup", "Start", "Stop", "RunTest", "Open", "InstallUbuntu")]
+    [ValidateSet("Status", "Setup", "Start", "Stop", "RunTest", "Open", "InstallUbuntu", "PostInstall", "Diagnose", "GuestCommands", "FixHgfs")]
     [string]$Action = "Status",
     [string]$VmxPath,
     [string]$GuestUser,
@@ -29,6 +29,48 @@ $BundleDir = Join-Path $RepoRoot "vm-bundle"
 function Write-Step([string]$Msg) {
     Write-Host ""
     Write-Host "── $Msg" -ForegroundColor Cyan
+}
+
+function Show-GuestCommands {
+    Write-Host @"
+
+══════════════════════════════════════════════════════════════
+  Paste this ENTIRE block into the Ubuntu VM (dan@home)
+  Works even when vmware-hgfsclient shows nothing
+══════════════════════════════════════════════════════════════
+
+sudo apt-get update
+sudo apt-get install -y git pkg-config libssl-dev libldap2-dev build-essential rustc cargo
+git clone https://github.com/nones69/rust.git ~/rust
+cd ~/rust && bash tools/vm/intentos-wsl-test.sh
+
+You should see:
+  Cloning into 'rust'...
+  Building release...
+
+First build takes 5-15 minutes. If git fails, run: ping -c1 github.com
+
+"@ -ForegroundColor Yellow
+}
+
+function Enable-HgfsInVmx([string]$Vmx) {
+    $content = Get-Content $Vmx -Raw
+    $needed = @(
+        'isolation.tools.hgfs.disable = "FALSE"',
+        'hgfs.linkRootShare = "TRUE"'
+    )
+    $lines = Get-Content $Vmx
+    foreach ($n in $needed) {
+        $key = ($n -split ' = ')[0]
+        if (-not ($lines -match "^$([regex]::Escape($key))")) {
+            $lines += $n
+        }
+    }
+    $backup = "$Vmx.hgfs.bak"
+    Copy-Item $Vmx $backup -Force
+    $lines | Set-Content $Vmx -Encoding UTF8
+    Write-Host "HGFS VMX flags added. Reboot the VM for shared folders to appear." -ForegroundColor Green
+    Write-Host "Backup: $backup"
 }
 
 function Find-VmRun {
@@ -58,9 +100,40 @@ function Get-VmConfig {
 
 function Test-VmRunning([string]$Vmx) {
     $vmrun = Find-VmRun
-    $list = & $vmrun -T ws list 2>&1
-    $norm = $Vmx -replace '\\', '/'
-    return ($list -match [regex]::Escape($norm) -or $list -match [regex]::Escape($Vmx))
+    $list = & $vmrun -T ws list 2>&1 | Out-String
+    $leaf = Split-Path $Vmx -Leaf
+    return ($list -match [regex]::Escape($leaf) -or $list -match [regex]::Escape($Vmx))
+}
+
+function Invoke-GuestProgram([object]$Cfg, [string[]]$GuestArgs) {
+    if ([string]::IsNullOrWhiteSpace($Cfg.guest_user)) {
+        throw "Guest user required. Pass -GuestUser dan -GuestPassword YOUR_PASS"
+    }
+    if ([string]::IsNullOrWhiteSpace($Cfg.guest_password)) {
+        throw "Guest password required for vmrun automation. Pass -GuestPassword (the password you set during Ubuntu install)."
+    }
+    $vmArgs = @("-T", "ws", "-gu", $Cfg.guest_user, "-gp", $Cfg.guest_password,
+        "runProgramInGuest", $Cfg.vmx_path) + $GuestArgs
+    & $vmrun @vmArgs 2>&1
+    return $LASTEXITCODE
+}
+
+function Set-PostInstallBoot([string]$Vmx) {
+    if (Test-VmRunning $Vmx) {
+        throw "Power off the VM first: pwsh -File tools\vm\intentos-vmware.ps1 -Action Stop"
+    }
+    $backup = "$Vmx.postinstall.bak"
+    Copy-Item $Vmx $backup -Force
+    $lines = Get-Content $Vmx | Where-Object {
+        $_ -notmatch '^sata0:1\.' -and $_ -notmatch '^bios\.bootOrder'
+    }
+    $lines += @(
+        'sata0:1.present = "FALSE"',
+        'bios.bootOrder = "hdd,cdrom"'
+    )
+    $lines | Set-Content $Vmx -Encoding UTF8
+    Write-Host "Boot order set to disk-first; install ISO disconnected." -ForegroundColor Green
+    Write-Host "Backup: $backup"
 }
 
 function Add-SharedFolder([object]$Cfg) {
@@ -183,33 +256,77 @@ Windows guest alternative:
         $install = Join-Path $VmTools "intentos-vmware-install-ubuntu.ps1"
         & $install -StartVm
     }
+    "Diagnose" {
+        Write-Step "Guest diagnostics"
+        $tools = & $vmrun -T ws checkToolsState $cfg.vmx_path 2>&1
+        Write-Host "VMware Tools: $tools"
+        if (Test-VmRunning $cfg.vmx_path) {
+            Write-Host "VM state: RUNNING" -ForegroundColor Green
+        } else {
+            Write-Host "VM state: stopped" -ForegroundColor Yellow
+        }
+        $ip = & $vmrun -T ws getGuestIPAddress $cfg.vmx_path 2>&1
+        Write-Host "Guest IP: $ip"
+        if (-not [string]::IsNullOrWhiteSpace($cfg.guest_password)) {
+            Write-Host "Trying guest whoami..."
+            $code = Invoke-GuestProgram $cfg @("/bin/bash", "-lc", "whoami; vmware-hgfsclient; ls /mnt/hgfs 2>/dev/null || true")
+            if ($code -ne 0) {
+                Write-Host "Guest login failed — wrong -GuestPassword?" -ForegroundColor Red
+            }
+        } else {
+            Write-Host "No guest_password in config — automated guest commands need -GuestPassword" -ForegroundColor Yellow
+        }
+        Write-Host ""
+        Write-Host "If automated test fails, run inside the VM (copy/paste):" -ForegroundColor Cyan
+        Show-GuestCommands
+    }
+    "GuestCommands" {
+        Show-GuestCommands
+    }
+    "PostInstall" {
+        Write-Step "Post-install VM config (boot from disk, eject ISO)"
+        Set-PostInstallBoot $cfg.vmx_path
+        Write-Host "Start VM: pwsh -File tools\vm\intentos-vmware.ps1 -Action Start -Gui" -ForegroundColor Yellow
+    }
+    "FixHgfs" {
+        Write-Step "Enable VMware shared folders in VMX"
+        if (Test-VmRunning $cfg.vmx_path) {
+            Write-Host "Reboot the VM after this (or Stop then Start) so hgfs picks up." -ForegroundColor Yellow
+        }
+        Enable-HgfsInVmx $cfg.vmx_path
+        Add-SharedFolder $cfg
+    }
     "RunTest" {
         if (-not (Test-VmRunning $cfg.vmx_path)) {
             throw "VM is not running. Start it first: -Action Start -Gui"
         }
-        if ([string]::IsNullOrWhiteSpace($cfg.guest_user)) {
+        if ([string]::IsNullOrWhiteSpace($cfg.guest_user) -or [string]::IsNullOrWhiteSpace($cfg.guest_password)) {
             Write-Host @"
 Guest credentials required for automated test.
 
-Option A — automated (Linux guest):
-  pwsh -File tools\vm\intentos-vmware.ps1 -Action RunTest -GuestUser YOUR_USER -GuestPassword YOUR_PASS
+  pwsh -File tools\vm\intentos-vmware.ps1 -Action RunTest -GuestUser dan -GuestPassword YOUR_UBUNTU_PASSWORD
 
-Option B — manual (inside Ubuntu VM terminal):
+Manual (inside VM — use -Action GuestCommands for full copy/paste block):
   bash /mnt/hgfs/IntentOS/tools/vm/intentos-vmware-guest.sh
-
-Option C — Windows guest:
-  cd C:\IntentOS
-  .\intentos-guest-test.ps1
 "@ -ForegroundColor Yellow
             exit 1
         }
-        Write-Step "Running IntentOS test in VMware guest"
-        $guestScript = "/bin/bash /mnt/hgfs/IntentOS/tools/vm/intentos-vmware-guest.sh"
-        $args = @("-T", "ws", "-gu", $cfg.guest_user, "-gp", $cfg.guest_password,
-            "runScriptInGuest", $cfg.vmx_path, $guestScript)
-        & $vmrun @args
-        if ($LASTEXITCODE -ne 0) {
-            throw "Guest test failed (exit $LASTEXITCODE). Ensure open-vm-tools + shared folder are active."
+        Write-Step "Running IntentOS test in VMware guest (via runProgramInGuest)"
+        $guestScript = "/mnt/hgfs/IntentOS/tools/vm/intentos-vmware-guest.sh"
+        $code = Invoke-GuestProgram $cfg @("/bin/bash", $guestScript)
+        if ($code -ne 0) {
+            Write-Host @"
+
+Guest test failed (exit $code).
+
+Common causes:
+  • Wrong -GuestPassword (must match Ubuntu install password)
+  • Shared folder not mounted — run -Action GuestCommands inside the VM
+  • Missing build deps — guest script installs them on first run
+
+Run: pwsh -File tools\vm\intentos-vmware.ps1 -Action Diagnose -GuestUser $($cfg.guest_user) -GuestPassword ***
+"@ -ForegroundColor Red
+            exit $code
         }
         Write-Host "VMware guest test passed." -ForegroundColor Green
     }
