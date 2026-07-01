@@ -56,12 +56,13 @@ The current runtime demonstrates:
 - a stubbed AI utility gated by kernel approval
 - lease creation and reporting
 
-Important limits:
+What remains unproven in this reference runtime:
 
 - the VFS is **in-memory**, not a host filesystem mediator
 - the AI path is a **stub**, not a full external model runtime
 - the implementation is **in-process**, not a hardened isolation boundary
-- the runtime demonstrates the model; it does **not** prove system-wide immunity claims
+- the runtime does **not** establish system-wide immunity to malware, ransomware, spyware, or botnet behavior
+- the runtime does **not** establish production post-quantum cryptography or a production host-interception boundary
 
 ## Architecture
 

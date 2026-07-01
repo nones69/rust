@@ -62,17 +62,17 @@ The included ground-up test at [`rust/crates/intentos/tests/ground_up.rs`](rust/
 
 ---
 
-## What this repository does **not** currently prove
+## What remains unproven
 
-To keep the documentation honest:
+The repository does **not yet** establish:
 
-- it does **not** prove malware, ransomware, spyware, or botnet **immunity**
-- it does **not** provide a formally verified kernel
-- it does **not** yet implement a production syscall-interception boundary for the `intentos` path
-- it does **not** currently use production post-quantum cryptography in the `intentos-*` runtime
-- it does **not** replace Windows, Linux, macOS, Android, or iOS today
+- system-wide immunity to malware, ransomware, spyware, or botnet behavior
+- a formally verified kernel or formally verified policy semantics
+- a production-grade syscall or host-kernel interception boundary for the `intentos-*` runtime
+- production post-quantum cryptography in the active reference runtime
+- replacement-level compatibility with Windows, Linux, macOS, Android, or iOS
 
-This repo is best read as a **reference implementation plus architecture proposal**, not as a finished secure OS.
+IntentKernel should therefore be read as a **research architecture and reference implementation**, not as a completed secure operating system.
 
 ---
 
