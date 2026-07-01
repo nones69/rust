@@ -68,15 +68,13 @@ impl PolicyEngine {
             if risk == ThresholdLevel::High
                 && (intent.anchor as u8) < sig.min_anchor_for_high_risk() as u8
             {
-                return PolicyDecision {
-                    threshold_level: risk,
-                    reason: format!(
-                        "posture gate: high-risk intent needs anchor >= {:?} ({})",
-                        sig.min_anchor_for_high_risk(),
-                        sig.posture_summary
-                    ),
-                    ..Self::deny(risk, cap_summary, "", "posture_deny")
-                };
+                let mut decision = Self::deny(risk, cap_summary, "", "posture_deny");
+                decision.reason = format!(
+                    "posture gate: high-risk intent needs anchor >= {:?} ({})",
+                    sig.min_anchor_for_high_risk(),
+                    sig.posture_summary
+                );
+                return decision;
             }
         }
 

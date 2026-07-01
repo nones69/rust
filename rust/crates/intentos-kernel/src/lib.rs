@@ -506,7 +506,7 @@ impl Kernel {
             subject,
             serde_json::to_string(&detail).unwrap_or_else(|_| {
                 format!(
-                    "subject={} resource={} action={} decision={} reason={}",
+                    "audit detail subject={} resource={} action={} decision={} reason={}",
                     detail.subject, detail.resource, detail.action, detail.decision, detail.reason
                 )
             }),

@@ -146,7 +146,7 @@ mod tests {
     }
 
     #[test]
-    fn verify_rejects_expired_token() {
+    fn test_reject_expired_token() {
         let broker = TokenBroker::generate("test-broker").unwrap();
         let intent = read_intent();
         let decision = PolicyEngine::evaluate(&intent);
@@ -155,11 +155,6 @@ mod tests {
         resign(&broker, &mut token);
 
         assert!(matches!(broker.verify(&token), Err(KernelError::Expired)));
-    }
-
-    #[test]
-    fn test_reject_expired_token() {
-        verify_rejects_expired_token();
     }
 
     #[test]
@@ -199,7 +194,7 @@ mod tests {
     }
 
     #[test]
-    fn verify_rejects_tampered_signature() {
+    fn test_reject_tampered_signature() {
         let broker = TokenBroker::generate("test-broker").unwrap();
         let intent = read_intent();
         let decision = PolicyEngine::evaluate(&intent);
@@ -208,11 +203,6 @@ mod tests {
         token.signature[0] ^= 0xFF;
 
         assert!(matches!(broker.verify(&token), Err(KernelError::BadSignature)));
-    }
-
-    #[test]
-    fn test_reject_tampered_signature() {
-        verify_rejects_tampered_signature();
     }
 
     #[test]
