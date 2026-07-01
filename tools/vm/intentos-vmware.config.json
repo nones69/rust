@@ -1,0 +1,8 @@
+{
+  "vmx_path": "C:\\Users\\Dizzle\\OneDrive\\Documents\\ubunto\\Ubuntu (2).vmx",
+  "shared_folder_host": "C:\\Users\\Dizzle\\rust",
+  "shared_folder_guest": "IntentOS",
+  "guest_user": "intentos",
+  "guest_password": "",
+  "vmrun_type": "ws"
+}

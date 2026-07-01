@@ -47,7 +47,7 @@ fn main() -> Result<()> {
         ),
         None => println!("  ip-discrambler offline (optional Python bridge)"),
     }
-    println!("  [{TIER_SHELL}] shell    starting session — type `help`\n");
+    println!("  [{TIER_SHELL}] shell    starting session — type 1|2|3 or `help`\n");
 
     let mut shell = Shell::open(Arc::clone(&runtime));
 

@@ -119,7 +119,19 @@ impl ShellSession {
                 Ok(true)
             }
             "tier" | "tiers" => {
-                ctx.tier()?;
+                ctx.tier_focus(parsed.arg(0))?;
+                Ok(true)
+            }
+            "1" => {
+                ctx.tier_focus(Some("1"))?;
+                Ok(true)
+            }
+            "2" => {
+                ctx.tier_focus(Some("2"))?;
+                Ok(true)
+            }
+            "3" => {
+                ctx.tier_focus(Some("3"))?;
                 Ok(true)
             }
             "intent" => {
@@ -283,5 +295,33 @@ impl ShellSession {
                 Ok(true)
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use intentos_utilities::OsRuntime;
+    use std::sync::Arc;
+
+    fn session() -> ShellSession {
+        ShellSession::new(Arc::new(OsRuntime::boot().expect("boot")))
+    }
+
+    #[test]
+    fn numeric_tier_shortcuts_do_not_error() {
+        let mut s = session();
+        std::env::set_var("INTENTOS_SKIP_OOBE", "1");
+        assert!(s.eval("1").expect("tier 1"));
+        assert!(s.eval("2").expect("tier 2"));
+        assert!(s.eval("3").expect("tier 3"));
+    }
+
+    #[test]
+    fn tier_command_accepts_number_arg() {
+        let mut s = session();
+        std::env::set_var("INTENTOS_SKIP_OOBE", "1");
+        assert!(s.eval("tier 3").expect("tier 3"));
+        assert!(s.eval("tier kernel").expect("tier kernel"));
     }
 }

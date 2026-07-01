@@ -1,0 +1,14 @@
+<Configuration>
+  <VGpu>Enable</VGpu>
+  <Networking>Enable</Networking>
+  <MappedFolders>
+    <MappedFolder>
+      <HostFolder>C:\Users\Dizzle\rust</HostFolder>
+      <SandboxFolder>C:\IntentOS</SandboxFolder>
+      <ReadOnly>false</ReadOnly>
+    </MappedFolder>
+  </MappedFolders>
+  <LogonCommand>
+    <Command>powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\IntentOS\tools\vm\intentos-guest-test.ps1 -Binary C:\IntentOS\rust\target\release\intentos.exe</Command>
+  </LogonCommand>
+</Configuration>

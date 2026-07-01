@@ -45,5 +45,7 @@ pub fn banner() -> &'static str {
   │ 2. SHELL      interactive session (you are here)     │
   │ 3. KERNEL     policy · tokens · table · leases       │
   └──────────────────────────────────────────────────────┘
+
+  At shell[2]> type 1|2|3 or `tier <n>` to inspect a tier · `help` for commands
 "#
 }

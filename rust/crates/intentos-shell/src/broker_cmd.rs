@@ -16,13 +16,20 @@ impl BuiltinContext<'_> {
         match sub {
             "status" | "wire-status" => {
                 let session = self.runtime.loom.session();
-                let hub = &self.runtime.utilities.lock().unwrap().federation;
+                let (device, hub_peers) = {
+                    let utils = self.runtime.utilities.lock().unwrap();
+                    (
+                        utils.federation.advertise().to_string(),
+                        utils.federation.peers().len(),
+                    )
+                };
+                let sig_version = self.runtime.kernel().token_sig_version();
                 let wire = BrokerWireHub::open_default();
                 println!(
                     "broker device={} loom_peers={} hub_peers={} signing_key={} wire_root={}",
-                    hub.advertise(),
+                    device,
                     session.broker_peers.len(),
-                    hub.peers().len(),
+                    hub_peers,
                     if session.signing_public_key_hex.is_empty() {
                         "none"
                     } else {
@@ -39,7 +46,7 @@ impl BuiltinContext<'_> {
                 println!(
                     "wire_version={} sig_version={}",
                     intentos_utilities::BROKER_WIRE_VERSION,
-                    self.runtime.kernel().token_sig_version()
+                    sig_version
                 );
             }
             "list" => {
@@ -219,13 +226,17 @@ impl BuiltinContext<'_> {
                     timestamp_ms: wall_ms(),
                     metadata: Default::default(),
                 };
-                let handle = self
-                    .runtime
-                    .kernel()
-                    .intent_to_handle_confirmed(intent, true)?;
-                let hub = &self.runtime.utilities.lock().unwrap().federation;
-                let out = hub
-                    .delegate_to_registered(&self.runtime.kernel(), handle, peer_id, payload.as_bytes())
+                let kernel = self.runtime.kernel();
+                let handle = kernel.intent_to_handle_confirmed(intent, true)?;
+                let out = {
+                    let utils = self.runtime.utilities.lock().unwrap();
+                    utils.federation.delegate_to_registered(
+                        kernel.as_ref(),
+                        handle,
+                        peer_id,
+                        payload.as_bytes(),
+                    )
+                }
                     .map_err(|e| match e {
                         FederationError::Denied(r) => anyhow::anyhow!("delegation denied: {r}"),
                         FederationError::UnknownPeer(id) => {

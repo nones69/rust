@@ -653,12 +653,80 @@ impl BuiltinContext<'_> {
         Ok(())
     }
 
-    pub fn tier(&self) -> Result<()> {
+    /// Show tier map, or drill into tier 1 (utilities), 2 (shell), or 3 (kernel).
+    pub fn tier_focus(&self, target: Option<&str>) -> Result<()> {
+        let Some(target) = target else {
+            println!(
+                "1 utilities  2 shell (active)  3 kernel\nactive tier: {} ({})\n\
+                 tip: type 1|2|3 or `tier <n>` to inspect a tier",
+                OsTier::Shell.number(),
+                OsTier::Shell.name()
+            );
+            return Ok(());
+        };
+        let tier = parse_tier_target(target)?;
+        match tier {
+            OsTier::Utilities => self.tier_utilities()?,
+            OsTier::Shell => self.tier_shell()?,
+            OsTier::Kernel => self.tier_kernel()?,
+        }
+        Ok(())
+    }
+
+    fn tier_utilities(&self) -> Result<()> {
+        let p = &self.runtime.platform;
+        let chain_ok = self.runtime.audit.verify_chain()?;
+        let ai = self.runtime.loom.is_ai_enabled();
+        let telemetry = self.runtime.loom.is_telemetry_enabled();
+        println!("[tier 1] utilities — vfs · ai gateway · system tools");
         println!(
-            "1 utilities  2 shell (active)  3 kernel\nactive tier: {} ({})",
+            "hal backend={} arch={:?} os={:?} cpus={} host={}",
+            p.backend, p.arch, p.os, p.logical_cpus, p.hostname
+        );
+        println!(
+            "vfs=mounted audit_chain_ok={chain_ok} audit_entries={}",
+            self.runtime.audit.len()?
+        );
+        println!("ai_enabled={ai} telemetry_enabled={telemetry}");
+        match &self.runtime.ip_discrambler {
+            Some(bridge) => println!(
+                "ip-discrambler=online root={}",
+                bridge.root().display()
+            ),
+            None => println!("ip-discrambler=offline"),
+        }
+        println!("try: hal | ai status | audit tail | ipdis status");
+        Ok(())
+    }
+
+    fn tier_shell(&self) -> Result<()> {
+        println!("[tier 2] shell — interactive session (active)");
+        println!("actor={} prompt=shell[2]>", self.state.actor);
+        println!(
+            "active tier: {} ({})",
             OsTier::Shell.number(),
             OsTier::Shell.name()
         );
+        println!("try: help | kb suggest | field list | posture | broker status");
+        Ok(())
+    }
+
+    fn tier_kernel(&self) -> Result<()> {
+        use intentos_kernel::TOKEN_SIG_V2_PQC_HYBRID;
+        let stats = self.runtime.kernel().stats();
+        let ver = self.runtime.kernel().token_sig_version();
+        let crypto = if ver == TOKEN_SIG_V2_PQC_HYBRID {
+            "pqc_hybrid"
+        } else {
+            "ed25519_dev"
+        };
+        println!("[tier 3] kernel — policy · tokens · table · leases");
+        println!("{}", serde_json::to_string_pretty(&stats)?);
+        println!(
+            "recognizer={} token_sig={crypto} (ver={ver})",
+            self.runtime.kernel().recognizer_name()
+        );
+        println!("try: kernel stats | kernel crypto status | intent <res> <act> | kb run");
         Ok(())
     }
 
@@ -858,6 +926,17 @@ impl BuiltinContext<'_> {
     }
 }
 
+fn parse_tier_target(target: &str) -> Result<OsTier> {
+    match target {
+        "1" | "utilities" | "util" | "utils" => Ok(OsTier::Utilities),
+        "2" | "shell" => Ok(OsTier::Shell),
+        "3" | "kernel" | "kern" => Ok(OsTier::Kernel),
+        other => anyhow::bail!(
+            "unknown tier: {other} (use 1|2|3 or utilities|shell|kernel)"
+        ),
+    }
+}
+
 fn parse_pair<'a>(parts: &'a [&'a str]) -> Result<(&'a str, &'a str)> {
     if parts.len() < 2 {
         anyhow::bail!("expected <resource> <action>");
@@ -869,7 +948,7 @@ pub fn help_text() -> &'static str {
     r#"
 IntentOS shell — tier 2 (native, no RPC):
 
-  tier                   Show tier numbering (1=utilities 2=shell 3=kernel)
+  tier [1|2|3]           Show tiers; 1=utilities 2=shell 3=kernel (also type 1|2|3)
   status                 Kernel stats + HAL probe
   field create|use|list  Field context management
   kb open|suggest|run|tui Kernel Bar — intent cards (tui = numbered picker)
