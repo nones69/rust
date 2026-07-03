@@ -10,11 +10,15 @@
   pwsh -File tools\vm\intentos-vmware.ps1 -Action RunTest -GuestUser dan
 #>
 param(
-    [ValidateSet("Status", "Setup", "Start", "Stop", "RunTest", "Open", "InstallUbuntu", "PostInstall", "Diagnose", "GuestCommands", "FixHgfs", "FixNetwork", "Fix")]
+    [ValidateSet("Status", "Setup", "Start", "Stop", "RunTest", "Open", "InstallUbuntu", "PostInstall", "Diagnose", "GuestCommands", "FixHgfs", "FixNetwork", "Fix", "SnapshotList", "SnapshotCreate", "SnapshotRevert", "SnapshotDelete", "CaptureScreen", "IsoStatus", "IsoGuestCommands", "AttachIso", "BootIso", "GuestIsoBuild")]
     [string]$Action = "Status",
     [string]$VmxPath,
     [string]$GuestUser,
     [string]$GuestPassword,
+    [string]$SnapshotName = "Snapshot 1",
+    [string]$IsoPath,
+    [ValidateSet("network", "deps", "rust-os", "ubuntu-live", "iso", "all")]
+    [string]$IsoBuildStage = "all",
     [switch]$Gui,
     [switch]$SkipBuild
 )
@@ -29,6 +33,68 @@ $BundleDir = Join-Path $RepoRoot "vm-bundle"
 function Write-Step([string]$Msg) {
     Write-Host ""
     Write-Host "── $Msg" -ForegroundColor Cyan
+}
+
+function Get-CustomIsoPath {
+    if ($IsoPath) { return $IsoPath }
+    return Join-Path $RepoRoot "iso-build\dist\custom-os.iso"
+}
+
+function Show-IsoGuestCommands {
+    Write-Host @"
+
+══════════════════════════════════════════════════════════════
+  iso-build — VMware guest (paste as dan@home)
+══════════════════════════════════════════════════════════════
+
+# Step 1: network + clone
+sudo ip link set ens33 up 2>/dev/null || sudo ip link set eth0 up 2>/dev/null || true
+sudo dhclient -v ens33 2>/dev/null || sudo dhclient -v eth0 2>/dev/null || sudo dhclient -v
+printf 'nameserver 8.8.8.8\nnameserver 1.1.1.1\n' | sudo tee /etc/resolv.conf
+ping -c2 github.com
+
+git clone https://github.com/nones69/rust.git ~/rust 2>/dev/null || (cd ~/rust && git pull)
+bash ~/rust/tools/vm/intentos-vmware-iso-guest.sh rust-os    # quick kernel test (~5 min)
+# Full ISO (20–90 min):
+# bash ~/rust/tools/vm/intentos-vmware-iso-guest.sh all
+
+══════════════════════════════════════════════════════════════
+  After ISO exists on Windows host — boot in VMware:
+══════════════════════════════════════════════════════════════
+
+  pwsh -File tools\vm\intentos-vmware.ps1 -Action BootIso
+  # Select "Custom OS — Live Session" or "Rust OS Kernel" in GRUB
+
+"@ -ForegroundColor Yellow
+}
+
+function Set-IsoBoot([string]$Vmx, [string]$Iso) {
+    if (-not (Test-Path $Iso)) {
+        throw "ISO not found: $Iso — build on guest first (-Action IsoGuestCommands) or WSL: cd iso-build && make all"
+    }
+    if (Test-VmRunning $Vmx) {
+        throw "Power off VM first: -Action Stop"
+    }
+    $isoEsc = $Iso -replace '\\', '\\'
+    $lines = Get-Content $Vmx | Where-Object {
+        $_ -notmatch '^sata0:1\.' -and $_ -notmatch '^bios\.bootOrder'
+    }
+    $lines += @(
+        'sata0:1.present = "TRUE"',
+        'sata0:1.deviceType = "cdrom-image"',
+        "sata0:1.fileName = `"$isoEsc`"",
+        'bios.bootOrder = "cdrom,hdd"'
+    )
+    $backup = "$Vmx.isoboot.bak"
+    Copy-Item $Vmx $backup -Force
+    $lines | Set-Content $Vmx -Encoding UTF8
+    Write-Host "Attached ISO: $Iso" -ForegroundColor Green
+    Write-Host "Boot order: cdrom,hdd (backup: $backup)" -ForegroundColor Green
+}
+
+function Invoke-GuestIsoBuild([object]$Cfg, [string]$Stage) {
+    $cmd = "bash `"`$HOME/rust/tools/vm/intentos-vmware-iso-guest.sh`" $Stage"
+    return Invoke-GuestProgram $Cfg @("/bin/bash", "-lc", $cmd)
 }
 
 function Show-GuestCommands {
@@ -153,6 +219,20 @@ function Set-BridgedNetwork([string]$Vmx) {
     $lines | Set-Content $Vmx -Encoding UTF8
     Write-Host "Network set to bridged (home router DHCP)." -ForegroundColor Green
     Write-Host "Backup: $backup"
+}
+
+function Set-GuestOs64([string]$Vmx) {
+    $backup = "$Vmx.guestos.bak"
+    Copy-Item $Vmx $backup -Force
+    $lines = foreach ($line in Get-Content $Vmx) {
+        if ($line -match '^guestOS\s*=') {
+            'guestOS = "ubuntu-64"'
+        } else {
+            $line
+        }
+    }
+    $lines | Set-Content $Vmx -Encoding UTF8
+    Write-Host 'guestOS set to ubuntu-64 (64-bit VMware profile).' -ForegroundColor Green
 }
 
 function Set-NatNetwork([string]$Vmx) {
@@ -350,6 +430,73 @@ Windows guest alternative:
     "GuestCommands" {
         Show-GuestCommands
     }
+    "IsoStatus" {
+        Write-Step "iso-build artifact status"
+        $iso = Get-CustomIsoPath
+        $elf = Join-Path $RepoRoot "iso-build\build\rust-os\rust-os.elf"
+        if (Test-Path $iso) {
+            $sz = (Get-Item $iso).Length / 1GB
+            Write-Host "ISO: $iso ($([math]::Round($sz, 2)) GiB)" -ForegroundColor Green
+        } else {
+            Write-Host "ISO: not built yet ($iso)" -ForegroundColor Yellow
+        }
+        if (Test-Path $elf) {
+            Write-Host "Kernel ELF: $elf" -ForegroundColor Green
+        } else {
+            Write-Host "Kernel ELF: not built ($elf)" -ForegroundColor DarkGray
+        }
+        Write-Host ""
+        Write-Host "Guest build: -Action IsoGuestCommands" -ForegroundColor Cyan
+        Write-Host "Boot ISO:    -Action BootIso (after ISO exists)" -ForegroundColor Cyan
+    }
+    "IsoGuestCommands" {
+        Show-IsoGuestCommands
+    }
+    "AttachIso" {
+        Write-Step "Attach custom-os.iso to VM CD-ROM"
+        $iso = Get-CustomIsoPath
+        Set-IsoBoot $cfg.vmx_path $iso
+        Write-Host "Start VM: -Action Start -Gui" -ForegroundColor Yellow
+    }
+    "BootIso" {
+        Write-Step "Boot VMware VM from custom-os.iso"
+        Repair-HostVmwareNetworking
+        $iso = Get-CustomIsoPath
+        Set-IsoBoot $cfg.vmx_path $iso
+        & $vmrun -T ws start $cfg.vmx_path gui
+        Write-Host @"
+
+VM booting from custom-os.iso. In GRUB menu choose:
+  • Custom OS — Live Session (Ubuntu 24.04 Noble)  [default]
+  • Rust OS Kernel — Bare Metal (x86_64 no_std)
+
+After testing, restore disk boot: -Action PostInstall
+
+"@ -ForegroundColor Green
+    }
+    "GuestIsoBuild" {
+        if (-not (Test-VmRunning $cfg.vmx_path)) {
+            throw "VM not running. Start first: -Action Start -Gui"
+        }
+        if ([string]::IsNullOrWhiteSpace($cfg.guest_password)) {
+            Write-Host "Automated guest build needs -GuestPassword. Or paste -Action IsoGuestCommands" -ForegroundColor Yellow
+            Show-IsoGuestCommands
+            exit 1
+        }
+        Write-Step "Building iso-build stage '$IsoBuildStage' in guest"
+        $code = Invoke-GuestIsoBuild $cfg $IsoBuildStage
+        if ($code -ne 0) {
+            Write-Host "Guest iso-build failed (exit $code). Try manual: -Action IsoGuestCommands" -ForegroundColor Red
+            exit $code
+        }
+        Write-Host "Guest iso-build stage '$IsoBuildStage' finished." -ForegroundColor Green
+        if ($IsoBuildStage -eq "all" -or $IsoBuildStage -eq "iso") {
+            $iso = Get-CustomIsoPath
+            if (Test-Path $iso) {
+                Write-Host "ISO ready. Boot: -Action BootIso" -ForegroundColor Green
+            }
+        }
+    }
     "PostInstall" {
         Write-Step "Post-install VM config (boot from disk, eject ISO)"
         Set-PostInstallBoot $cfg.vmx_path
@@ -374,6 +521,7 @@ Windows guest alternative:
             & $vmrun -T ws stop $cfg.vmx_path soft
             Start-Sleep -Seconds 5
         }
+        Set-GuestOs64 $cfg.vmx_path
         Set-NatNetwork $cfg.vmx_path
         Set-PostInstallBoot $cfg.vmx_path
         Enable-HgfsInVmx $cfg.vmx_path
@@ -387,6 +535,62 @@ In the VM terminal (dan@home), run Step 1 then Step 2 below:
 
 "@ -ForegroundColor Green
         Show-GuestCommands
+    }
+    "CaptureScreen" {
+        Write-Step "Capture VM screen to PNG"
+        $out = Join-Path $VmTools "vm-screen.png"
+        if ($SnapshotName) {
+            $out = Join-Path $VmTools "vm-screen-$($SnapshotName -replace ' ','-').png"
+        }
+        $capArgs = @("-T", "ws")
+        if (-not [string]::IsNullOrWhiteSpace($cfg.guest_user) -and -not [string]::IsNullOrWhiteSpace($cfg.guest_password)) {
+            $capArgs += @("-gu", $cfg.guest_user, "-gp", $cfg.guest_password)
+        }
+        $capArgs += @("captureScreen", $cfg.vmx_path, $out)
+        if ($SnapshotName) {
+            $capArgs += "-snapshot=$SnapshotName"
+        }
+        & $vmrun @capArgs 2>&1
+        if (-not (Test-Path $out)) {
+            Write-Host @"
+Screen capture needs guest login on this VM. Re-run with password:
+
+  pwsh -File tools\vm\intentos-vmware.ps1 -Action CaptureScreen -GuestUser dan -GuestPassword YOUR_PASS -SnapshotName "Snapshot 1"
+
+Or paste/drag a screenshot of the VMware window into chat.
+"@ -ForegroundColor Yellow
+            exit 1
+        }
+        Write-Host "Saved: $out" -ForegroundColor Green
+    }
+    "SnapshotList" {
+        Write-Step "VM snapshots"
+        & $vmrun -T ws listSnapshots $cfg.vmx_path
+    }
+    "SnapshotCreate" {
+        Write-Step "Creating snapshot: $SnapshotName"
+        if (-not (Test-VmRunning $cfg.vmx_path)) {
+            & $vmrun -T ws start $cfg.vmx_path nogui
+            Start-Sleep -Seconds 3
+        }
+        & $vmrun -T ws snapshot $cfg.vmx_path $SnapshotName
+        Write-Host "Created: $SnapshotName" -ForegroundColor Green
+    }
+    "SnapshotRevert" {
+        Write-Step "Reverting to snapshot: $SnapshotName"
+        if (Test-VmRunning $cfg.vmx_path) {
+            & $vmrun -T ws stop $cfg.vmx_path soft
+            Start-Sleep -Seconds 5
+        }
+        & $vmrun -T ws revertToSnapshot $cfg.vmx_path $SnapshotName
+        Write-Host "Reverted to: $SnapshotName" -ForegroundColor Green
+        Write-Host "Start VM: -Action Start -Gui" -ForegroundColor Yellow
+        Write-Host "Then run network fix in guest (GuestCommands Step 1) or: -Action Fix" -ForegroundColor Yellow
+    }
+    "SnapshotDelete" {
+        Write-Step "Deleting snapshot: $SnapshotName"
+        & $vmrun -T ws deleteSnapshot $cfg.vmx_path $SnapshotName
+        Write-Host "Deleted: $SnapshotName" -ForegroundColor Green
     }
     "RunTest" {
         if (-not (Test-VmRunning $cfg.vmx_path)) {

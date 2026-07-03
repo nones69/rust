@@ -1,0 +1,23 @@
+# Generated build artifacts
+build/
+dist/
+
+# live-build working directories
+ubuntu-live/chroot/
+ubuntu-live/binary/
+ubuntu-live/cache/
+ubuntu-live/config/bootstrap
+ubuntu-live/.build/
+ubuntu-live/*.iso
+ubuntu-live/*.img
+ubuntu-live/*.log
+
+# Rust target (also copied to build/)
+rust-os/target/
+
+# EFI stub (built by make bootloader)
+bootloader/efi/boot/bootx64.efi
+
+# OS junk
+.DS_Store
+Thumbs.db

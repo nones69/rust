@@ -1,0 +1,110 @@
+name: ISO Build Pipeline
+
+on:
+  push:
+    branches: [master, main, develop]
+    paths:
+      - 'iso-build/**'
+  pull_request:
+    branches: [master, main]
+    paths:
+      - 'iso-build/**'
+  release:
+    types: [created]
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: iso-build
+
+env:
+  ISO_NAME: custom-os
+  UBUNTU_RELEASE: noble
+
+jobs:
+  build-iso:
+    name: Build All-In-One ISO
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install host prerequisites
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            build-essential git xorriso squashfs-tools genisoimage \
+            debootstrap live-build \
+            grub-efi-amd64-bin grub-pc-bin grub-common grub2-common \
+            syslinux syslinux-efi isolinux \
+            qemu-system-x86 ovmf binutils parted gdisk \
+            gcc-multilib python3 python3-pip ca-certificates
+          make --version
+
+      - name: Cache Rust toolchain
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.rustup
+            ~/.cargo
+          key: rust-${{ runner.os }}-${{ hashFiles('iso-build/rust-os/rust-toolchain.toml') }}
+
+      - name: Install Rust nightly toolchain
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- \
+            --default-toolchain nightly \
+            --component rust-src llvm-tools-preview \
+            --target x86_64-unknown-none \
+            -y
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          rustup show
+
+      - name: Cache live-build APT packages
+        uses: actions/cache@v4
+        with:
+          path: iso-build/ubuntu-live/.cache/
+          key: lb-cache-${{ env.UBUNTU_RELEASE }}-${{ hashFiles('iso-build/ubuntu-live/config/package-lists/*.list.chroot') }}
+          restore-keys: lb-cache-${{ env.UBUNTU_RELEASE }}-
+
+      - name: Build Rust OS kernel (Module 1)
+        run: make rust-os
+
+      - name: Build Ubuntu live layer (Module 2)
+        run: make ubuntu-live
+        env:
+          DEBIAN_FRONTEND: noninteractive
+
+      - name: Build bootloader (Module 3)
+        run: make bootloader
+
+      - name: Assemble final ISO (Module 4)
+        run: make iso
+
+      - name: Verify ISO integrity
+        run: make verify
+
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: custom-os-iso-${{ github.sha }}
+          path: |
+            iso-build/dist/custom-os.iso
+            iso-build/dist/custom-os.iso.sha256
+          retention-days: 30
+
+      - name: Publish to GitHub Releases
+        if: github.event_name == 'release'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.ref_name }}" \
+            dist/custom-os.iso \
+            dist/custom-os.iso.sha256 \
+            --clobber

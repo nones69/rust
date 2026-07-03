@@ -1,0 +1,63 @@
+# ── All-In-One ISO Build System — Custom GRUB Theme ─────────────────────────────
+# Place background.png (1280x720 PNG) in the same directory as this file.
+# Dan — v1.0.0 — July 2026
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ── Global Settings ───────────────────────────────────────────────────────────
+title-text:       "Custom OS 2026  |  All-In-One ISO Build System"
+title-font:       "DejaVu Sans Bold 18"
+title-color:      "#ffffff"
+desktop-image:    "background.png"
+desktop-color:    "#0a0a1a"
+terminal-font:    "Unifont Regular 12"
+terminal-border:  "0"
+
+# ── Boot Menu ─────────────────────────────────────────────────────────────────
++ boot_menu {
+    left   = 15%
+    top    = 30%
+    width  = 70%
+    height = 50%
+
+    item_font        = "DejaVu Sans Regular 14"
+    item_color       = "#ccddff"
+    selected_item_color  = "#ffffff"
+
+    item_height      = 28
+    item_padding     = 8
+    item_spacing     = 4
+
+    selected_item_pixmap_style = "select_bkg/*.png"
+    icon_width  = 32
+    icon_height = 32
+    item_icon_space = 8
+}
+
+# ── Progress Bar ──────────────────────────────────────────────────────────────
++ progress_bar {
+    left   = 15%
+    top    = 85%
+    width  = 70%
+    height = 16
+    id     = "__timeout__"
+
+    fg_color        = "#2b5797"
+    bg_color        = "#1a1a2e"
+    border_color    = "#2b5797"
+    font            = "DejaVu Sans Regular 10"
+    text_color      = "#aaccff"
+    align           = "center"
+    show_text       = true
+    text            = "Booting in %d seconds ..."
+}
+
+# ── Status Label ──────────────────────────────────────────────────────────────
++ label {
+    left   = 15%
+    top    = 90%
+    width  = 70%
+    align  = "center"
+    color  = "#888888"
+    font   = "DejaVu Sans Regular 10"
+    text   = "↑↓ Navigate   ENTER Select   E Edit   C Command Line"
+}

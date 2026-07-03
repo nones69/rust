@@ -1,0 +1,84 @@
+# All-In-One ISO Build System — Custom Package List
+# Ubuntu 24.04 Noble live chroot — v1.0.0
+
+# Network & Connectivity
+curl
+wget
+net-tools
+iputils-ping
+nmap
+openssh-server
+openssh-client
+ca-certificates
+dnsutils
+iperf3
+
+# Development Toolchains
+build-essential
+gcc
+g++
+make
+cmake
+git
+git-lfs
+gdb
+valgrind
+strace
+ltrace
+binutils
+
+# Scripting & Automation
+python3
+python3-pip
+python3-venv
+python3-dev
+bash
+jq
+bc
+
+# Editors & Tools
+vim
+nano
+tmux
+htop
+iotop
+lsof
+tree
+rsync
+zip
+unzip
+p7zip-full
+
+# Container & Virtualisation
+docker.io
+docker-compose-v2
+qemu-system-x86
+
+# System Utilities
+parted
+gdisk
+gparted
+fdisk
+e2fsprogs
+btrfs-progs
+ntfs-3g
+dosfstools
+lvm2
+mdadm
+cryptsetup
+
+# Hardware Diagnostics
+smartmontools
+lshw
+pciutils
+usbutils
+dmidecode
+memtester
+stress-ng
+
+# Boot & Recovery
+grub2-common
+grub-efi-amd64-bin
+syslinux
+xorriso
+squashfs-tools

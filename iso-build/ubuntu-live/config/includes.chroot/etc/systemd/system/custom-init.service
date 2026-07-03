@@ -1,0 +1,17 @@
+[Unit]
+Description=Custom OS Initialization Service
+Documentation=https://github.com/dan/iso-build
+After=network.target
+Wants=network.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/custom-init.sh
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=custom-init
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target
