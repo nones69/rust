@@ -35,7 +35,8 @@ class Discrambler:
         self.geo = geo_provider or self._default_geo_provider()
         self.whois = WhoisRdapProvider(self.config)
         self.threat_providers: list[ThreatIntelProvider] = self._default_threat_providers()
-        self.semaphore = asyncio.Semaphore(max_concurrency)
+        self._max_concurrency = max_concurrency
+        self._semaphore: Optional[asyncio.Semaphore] = None
 
     def _default_geo_provider(self) -> GeolocationProvider:
         if self.config.maxmind_db_path:
@@ -61,7 +62,13 @@ class Discrambler:
             return result
 
         result = IPResult(ip=ip, version=version)
-        async with self.semaphore:
+        # Lazily create semaphore on first use to avoid requiring a running event loop
+        # at construction time (fixes Python 3.9 compatibility). This is safe because
+        # asyncio's cooperative model guarantees no other coroutine runs between the
+        # None check and the assignment (there is no await point between them).
+        if self._semaphore is None:
+            self._semaphore = asyncio.Semaphore(self._max_concurrency)
+        async with self._semaphore:
             geo_task = asyncio.create_task(self.geo.lookup(ip))
             rdns_task = asyncio.create_task(reverse_dns(ip, self.config)) if include_rdns else None
             threat_tasks = [asyncio.create_task(p.lookup(ip)) for p in self.threat_providers]
