@@ -6,8 +6,13 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust
     steps:
       - uses: actions/checkout@v4
-      - name: Build
-        run: pwsh ./scripts/build.ps1
+      - name: Build intentos
+        run: cargo build -p intentos --release
+      - name: Test ground_up
+        run: cargo test -p intentos --test ground_up
