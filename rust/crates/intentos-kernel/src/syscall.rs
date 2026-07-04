@@ -1,15 +1,19 @@
 use serde_json::json;
 
 use crate::syscall_envelope::{IkCallEnvelope, IkSyscall};
-use crate::token_verifier::VerifiedToken;
+use crate::table::CapabilityTable;
+use crate::token_verifier::verify_with_table;
 use crate::utilities;
 
-use base64::engine::general_purpose::STANDARD as BASE64;
-use base64::Engine as _;
+/// Verify the token in `env` against the capability table, then dispatch
+/// the requested syscall.  Returns a JSON response or an error string.
+pub fn dispatch_call(env: IkCallEnvelope, table: &CapabilityTable) -> Result<serde_json::Value, String> {
+    let token = verify_with_table(table, &env.token_id)
+        .map_err(|e| format!("token verification failed: {e}"))?;
 
-pub fn dispatch_call(env: IkCallEnvelope, token: &VerifiedToken) -> Result<serde_json::Value, String> {
-    // Quick policy hook placeholder: ensure token is not expired (token verifier already checks expiry in real impl)
-    // TODO: implement full policy evaluation and evidence generation
+    if token.is_expired() {
+        return Err("capability token has expired".to_string());
+    }
 
     match env.call {
         IkSyscall::IkOpen { path, mode } => {
@@ -20,7 +24,11 @@ pub fn dispatch_call(env: IkCallEnvelope, token: &VerifiedToken) -> Result<serde
         }
         IkSyscall::IkRead { handle, len } => {
             match utilities::host_vfs::vfs_read(&token.id, handle, len) {
-                Ok(bytes) => Ok(json!({"data": BASE64.encode(&bytes)})),
+                Ok(bytes) => {
+                    use base64::engine::general_purpose::STANDARD as BASE64;
+                    use base64::Engine as _;
+                    Ok(json!({"data": BASE64.encode(&bytes)}))
+                }
                 Err(e) => Err(format!("vfs_read error: {}", e)),
             }
         }
@@ -28,6 +36,12 @@ pub fn dispatch_call(env: IkCallEnvelope, token: &VerifiedToken) -> Result<serde
             match utilities::host_vfs::vfs_write(&token.id, handle, &data) {
                 Ok(()) => Ok(json!({"written": data.len()})),
                 Err(e) => Err(format!("vfs_write error: {}", e)),
+            }
+        }
+        IkSyscall::IkClose { handle } => {
+            match utilities::host_vfs::vfs_close(&token.id, handle) {
+                Ok(()) => Ok(json!({"closed": true})),
+                Err(e) => Err(format!("vfs_close error: {}", e)),
             }
         }
         _ => Err("syscall not implemented in demo".to_string()),

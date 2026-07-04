@@ -1,9 +1,11 @@
 use crate::error::KernelError;
+use crate::token_verifier::VerifiedToken;
 use crate::types::{
     CapabilityKind, Handle, SlotEntry, SyscallOp, SyscallRequest, SyscallResult, Token,
     CAP_TABLE_SIZE, handle_checksum, mono_ns,
 };
 use std::collections::HashSet;
+use uuid::Uuid;
 
 /// In-kernel capability slot table — ground-up implementation.
 pub struct CapabilityTable {
@@ -52,10 +54,12 @@ impl CapabilityTable {
             *slot = Some(SlotEntry {
                 generation,
                 expires_ns: now + ttl_ns,
+                expires_wall_ms: token.exp,
                 uses_left: token.uses,
                 kind,
                 scope: token.scope.clone(),
                 token_jti: token.jti.clone(),
+                subject: token.sub.clone(),
             });
 
             let checksum = handle_checksum(idx as u32, generation);
@@ -128,6 +132,27 @@ impl CapabilityTable {
                 .filter(|e| e.generation == handle.generation)
                 .map(|e| e.token_jti.clone())
         })
+    }
+
+    /// Look up an active capability slot by JTI and return a `VerifiedToken` if found.
+    ///
+    /// Returns `None` if no active (unexpired, non-exhausted) slot with the given JTI exists.
+    pub fn lookup_by_jti(&self, jti: &str) -> Option<VerifiedToken> {
+        let now = mono_ns();
+        let jti_uuid = Uuid::parse_str(jti).ok()?;
+        for entry in self.slots.iter().flatten() {
+            if entry.token_jti == jti
+                && entry.expires_ns >= now
+                && entry.uses_left > 0
+            {
+                return Some(VerifiedToken {
+                    id: jti_uuid,
+                    issued_to: entry.subject.clone(),
+                    expires_at: entry.expires_wall_ms,
+                });
+            }
+        }
+        None
     }
 }
 

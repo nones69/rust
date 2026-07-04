@@ -76,3 +76,12 @@ pub fn vfs_write(_token_id: &Uuid, handle: Uuid, data: &[u8]) -> Result<(), Stri
         .map_err(|e| format!("write error: {}", e))?;
     Ok(())
 }
+
+pub fn vfs_close(_token_id: &Uuid, handle: Uuid) -> Result<(), String> {
+    let mut table = HANDLE_TABLE.lock().unwrap();
+    if table.remove(&handle).is_some() {
+        Ok(())
+    } else {
+        Err("invalid handle".to_string())
+    }
+}

@@ -57,7 +57,7 @@ pub use table::CapabilityTable;
 pub use token::TokenBroker;
 pub use types::*;
 pub use syscall_envelope::{IkCallEnvelope, IkSyscall, OpenMode};
-pub use token_verifier::{verify_token, VerifiedToken};
+pub use token_verifier::{verify_token, verify_with_table, VerifiedToken};
 
 use intentos_audit::{AuditEventKind, AuditLog};
 use std::sync::{Arc, Mutex};
@@ -334,6 +334,24 @@ impl Kernel {
     pub fn revocation_count(&self) -> usize {
         let state = self.inner.lock().unwrap();
         state.revocations.len()
+    }
+
+    /// Dispatch an IPC call envelope — verifies the token against the live
+    /// capability table then executes the requested syscall.
+    ///
+    /// Returns a JSON response value or an error string.
+    pub fn dispatch(&self, env: IkCallEnvelope) -> Result<serde_json::Value, String> {
+        let token_id = env.token_id;
+        let result = {
+            let state = self.inner.lock().unwrap();
+            syscall::dispatch_call(env, &state.table)
+        };
+        let detail = match &result {
+            Ok(v) => format!("dispatch ok token={token_id} resp={v}"),
+            Err(e) => format!("dispatch err token={token_id}: {e}"),
+        };
+        self.audit_record(AuditEventKind::Syscall, "dispatch", detail);
+        result
     }
 
     pub fn stats(&self) -> KernelStats {
