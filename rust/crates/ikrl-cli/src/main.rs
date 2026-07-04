@@ -38,9 +38,9 @@ enum Command {
         resource: String,
         #[arg(short, long)]
         action: String,
-        #[arg(short, long, default_value = "ikrl-cli")]
+        #[arg(short = 'u', long, default_value = "ikrl-cli")]
         actor: String,
-        #[arg(short, long, default_value = "UiEvent")]
+        #[arg(short = 'n', long, default_value = "UiEvent")]
         anchor: String,
     },
     /// Register a token at eventscope and return a kernel handle.
@@ -68,14 +68,14 @@ enum Command {
         resource: String,
         #[arg(short, long)]
         action: String,
-        #[arg(short, long, default_value = "ikrl-cli")]
+        #[arg(short = 'u', long, default_value = "ikrl-cli")]
         actor: String,
     },
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt().with_writer(std::io::stderr).init();
     let args = Args::parse();
 
     match args.cmd {

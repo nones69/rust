@@ -27,9 +27,11 @@ use nix::sys::wait::{waitpid, WaitStatus};
 #[cfg(target_os = "linux")]
 use nix::unistd::{fork, ForkResult, Pid};
 #[cfg(target_os = "linux")]
+use std::os::unix::process::CommandExt;
+#[cfg(target_os = "linux")]
 use std::process::Command;
 #[cfg(target_os = "linux")]
-use tracing::{debug, info, warn};
+use tracing::{info, warn};
 
 #[cfg(target_os = "linux")]
 use ikrl_transport::Channel;
@@ -88,7 +90,7 @@ pub async fn supervise(program: &str, args: &[&str], eventscope_addr: &str) -> R
                 let denied = should_deny(nr, pid, eventscope_addr).await;
                 if denied {
                     warn!("denying syscall {} for pid {}", nr, pid);
-                    inject_error(pid).ok();
+                    inject_error(Pid::from_raw(pid)).ok();
                 }
             }
             SupervisorEvent::Exited { pid, status } => {
