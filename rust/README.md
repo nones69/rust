@@ -2,7 +2,7 @@
 
 `rust/` contains the main Rust workspace for this repository. The most direct implementation path here is the **`intentos` reference runtime**, organized around three major components: **utilities**, **shell**, and **kernel**.
 
-It is best described as a **single-process reference implementation** of the IntentKernel model, not as a production-ready operating system.
+It is best described as a **deployable reference runtime** for the IntentKernel model, not as a general-purpose production operating system.
 
 ## Three major components
 

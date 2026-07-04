@@ -1,7 +1,7 @@
 use std::io::Write;
 use std::net::{SocketAddr, TcpStream};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -89,6 +89,41 @@ fn wait_for_tcp(addr: &str) {
     }
 }
 
+fn terminate_init(child: &mut Child) {
+    let pid = child.id().to_string();
+
+    #[cfg(windows)]
+    {
+        let status = Command::new("taskkill")
+            .args(["/PID", &pid, "/T", "/F"])
+            .status()
+            .expect("taskkill ikrl-init");
+        assert!(status.success(), "taskkill failed for pid {pid}");
+    }
+
+    #[cfg(not(windows))]
+    {
+        let status = Command::new("kill")
+            .args(["-INT", &pid])
+            .status()
+            .expect("send SIGINT to ikrl-init");
+        assert!(status.success(), "kill -INT failed for pid {pid}");
+
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            match child.try_wait().expect("poll ikrl-init") {
+                Some(_) => break,
+                None if Instant::now() < deadline => thread::sleep(Duration::from_millis(100)),
+                None => {
+                    let _ = Command::new("pkill").args(["-TERM", "-P", &pid]).status();
+                    let _ = child.kill();
+                    break;
+                }
+            }
+        }
+    }
+}
+
 #[test]
 fn ikrl_init_boots_kernel_and_shell_can_observe_it() {
     let init_bin = current_bin("ikrl-init");
@@ -172,7 +207,7 @@ fn ikrl_init_boots_kernel_and_shell_can_observe_it() {
     assert!(shell_stdout.contains("ikrl-ai") && shell_stdout.contains("down"));
     assert!(shell_stdout.contains("ikrl-fs") && shell_stdout.contains("down"));
 
-    let _ = init.kill();
+    terminate_init(&mut init);
     let init_output = init.wait_with_output().expect("wait for ikrl-init");
     let init_stdout = String::from_utf8_lossy(&init_output.stdout);
     let init_stderr = String::from_utf8_lossy(&init_output.stderr);

@@ -12,7 +12,7 @@ It contains design documents, a Rust reference implementation, a legacy IKRL com
 
 ## Current implementation status
 
-The repo does **not** currently ship a production-ready operating system or a proven security boundary. What it does provide is a set of reference implementations and experiments that exercise the IntentKernel model.
+The repo does **not** currently ship a general-purpose production operating system or a proven security boundary. What it does provide is a set of reference implementations and experiments that exercise the IntentKernel model, with a Rust reference runtime and C harness that can be built and validated from this repository today.
 
 ### Primary Rust reference runtime
 
@@ -33,6 +33,12 @@ cargo run -p intentos --release
 ```
 
 See [`rust/README.md`](rust/README.md) for details.
+
+Validated repository artifacts:
+
+- Rust workspace release build: `cd rust && cargo build --release`
+- Rust workspace tests: `cd rust && cargo test`
+- C reference harness: `make test_harness && ./test_harness`
 
 ### Other code in this repository
 

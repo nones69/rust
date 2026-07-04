@@ -43,7 +43,7 @@ secure_random.o: src/reference/secure_random.c src/reference/secure_random.h
 
 # Build the test harness
 test_harness: src/test_harness.c capability_core.o secure_random.o
-	$(HOST_CC) $(HOST_CFLAGS) $(INCLUDES) -o test_harness src/test_harness.c capability_core.o secure_random.o -lrt
+	$(HOST_CC) $(HOST_CFLAGS) $(INCLUDES) -o test_harness src/test_harness.c capability_core.o secure_random.o
 
 # Emulation
 run: kernel

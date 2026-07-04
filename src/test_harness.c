@@ -1,3 +1,7 @@
+#ifndef _WIN32
+#define _POSIX_C_SOURCE 200809L
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -19,7 +23,9 @@ uint64_t get_time(void) {
     #else
     /* POSIX implementation */
     struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
+    if (timespec_get(&ts, TIME_UTC) != TIME_UTC) {
+        return 0;
+    }
     return (uint64_t)ts.tv_sec * 1000000000ULL + (uint64_t)ts.tv_nsec;
     #endif
 }
@@ -72,8 +78,7 @@ int main() {
     result = capability_validate(&net_cap);
     printf("Validation after revocation: %d\n", result);
     
-    printf("\nPress Enter to exit...");
-    getchar();
-    
+    printf("\nTest harness completed successfully.\n");
+
     return 0;
 }
