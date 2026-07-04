@@ -15,8 +15,6 @@
 use anyhow::{Context, Result};
 use serde::{de::DeserializeOwned, Serialize};
 use std::fmt::Debug;
-#[cfg(unix)]
-use std::path::Path;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
@@ -145,7 +143,7 @@ impl Listener {
 
         #[cfg(unix)]
         if let Some(path) = addr.strip_prefix("unix://") {
-            let path = Path::new(path);
+            let path = std::path::Path::new(path);
             if path.exists() {
                 std::fs::remove_file(path)?;
             }
