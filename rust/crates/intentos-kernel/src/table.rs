@@ -12,8 +12,11 @@ pub struct CapabilityTable {
     slots: Vec<Option<SlotEntry>>,
     generations: Vec<u16>,
     seen_jtis: HashSet<String>,
-    /// O(1) index from JTI → slot index.  Entries are never removed; callers
-    /// must re-validate the slot after lookup.
+    /// O(1) index from JTI → slot index.  Like `seen_jtis`, entries are never
+    /// removed — both grow with every registered token.  For the current demo
+    /// workload (short-lived processes, bounded token lifetimes) this is
+    /// acceptable.  Long-running deployments should periodically compact both
+    /// structures by scanning for expired slots.
     jti_index: HashMap<String, usize>,
 }
 

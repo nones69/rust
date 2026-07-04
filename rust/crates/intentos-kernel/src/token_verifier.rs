@@ -54,7 +54,7 @@ mod tests {
     use crate::policy::PolicyEngine;
     use crate::table::CapabilityTable;
     use crate::token::TokenBroker;
-    use crate::types::{Intent, TrustAnchor, wall_ms as _wall_ms};
+    use crate::types::{Intent, TrustAnchor, wall_ms};
 
     #[test]
     fn stub_token_is_not_expired() {
@@ -72,7 +72,7 @@ mod tests {
             resource: "file".into(),
             action: "read".into(),
             anchor: TrustAnchor::UiEvent,
-            timestamp_ms: _wall_ms(),
+            timestamp_ms: wall_ms(),
             metadata: Default::default(),
         };
         let decision = PolicyEngine::evaluate(&intent);

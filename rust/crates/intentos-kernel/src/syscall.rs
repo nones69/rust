@@ -1,3 +1,5 @@
+use base64::engine::general_purpose::STANDARD as BASE64;
+use base64::Engine as _;
 use serde_json::json;
 
 use crate::syscall_envelope::{IkCallEnvelope, IkSyscall};
@@ -20,11 +22,7 @@ pub fn dispatch_call(env: IkCallEnvelope, table: &CapabilityTable) -> Result<ser
         }
         IkSyscall::IkRead { handle, len } => {
             match utilities::host_vfs::vfs_read(&token.id, handle, len) {
-                Ok(bytes) => {
-                    use base64::engine::general_purpose::STANDARD as BASE64;
-                    use base64::Engine as _;
-                    Ok(json!({"data": BASE64.encode(&bytes)}))
-                }
+                Ok(bytes) => Ok(json!({"data": BASE64.encode(&bytes)})),
                 Err(e) => Err(format!("vfs_read error: {}", e)),
             }
         }
