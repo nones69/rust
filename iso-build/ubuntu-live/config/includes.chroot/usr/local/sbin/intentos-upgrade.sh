@@ -66,8 +66,9 @@ stop_service() {
 # ── Back up current configuration ─────────────────────────────────────────────
 backup_config() {
     log_step "Backing up configuration"
-    local backup_dir="/tmp/intentos-upgrade-backup-$(date +%Y%m%d-%H%M%S)"
-    mkdir -p "${backup_dir}"
+    local backup_dir
+    backup_dir="$(mktemp -d -t intentos-upgrade-backup-XXXXXXXXXX)"
+    chmod 700 "${backup_dir}"
 
     # Preserve any user-created config files
     for cfg in config.json settings.json daemon.conf; do
@@ -97,20 +98,31 @@ upgrade_app() {
         log_info "Updated from local repository"
     else
         # Fetch latest from GitHub
-        log_info "Downloading latest release from GitHub…"
-        if command -v git &>/dev/null; then
-            local tmp_src="/tmp/intentos-upgrade-src"
-            rm -rf "${tmp_src}"
-            local git_err
-            git_err=$(git clone --depth=1 "${REPO_URL}" "${tmp_src}" 2>&1) || {
-                log_error "Failed to clone repository: ${git_err}"
-                exit 1
-            }
-            if [[ -d "${tmp_src}/platform" ]]; then
-                cp -r "${tmp_src}/platform/." "${INTENTOS_HOME}/"
-                rm -rf "${tmp_src}"
-            fi
+        log_info "Downloading from GitHub…"
+
+        if ! command -v git &>/dev/null; then
+            log_error "git is required to download updates, but was not found in PATH."
+            exit 1
         fi
+
+        local tmp_src
+        tmp_src="$(mktemp -d -t intentos-upgrade-src-XXXXXXXXXX)"
+
+        local git_err
+        git_err=$(git clone --depth=1 "${REPO_URL}" "${tmp_src}" 2>&1) || {
+            log_error "Failed to clone repository: ${git_err}"
+            rm -rf "${tmp_src}"
+            exit 1
+        }
+
+        if [[ ! -d "${tmp_src}/platform" ]]; then
+            log_error "Repository clone succeeded, but '${tmp_src}/platform' was not found."
+            rm -rf "${tmp_src}"
+            exit 1
+        fi
+
+        cp -r "${tmp_src}/platform/." "${INTENTOS_HOME}/"
+        rm -rf "${tmp_src}"
     fi
 
     chown -R "${INTENTOS_USER}:${INTENTOS_USER}" "${INTENTOS_HOME}"
@@ -168,7 +180,6 @@ upgrade_venv() {
 restart_service() {
     log_step "Restarting IntentOS service"
     systemctl daemon-reload
-    systemctl enable intentos 2>/dev/null || true
     systemctl start intentos
     log_info "Service restarted"
 }

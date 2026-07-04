@@ -8,8 +8,11 @@ exec >> "$LOGFILE" 2>&1
 
 echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] custom-init.sh starting ..."
 
-# Check for intentos-upgrade kernel parameter
-if grep -qw 'intentos-upgrade' /proc/cmdline; then
+# ── intentos-upgrade hook ─────────────────────────────────────────────────────
+# If the kernel cmdline contains "intentos-upgrade", automatically run the
+# upgrade script so the live boot option triggers the upgrade without manual
+# intervention.
+if grep -qw 'intentos-upgrade' /proc/cmdline 2>/dev/null; then
     echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] intentos-upgrade detected on /proc/cmdline — launching upgrade script ..."
     bash /usr/local/sbin/intentos-upgrade.sh
     echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Upgrade script completed."
