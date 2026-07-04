@@ -57,6 +57,7 @@ if dpkg -l cloud-init >/dev/null 2>&1; then
 fi
 
 chmod +x /usr/local/bin/custom-init.sh
+chmod +x /usr/local/sbin/intentos-upgrade.sh
 systemctl enable custom-init.service
 echo "[hook] custom-init.service enabled"
 

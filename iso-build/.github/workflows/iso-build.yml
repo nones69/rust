@@ -56,7 +56,8 @@ jobs:
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- \
             --default-toolchain nightly \
-            --component rust-src llvm-tools-preview \
+            --component rust-src \
+            --component llvm-tools-preview \
             --target x86_64-unknown-none \
             -y
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"

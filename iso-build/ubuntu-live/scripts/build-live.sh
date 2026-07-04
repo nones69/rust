@@ -48,14 +48,12 @@ lb config \
     --distribution        noble          \
     --architecture        amd64          \
     --binary-images       iso-hybrid     \
-    --bootloaders         "grub-efi,syslinux" \
+    --bootloader          syslinux       \
     --debian-installer    none           \
     --memtest             none           \
     --archive-areas       "main restricted universe multiverse" \
     --cache               true           \
     --compression         xz             \
-    --hostname            custom-os      \
-    --username            liveuser       \
     --chroot-filesystem   squashfs       \
     --iso-application     "Custom OS 2026" \
     --iso-volume          "CUSTOM_OS_2026" \

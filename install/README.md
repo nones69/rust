@@ -14,6 +14,7 @@ IntentOS IKRL (IntentKernel Relief Layer) is a non-destructive upgrade package t
 | Windows    | PowerShell installer  | Windows 10 / 11       | ~3 minutes   |
 | Android    | APK sideload          | Android 8.0 (API 26)  | ~1 minute    |
 | ChromeOS   | Chrome Extension      | Chrome 100+           | ~30 seconds  |
+| VMware     | ISO boot entry        | VMware Workstation 16+ | ~2 minutes  |
 
 ---
 
@@ -25,6 +26,12 @@ curl -fsSL https://raw.githubusercontent.com/intentos/install/main/linux/install
 # OR, offline:
 chmod +x install/linux/install.sh
 sudo bash install/linux/install.sh
+```
+
+**To upgrade an existing installation:**
+```bash
+chmod +x install/linux/upgrade.sh
+sudo bash install/linux/upgrade.sh
 ```
 
 ### Windows (PowerShell — run as Administrator)
@@ -44,6 +51,15 @@ Set-ExecutionPolicy Bypass -Scope Process
 2. Enable **Developer mode**
 3. Click **Load unpacked** → select the `install/chromeos/` folder
 4. Pin the IntentOS extension to your toolbar
+
+### VMware
+1. Boot the Custom OS ISO in VMware Workstation / Fusion / ESXi
+2. At the boot menu, select **Custom OS — VMware Optimized Live Session**
+3. Once the live session has loaded, open a terminal and run:
+   ```bash
+   sudo bash /media/cdrom/install/linux/install.sh
+   ```
+   Or use the **Install Custom OS to Disk** boot entry for a guided disk installation.
 
 ---
 
@@ -66,6 +82,16 @@ IntentOS Upgrade Layer
 - ✅ All system settings and preferences
 - ✅ All user accounts and profiles
 - ✅ All network and hardware configuration
+
+---
+
+## Upgrading
+
+### Linux
+```bash
+sudo bash install/linux/upgrade.sh
+```
+The upgrade script backs up your configuration, fetches the latest application files, upgrades Python dependencies, and restarts the service — leaving all user data and settings untouched.
 
 ---
 
