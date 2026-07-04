@@ -180,7 +180,6 @@ upgrade_venv() {
 restart_service() {
     log_step "Restarting IntentOS service"
     systemctl daemon-reload
-    systemctl enable intentos 2>/dev/null || true
     systemctl start intentos
     log_info "Service restarted"
 }
