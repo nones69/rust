@@ -66,8 +66,9 @@ stop_service() {
 # ── Back up current configuration ─────────────────────────────────────────────
 backup_config() {
     log_step "Backing up configuration"
-    local backup_dir="/tmp/intentos-upgrade-backup-$(date +%Y%m%d-%H%M%S)"
-    mkdir -p "${backup_dir}"
+    local backup_dir
+    backup_dir="$(mktemp -d -t intentos-upgrade-backup-XXXXXXXXXX)"
+    chmod 700 "${backup_dir}"
 
     # Preserve any user-created config files
     for cfg in config.json settings.json daemon.conf; do
