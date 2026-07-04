@@ -51,7 +51,7 @@ fn build_bins(bin_names: &[&str]) {
 
     let status = command
         .status()
-        .unwrap_or_else(|e| panic!("build {}: {e}", bin_names.join(", ")));
+        .unwrap_or_else(|e| panic!("build bins {}: {e}", bin_names.join(", ")));
     assert!(
         status.success(),
         "cargo build {} failed",
