@@ -4,7 +4,7 @@ use crate::types::{
     CapabilityKind, Handle, SlotEntry, SyscallOp, SyscallRequest, SyscallResult, Token,
     CAP_TABLE_SIZE, handle_checksum, mono_ns,
 };
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
 /// In-kernel capability slot table — ground-up implementation.
@@ -12,6 +12,9 @@ pub struct CapabilityTable {
     slots: Vec<Option<SlotEntry>>,
     generations: Vec<u16>,
     seen_jtis: HashSet<String>,
+    /// O(1) index from JTI → slot index.  Entries are never removed; callers
+    /// must re-validate the slot after lookup.
+    jti_index: HashMap<String, usize>,
 }
 
 impl CapabilityTable {
@@ -20,6 +23,7 @@ impl CapabilityTable {
             slots: (0..CAP_TABLE_SIZE).map(|_| None).collect(),
             generations: vec![1; CAP_TABLE_SIZE],
             seen_jtis: HashSet::new(),
+            jti_index: HashMap::new(),
         }
     }
 
@@ -63,6 +67,7 @@ impl CapabilityTable {
             });
 
             let checksum = handle_checksum(idx as u32, generation);
+            self.jti_index.insert(token.jti.clone(), idx);
             return Ok(Handle {
                 slot: idx as u32,
                 generation,
@@ -134,25 +139,33 @@ impl CapabilityTable {
         })
     }
 
+    /// Returns `true` if the JTI has ever been registered (used for anti-replay and
+    /// error-message disambiguation in the token verifier).
+    pub fn jti_was_registered(&self, jti: &str) -> bool {
+        self.seen_jtis.contains(jti)
+    }
+
     /// Look up an active capability slot by JTI and return a `VerifiedToken` if found.
     ///
-    /// Returns `None` if no active (unexpired, non-exhausted) slot with the given JTI exists.
+    /// Returns `None` if no slot with the given JTI exists, the slot has been
+    /// overwritten, the capability is expired, or uses are exhausted.
     pub fn lookup_by_jti(&self, jti: &str) -> Option<VerifiedToken> {
         let now = mono_ns();
         let jti_uuid = Uuid::parse_str(jti).ok()?;
-        for entry in self.slots.iter().flatten() {
-            if entry.token_jti == jti
-                && entry.expires_ns >= now
-                && entry.uses_left > 0
-            {
-                return Some(VerifiedToken {
-                    id: jti_uuid,
-                    issued_to: entry.subject.clone(),
-                    expires_at: entry.expires_wall_ms,
-                });
-            }
+        let &idx = self.jti_index.get(jti)?;
+        let entry = self.slots.get(idx)?.as_ref()?;
+        // Verify the slot still belongs to this JTI (may have been overwritten).
+        if entry.token_jti != jti {
+            return None;
         }
-        None
+        if entry.expires_ns < now || entry.uses_left == 0 {
+            return None;
+        }
+        Some(VerifiedToken {
+            id: jti_uuid,
+            issued_to: entry.subject.clone(),
+            expires_at: entry.expires_wall_ms,
+        })
     }
 }
 

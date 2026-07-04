@@ -24,12 +24,17 @@ impl VerifiedToken {
 /// Verify a capability token against the live capability table.
 ///
 /// Returns `Ok(VerifiedToken)` if a non-expired, non-exhausted slot holds the
-/// given JTI; otherwise `Err` with a human-readable reason.
+/// given JTI; otherwise `Err` with a human-readable reason distinguishing
+/// "not registered" from "expired or exhausted".
 pub fn verify_with_table(table: &CapabilityTable, token_id: &Uuid) -> Result<VerifiedToken, String> {
     let jti = token_id.to_string();
+    // Check whether the JTI was ever registered (distinguishes unknown from expired).
+    if !table.jti_was_registered(&jti) {
+        return Err(format!("token {token_id} is not registered"));
+    }
     table
         .lookup_by_jti(&jti)
-        .ok_or_else(|| format!("token {token_id} not found or expired in capability table"))
+        .ok_or_else(|| format!("token {token_id} is expired or exhausted"))
 }
 
 /// Simple verification stub for local testing.
@@ -87,6 +92,7 @@ mod tests {
     fn verify_with_table_rejects_unknown_jti() {
         let table = CapabilityTable::new();
         let random_id = Uuid::new_v4();
-        assert!(verify_with_table(&table, &random_id).is_err());
+        let err = verify_with_table(&table, &random_id).unwrap_err();
+        assert!(err.contains("not registered"), "unexpected: {err}");
     }
 }

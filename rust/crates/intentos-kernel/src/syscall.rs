@@ -11,10 +11,6 @@ pub fn dispatch_call(env: IkCallEnvelope, table: &CapabilityTable) -> Result<ser
     let token = verify_with_table(table, &env.token_id)
         .map_err(|e| format!("token verification failed: {e}"))?;
 
-    if token.is_expired() {
-        return Err("capability token has expired".to_string());
-    }
-
     match env.call {
         IkSyscall::IkOpen { path, mode } => {
             match utilities::host_vfs::vfs_open(&token.id, &path, mode) {
