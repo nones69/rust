@@ -14,7 +14,5 @@ jobs:
         working-directory: rust
     steps:
       - uses: actions/checkout@v4
-      - name: Build intentos
-        run: cargo build -p intentos --release
-      - name: Test ground_up
-        run: cargo test -p intentos --test ground_up
+      - name: Build
+        run: pwsh ./.github/workflows/build.ps1

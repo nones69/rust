@@ -42,6 +42,27 @@ fn current_bin(bin_name: &str) -> PathBuf {
     path
 }
 
+fn build_bins(bin_names: &[&str]) {
+    let mut command = Command::new("cargo");
+    command.arg("build").arg("--quiet").arg("--manifest-path").arg(workspace_manifest());
+    for bin_name in bin_names {
+        command.arg("-p").arg(bin_name);
+    }
+
+    let status = command
+        .status()
+        .unwrap_or_else(|e| panic!("build bins {}: {e}", bin_names.join(", ")));
+    assert!(
+        status.success(),
+        "cargo build {} failed",
+        bin_names
+            .iter()
+            .map(|bin_name| format!("-p {bin_name}"))
+            .collect::<Vec<_>>()
+            .join(" ")
+    );
+}
+
 fn sibling_bin(bin_dir: &Path, bin_name: &str) -> PathBuf {
     let mut path = bin_dir.join(bin_name);
     if cfg!(windows) {
@@ -99,10 +120,11 @@ impl Drop for ChildGuard {
 #[test]
 fn ikrl_cli_full_flow_hits_real_daemons() {
     let cli_bin = current_bin("ikrl-cli");
-    let bin_dir = cli_bin.parent().expect("ikrl-cli parent dir").to_path_buf();
-    let capd_bin = sibling_bin(&bin_dir, "capd");
-    let intentd_bin = sibling_bin(&bin_dir, "intentd");
-    let eventscope_bin = sibling_bin(&bin_dir, "eventscope");
+    build_bins(&["capd", "intentd", "eventscope"]);
+    let bin_dir = cli_bin.parent().expect("cli binary directory");
+    let capd_bin = sibling_bin(bin_dir, "capd");
+    let intentd_bin = sibling_bin(bin_dir, "intentd");
+    let eventscope_bin = sibling_bin(bin_dir, "eventscope");
 
     let capd_port = reserve_port();
     let intentd_port = reserve_port();
@@ -150,6 +172,7 @@ fn ikrl_cli_full_flow_hits_real_daemons() {
     wait_for_tcp(&format!("127.0.0.1:{intentd_port}"));
 
     let output = Command::new(cli_bin)
+        .env("RUST_LOG", "info")
         .arg("--intentd")
         .arg(&intentd_addr)
         .arg("--capd")
