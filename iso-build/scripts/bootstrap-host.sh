@@ -90,7 +90,10 @@ else
     sudo -u "${REAL_USER}" bash -c \
         "curl --proto '=https' --tlsv1.2 -sSf ${RUSTUP_INIT_URL} | sh -s -- \
          --default-toolchain nightly \
-         --component rust-src llvm-tools-preview rustfmt clippy \
+         --component rust-src \
+         --component llvm-tools-preview \
+         --component rustfmt \
+         --component clippy \
          --target x86_64-unknown-none \
          -y"
 fi
