@@ -98,20 +98,31 @@ upgrade_app() {
         log_info "Updated from local repository"
     else
         # Fetch latest from GitHub
-        log_info "Downloading latest release from GitHub…"
-        if command -v git &>/dev/null; then
-            local tmp_src="/tmp/intentos-upgrade-src"
-            rm -rf "${tmp_src}"
-            local git_err
-            git_err=$(git clone --depth=1 "${REPO_URL}" "${tmp_src}" 2>&1) || {
-                log_error "Failed to clone repository: ${git_err}"
-                exit 1
-            }
-            if [[ -d "${tmp_src}/platform" ]]; then
-                cp -r "${tmp_src}/platform/." "${INTENTOS_HOME}/"
-                rm -rf "${tmp_src}"
-            fi
+        log_info "Downloading from GitHub…"
+
+        if ! command -v git &>/dev/null; then
+            log_error "git is required to download updates, but was not found in PATH."
+            exit 1
         fi
+
+        local tmp_src
+        tmp_src="$(mktemp -d -t intentos-upgrade-src-XXXXXXXXXX)"
+
+        local git_err
+        git_err=$(git clone --depth=1 "${REPO_URL}" "${tmp_src}" 2>&1) || {
+            log_error "Failed to clone repository: ${git_err}"
+            rm -rf "${tmp_src}"
+            exit 1
+        }
+
+        if [[ ! -d "${tmp_src}/platform" ]]; then
+            log_error "Repository clone succeeded, but '${tmp_src}/platform' was not found."
+            rm -rf "${tmp_src}"
+            exit 1
+        fi
+
+        cp -r "${tmp_src}/platform/." "${INTENTOS_HOME}/"
+        rm -rf "${tmp_src}"
     fi
 
     chown -R "${INTENTOS_USER}:${INTENTOS_USER}" "${INTENTOS_HOME}"
