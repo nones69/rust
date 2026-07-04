@@ -2,23 +2,36 @@ param (
     [switch]$Clean = $false
 )
 
+$ErrorActionPreference = "Stop"
+$RepoRoot = Split-Path $PSScriptRoot -Parent
+$RustDir = Join-Path $RepoRoot "rust"
+
 if ($Clean) {
     Write-Host "Cleaning old output..."
-    .\scripts\clean.ps1
+    & (Join-Path $PSScriptRoot "clean.ps1")
 }
 
-Write-Host "Building project using Make..."
-make
-
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "Build failed!"
-    exit $LASTEXITCODE
+Write-Host "Building primary Rust runtime..."
+Push-Location $RustDir
+try {
+    cargo build --release -p intentos
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Build failed!"
+        exit $LASTEXITCODE
+    }
+}
+finally {
+    Pop-Location
 }
 
 Write-Host "Verifying and copying artifacts to dist/..."
-if (!(Test-Path "dist")) { New-Item -ItemType Directory -Force -Path "dist" | Out-Null }
+if (!(Test-Path (Join-Path $RepoRoot "dist"))) { New-Item -ItemType Directory -Force -Path (Join-Path $RepoRoot "dist") | Out-Null }
 
-# Update these paths as your build produces the actual kernel image or ISO
-if (Test-Path "test_harness.exe") { 
-    Copy-Item -Path "test_harness.exe" -Destination "dist\" -Force 
+$IntentosBinary = Join-Path $RustDir "target\release\intentos.exe"
+if (!(Test-Path $IntentosBinary)) {
+    $IntentosBinary = Join-Path $RustDir "target\release\intentos"
+}
+
+if (Test-Path $IntentosBinary) {
+    Copy-Item -Path $IntentosBinary -Destination (Join-Path $RepoRoot "dist\") -Force
 }
