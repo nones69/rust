@@ -21,9 +21,9 @@ uint64_t get_time(void) {
     QueryPerformanceCounter(&counter);
     return (uint64_t)(counter.QuadPart * 1000000000ULL / frequency.QuadPart);
     #else
-    /* POSIX implementation */
+    /* POSIX monotonic implementation */
     struct timespec ts;
-    if (timespec_get(&ts, TIME_UTC) != TIME_UTC) {
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
         return 0;
     }
     return (uint64_t)ts.tv_sec * 1000000000ULL + (uint64_t)ts.tv_nsec;

@@ -115,7 +115,11 @@ fn terminate_init(child: &mut Child) {
                 Some(_) => break,
                 None if Instant::now() < deadline => thread::sleep(Duration::from_millis(100)),
                 None => {
-                    let _ = Command::new("pkill").args(["-TERM", "-P", &pid]).status();
+                    let status = Command::new("pkill")
+                        .args(["-TERM", "-P", &pid])
+                        .status()
+                        .expect("terminate ikrl-init child daemons with pkill");
+                    assert!(status.success(), "pkill -TERM -P {pid} failed");
                     let _ = child.kill();
                     break;
                 }
