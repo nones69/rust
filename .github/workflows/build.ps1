@@ -7,6 +7,16 @@ if ($Clean) {
     .\scripts\clean.ps1
 }
 
+if (!(Test-Path -Path "rust" -PathType Container)) {
+    Write-Error "Rust workspace directory 'rust' was not found."
+    exit 1
+}
+
+if (!(Get-Command cargo -ErrorAction SilentlyContinue)) {
+    Write-Error "cargo was not found on PATH."
+    exit 1
+}
+
 Write-Host "Building primary Rust workspace..."
 Push-Location "rust"
 cargo build --release
