@@ -33,6 +33,9 @@ if (!(Test-Path $IntentosBinary)) {
     $IntentosBinary = Join-Path $RustDir "target\release\intentos"
 }
 
-if (Test-Path $IntentosBinary) {
-    Copy-Item -Path $IntentosBinary -Destination $DistDir -Force
+if (!(Test-Path $IntentosBinary)) {
+    Write-Error "Built intentos artifact was not found."
+    exit 1
 }
+
+Copy-Item -Path $IntentosBinary -Destination $DistDir -Force
