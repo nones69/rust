@@ -16,3 +16,4 @@ thiserror = { workspace = true }
 uuid = { workspace = true }
 reqwest = { workspace = true, features = ["blocking", "json"] }
 ldap3 = { version = "0.11", default-features = false, features = ["sync"] }
+lazy_static = "1.5"

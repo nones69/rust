@@ -1,0 +1,15 @@
+[package]
+name = "governed-editor"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Demo governed editor using IntentKernel IPC"
+
+[[bin]]
+name = "governed-editor"
+path = "src/main.rs"
+
+[dependencies]
+intentkernel-sys = { path = "../intentkernel-sys" }
+uuid = { workspace = true }

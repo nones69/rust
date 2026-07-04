@@ -28,6 +28,8 @@ members = [
     "crates/ikrl-shell",
     "crates/ikrl-bench",
     "crates/ikrl-bridge",
+    "crates/intentkernel-sys",
+    "crates/governed-editor",
 ]
 
 resolver = "3"

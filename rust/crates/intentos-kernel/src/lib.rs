@@ -27,6 +27,11 @@ mod threshold;
 mod token;
 mod types;
 
+mod syscall_envelope;
+mod token_verifier;
+mod utilities;
+pub mod syscall;
+
 pub use broker::BrokerPeer;
 pub use card::IntentCard;
 pub use crypto::{
@@ -51,6 +56,8 @@ pub use revocation::RevocationList;
 pub use table::CapabilityTable;
 pub use token::TokenBroker;
 pub use types::*;
+pub use syscall_envelope::{IkCallEnvelope, IkSyscall, OpenMode};
+pub use token_verifier::{verify_token, VerifiedToken};
 
 use intentos_audit::{AuditEventKind, AuditLog};
 use std::sync::{Arc, Mutex};

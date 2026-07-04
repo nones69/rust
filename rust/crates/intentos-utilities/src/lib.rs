@@ -20,6 +20,8 @@ mod oobe_hooks;
 mod market_status;
 mod recognizer;
 mod sectors;
+mod syscall_envelope;
+pub mod host_vfs;
 mod tools;
 mod vfs;
 
@@ -57,6 +59,7 @@ pub use sectors::public_safety::{
 };
 pub use loom_export::{LoomExportPayload, LoomSignedExport, LOOM_EXPORT_VERSION};
 pub use loom_store::{CardPreview, LoomError, LoomStore};
+pub use host_vfs::{vfs_open, vfs_read, vfs_write};
 pub use tools::SysTools;
 pub use vfs::{VfsError, VirtualFs};
 
