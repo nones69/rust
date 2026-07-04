@@ -5,6 +5,7 @@ param (
 $ErrorActionPreference = "Stop"
 $RepoRoot = Split-Path $PSScriptRoot -Parent
 $RustDir = Join-Path $RepoRoot "rust"
+$DistDir = Join-Path $RepoRoot "dist"
 
 if ($Clean) {
     Write-Host "Cleaning old output..."
@@ -25,7 +26,7 @@ finally {
 }
 
 Write-Host "Verifying and copying artifacts to dist/..."
-if (!(Test-Path (Join-Path $RepoRoot "dist"))) { New-Item -ItemType Directory -Force -Path (Join-Path $RepoRoot "dist") | Out-Null }
+if (!(Test-Path $DistDir)) { New-Item -ItemType Directory -Force -Path $DistDir | Out-Null }
 
 $IntentosBinary = Join-Path $RustDir "target\release\intentos.exe"
 if (!(Test-Path $IntentosBinary)) {
@@ -33,5 +34,5 @@ if (!(Test-Path $IntentosBinary)) {
 }
 
 if (Test-Path $IntentosBinary) {
-    Copy-Item -Path $IntentosBinary -Destination (Join-Path $RepoRoot "dist\") -Force
+    Copy-Item -Path $IntentosBinary -Destination $DistDir -Force
 }
