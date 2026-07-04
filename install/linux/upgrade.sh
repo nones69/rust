@@ -101,8 +101,9 @@ upgrade_app() {
         if command -v git &>/dev/null; then
             local tmp_src="/tmp/intentos-upgrade-src"
             rm -rf "${tmp_src}"
-            git clone --depth=1 "${REPO_URL}" "${tmp_src}" 2>/dev/null || {
-                log_error "Failed to clone repository. Check network connectivity."
+            local git_err
+            git_err=$(git clone --depth=1 "${REPO_URL}" "${tmp_src}" 2>&1) || {
+                log_error "Failed to clone repository: ${git_err}"
                 exit 1
             }
             if [[ -d "${tmp_src}/platform" ]]; then
@@ -147,10 +148,16 @@ upgrade_venv() {
     "${INTENTOS_VENV}/bin/pip" install --upgrade pip -q
 
     if [[ -f "${INTENTOS_HOME}/requirements.txt" ]]; then
-        "${INTENTOS_VENV}/bin/pip" install --upgrade -r "${INTENTOS_HOME}/requirements.txt" -q
+        "${INTENTOS_VENV}/bin/pip" install --upgrade -r "${INTENTOS_HOME}/requirements.txt" || {
+            log_error "Failed to upgrade Python dependencies. Check requirements.txt."
+            exit 1
+        }
         log_info "Python dependencies upgraded"
     else
-        "${INTENTOS_VENV}/bin/pip" install --upgrade flask -q
+        "${INTENTOS_VENV}/bin/pip" install --upgrade flask || {
+            log_error "Failed to upgrade core dependencies."
+            exit 1
+        }
         log_info "Core dependencies upgraded"
     fi
 
