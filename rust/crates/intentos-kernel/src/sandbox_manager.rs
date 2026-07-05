@@ -8,6 +8,10 @@ use serde::{Deserialize, Serialize};
 use std::time::SystemTime;
 use uuid::Uuid;
 
+fn now_system_time() -> SystemTime {
+    SystemTime::now()
+}
+
 /// Lifecycle state of a sandboxed process.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SandboxState {
@@ -37,7 +41,7 @@ pub struct SandboxProcess {
     /// Current lifecycle state.
     pub state: SandboxState,
     /// Wall-clock instant the process was created.
-    #[serde(skip, default = "SystemTime::now")]
+    #[serde(skip, default = "now_system_time")]
     pub spawned_at: SystemTime,
     /// Peak resident-set bytes reported by the last resource tick.
     pub memory_bytes: u64,

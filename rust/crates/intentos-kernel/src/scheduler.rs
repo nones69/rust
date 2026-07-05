@@ -489,10 +489,13 @@ mod tests {
         let mut sched = Scheduler::new();
         let token = make_token();
         let id = sched.submit(make_task(&token, TaskPriority::Normal));
+        // First tick dispatches the task; the update loop runs before dispatch,
+        // so the newly-dispatched task starts with cpu_ms=0.
         sched.tick(50);
+        // Second tick updates the now-running task by 30ms.
         sched.tick(30);
         let task = sched.get_running(&id).unwrap();
-        assert_eq!(task.cpu_ms, 30, "First tick dispatches; second tick adds 30ms");
+        assert_eq!(task.cpu_ms, 30, "update runs before dispatch; first tick adds 0ms to the new task");
     }
 
     #[test]
