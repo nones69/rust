@@ -29,6 +29,9 @@ use tokio::net::TcpListener;
 use tokio_rustls::{TlsAcceptor, TlsConnector};
 use tracing::debug;
 
+/// Maximum allowed size (in bytes) for a single framed IPC message.
+const MAX_FRAME_LEN: usize = 16 * 1024 * 1024;
+
 #[cfg(unix)]
 use super::peer_creds;
 
@@ -351,7 +354,7 @@ impl SecureChannel {
         let mut len_buf = [0u8; 4];
         self.read_exact(&mut len_buf).await?;
         let len = u32::from_be_bytes(len_buf) as usize;
-        if len > 16 * 1024 * 1024 {
+        if len > MAX_FRAME_LEN {
             bail!(
                 "{}",
                 TransportError::Serialization(format!("message too large: {} bytes", len))

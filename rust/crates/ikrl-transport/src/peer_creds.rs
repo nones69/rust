@@ -46,17 +46,21 @@ pub fn get_unix_peer_creds(stream: &tokio::net::UnixStream) -> UnixPeerCreds {
 pub fn get_unix_peer_creds(stream: &tokio::net::UnixStream) -> UnixPeerCreds {
     use std::os::unix::io::AsRawFd;
 
+    // macOS socket option constants not exposed in libc
+    const SOL_LOCAL: libc::c_int = 0;
+    const LOCAL_PEERPID: libc::c_int = 2;
+
     let fd = stream.as_raw_fd();
 
-    // PID: LOCAL_PEERPID = 2, level SOL_LOCAL = 0
+    // PID via LOCAL_PEERPID
     let pid = {
         let mut pid: libc::pid_t = 0;
         let mut len = std::mem::size_of::<libc::pid_t>() as libc::socklen_t;
         let ret = unsafe {
             libc::getsockopt(
                 fd,
-                0, // SOL_LOCAL
-                2, // LOCAL_PEERPID
+                SOL_LOCAL,
+                LOCAL_PEERPID,
                 &mut pid as *mut _ as *mut libc::c_void,
                 &mut len,
             )
