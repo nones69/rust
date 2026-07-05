@@ -1,4 +1,4 @@
-use std::io::Write;
+use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -157,9 +157,9 @@ fn ikrl_init_boots_kernel_and_shell_can_observe_it() {
 
     // Poll until ikrl-shell exits (up to 30 s), then read pipes (non-blocking since write ends closed)
     let shell_deadline = Instant::now() + Duration::from_secs(30);
-    loop {
+    let shell_status = loop {
         match shell.try_wait().expect("try_wait ikrl-shell") {
-            Some(_) => break,
+            Some(status) => break status,
             None => {
                 assert!(
                     Instant::now() < shell_deadline,
@@ -168,17 +168,14 @@ fn ikrl_init_boots_kernel_and_shell_can_observe_it() {
                 thread::sleep(Duration::from_millis(100));
             }
         }
-    }
-    let shell_status = shell.try_wait().expect("try_wait ikrl-shell final").unwrap();
+    };
     let mut shell_stdout_bytes = Vec::new();
     let mut shell_stderr_bytes = Vec::new();
     if let Some(mut out) = shell.stdout.take() {
-        use std::io::Read;
-        let _ = out.read_to_end(&mut shell_stdout_bytes);
+        out.read_to_end(&mut shell_stdout_bytes).expect("read ikrl-shell stdout");
     }
     if let Some(mut err) = shell.stderr.take() {
-        use std::io::Read;
-        let _ = err.read_to_end(&mut shell_stderr_bytes);
+        err.read_to_end(&mut shell_stderr_bytes).expect("read ikrl-shell stderr");
     }
     let shell_stdout = String::from_utf8_lossy(&shell_stdout_bytes);
     let shell_stderr = String::from_utf8_lossy(&shell_stderr_bytes);
@@ -214,12 +211,10 @@ fn ikrl_init_boots_kernel_and_shell_can_observe_it() {
     let mut init_stdout_bytes = Vec::new();
     let mut init_stderr_bytes = Vec::new();
     if let Some(mut out) = init.stdout.take() {
-        use std::io::Read;
-        let _ = out.read_to_end(&mut init_stdout_bytes);
+        out.read_to_end(&mut init_stdout_bytes).expect("read ikrl-init stdout");
     }
     if let Some(mut err) = init.stderr.take() {
-        use std::io::Read;
-        let _ = err.read_to_end(&mut init_stderr_bytes);
+        err.read_to_end(&mut init_stderr_bytes).expect("read ikrl-init stderr");
     }
     let init_stdout = String::from_utf8_lossy(&init_stdout_bytes);
     let init_stderr = String::from_utf8_lossy(&init_stderr_bytes);
