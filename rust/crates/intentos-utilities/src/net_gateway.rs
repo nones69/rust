@@ -54,7 +54,7 @@ impl NetGateway {
         let client = Client::builder()
             .timeout(timeout)
             .build()
-            .expect("net client build failed");
+            .expect("failed to build HTTP client with configured timeout");
         Self { client }
     }
 
@@ -182,10 +182,12 @@ fn host_matches(host: &str, allowed: &str) -> bool {
     if allowed.is_empty() {
         return false;
     }
-    host == allowed
-        || (host.len() > allowed.len()
-            && host.as_bytes()[host.len() - allowed.len() - 1] == b'.'
-            && host.ends_with(&allowed))
+    if host == allowed {
+        return true;
+    }
+    host.strip_suffix(&allowed)
+        .map(|prefix| prefix.ends_with('.'))
+        .unwrap_or(false)
 }
 
 #[cfg(test)]
