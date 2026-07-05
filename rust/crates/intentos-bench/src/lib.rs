@@ -6,14 +6,14 @@
 mod markets;
 
 pub use markets::{
-    run_markets_latency_bench, MarketsLatencyPass, MarketsLatencyReport, MarketsLatencyTargets,
-    LatencyStats, TARGET_CLOCK_DRIFT_NS, TARGET_RISK_PRECHECK_P99_US,
+    run_markets_latency_bench, LatencyStats, MarketsLatencyPass, MarketsLatencyReport,
+    MarketsLatencyTargets, TARGET_CLOCK_DRIFT_NS, TARGET_RISK_PRECHECK_P99_US,
 };
 
 use intentos_audit::{AuditEventKind, AuditLog};
 use intentos_hal::native_hal;
 use intentos_kernel::{
-    Intent, Kernel, KernelConfig, SyscallOp, SyscallRequest, TrustAnchor, wall_ms,
+    wall_ms, Intent, Kernel, KernelConfig, SyscallOp, SyscallRequest, TrustAnchor,
 };
 use intentos_utilities::OsRuntime;
 use serde::{Deserialize, Serialize};
@@ -87,9 +87,7 @@ pub fn run_bench() -> BenchReport {
     let _ = audit.record(
         AuditEventKind::Bench,
         "bench",
-        format!(
-            "boot={boot_ms}ms intent={intent_to_handle_ms}ms syscall={syscall_ms}ms"
-        ),
+        format!("boot={boot_ms}ms intent={intent_to_handle_ms}ms syscall={syscall_ms}ms"),
     );
 
     let pass = BenchPass {

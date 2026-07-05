@@ -56,7 +56,10 @@ fn field_isolation_blocks_cross_field_card_execution() {
 fn high_risk_card_requires_confirmation() {
     let (rt, dir) = boot_with_temp_loom();
     rt.loom.complete_oobe(ThresholdLevel::High).unwrap();
-    let card = rt.loom.create_card("Send packet", "network", "send").unwrap();
+    let card = rt
+        .loom
+        .create_card("Send packet", "network", "send")
+        .unwrap();
     assert!(rt
         .loom
         .run_card(&rt.kernel(), &rt.audit, &card.id, "user", false, None)
@@ -143,9 +146,8 @@ fn auto_oobe_runs_on_shell_open() {
 fn card_confirm_then_vfs_read() {
     let dir = temp_loom_dir();
     let loom = Arc::new(LoomStore::open_in(&dir).unwrap());
-    let audit = Arc::new(
-        intentos_audit::AuditLog::open_persisted(dir.join("audit.jsonl")).unwrap(),
-    );
+    let audit =
+        Arc::new(intentos_audit::AuditLog::open_persisted(dir.join("audit.jsonl")).unwrap());
     let rt = OsRuntime::boot_with_loom(audit, loom).expect("boot");
     rt.loom.complete_oobe(ThresholdLevel::High).unwrap();
 
@@ -194,8 +196,7 @@ fn loom_corruption_triggers_recovery() {
     store.complete_oobe(ThresholdLevel::Medium).unwrap();
     drop(store);
     let path = dir.join("loom_state.json");
-    let mut env: Envelope =
-        serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    let mut env: Envelope = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
     env.session.checksum = "corrupt".into();
     std::fs::write(&path, serde_json::to_vec_pretty(&env).unwrap()).unwrap();
     let loom = LoomStore::open_in(&dir).unwrap();
@@ -243,10 +244,7 @@ fn broker_peer_persists_in_loom() {
     let peer = BrokerPeer::new("peer-remote", "aa".repeat(64), 1_700_000_000);
     rt.loom.register_broker_peer(peer).unwrap();
     rt.sync_federation_from_loom();
-    assert_eq!(
-        rt.utilities.lock().unwrap().federation.peers().len(),
-        1
-    );
+    assert_eq!(rt.utilities.lock().unwrap().federation.peers().len(), 1);
     let session = rt.loom.session();
     assert_eq!(session.broker_peers[0].peer_id, "peer-remote");
     let _ = std::fs::remove_dir_all(dir);
@@ -297,14 +295,7 @@ fn pqc_token_path_mints_ver_2_tokens() {
     let card = rt.loom.create_card("Read", "file", "read").unwrap();
     let (handle, _) = rt
         .loom
-        .run_card(
-            &rt.kernel(),
-            &rt.audit,
-            &card.id,
-            "user",
-            false,
-            None,
-        )
+        .run_card(&rt.kernel(), &rt.audit, &card.id, "user", false, None)
         .unwrap();
     assert!(handle.as_u64() > 0);
     let _ = std::fs::remove_dir_all(dir);
@@ -313,7 +304,7 @@ fn pqc_token_path_mints_ver_2_tokens() {
 #[test]
 fn broker_wire_send_recv_round_trip() {
     use intentos_kernel::BrokerPeer;
-    use intentos_utilities::{BrokerWireHub, decode_payload_hex};
+    use intentos_utilities::{decode_payload_hex, BrokerWireHub};
     let (rt, dir) = boot_with_temp_loom();
     rt.loom.complete_oobe(ThresholdLevel::Medium).unwrap();
     rt.loom.ensure_signing_keys().unwrap();
@@ -323,19 +314,17 @@ fn broker_wire_send_recv_round_trip() {
     rt.loom.register_broker_peer(peer).unwrap();
     let secret = rt.loom.signing_secret_key_hex();
     let wire = BrokerWireHub::open_in(dir.join("broker"));
-    let mut msg = BrokerWireHub::build_delegate(
-        &session.profile_id,
-        "peer-b",
-        b"wire-hello",
-        42,
-    );
+    let mut msg = BrokerWireHub::build_delegate(&session.profile_id, "peer-b", b"wire-hello", 42);
     BrokerWireHub::sign_message(&mut msg, &secret).unwrap();
     let peer_ref = rt.loom.session().broker_peers[0].clone();
     wire.enqueue_to_peer(&peer_ref, &msg).unwrap();
     let inbox = wire.recv_inbox("peer-b", 5).unwrap();
     assert_eq!(inbox.len(), 1);
     BrokerWireHub::verify_message(&inbox[0], &public_hex).unwrap();
-    assert_eq!(decode_payload_hex(&inbox[0].payload_b64).unwrap(), b"wire-hello");
+    assert_eq!(
+        decode_payload_hex(&inbox[0].payload_b64).unwrap(),
+        b"wire-hello"
+    );
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -356,11 +345,12 @@ fn broker_tcp_transport_delivers_to_inbox() {
 
     let wire2 = BrokerWireHub::open_in(&dir);
     let device = device_id.clone();
-    let handle = thread::spawn(move || {
-        BrokerTcpTransport::serve(&wire2, &device, 0, true, 8).unwrap()
-    });
+    let handle =
+        thread::spawn(move || BrokerTcpTransport::serve(&wire2, &device, 0, true, 8).unwrap());
     thread::sleep(Duration::from_millis(80));
-    let manifest = BrokerTcpTransport::read_listen_manifest(&wire).unwrap().unwrap();
+    let manifest = BrokerTcpTransport::read_listen_manifest(&wire)
+        .unwrap()
+        .unwrap();
     let mut peer = BrokerPeer::new("tcp-peer", public_hex, 1);
     peer.endpoint = manifest.endpoint.clone();
     rt.loom.register_broker_peer(peer).unwrap();

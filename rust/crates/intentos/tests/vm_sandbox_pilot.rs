@@ -19,9 +19,8 @@ fn sandbox_dir() -> PathBuf {
 
 fn boot_in(dir: &PathBuf) -> Arc<OsRuntime> {
     let loom = Arc::new(LoomStore::open_in(dir).expect("loom"));
-    let audit = Arc::new(
-        intentos_audit::AuditLog::open_persisted(dir.join("audit.jsonl")).expect("audit"),
-    );
+    let audit =
+        Arc::new(intentos_audit::AuditLog::open_persisted(dir.join("audit.jsonl")).expect("audit"));
     Arc::new(OsRuntime::boot_with_loom(audit, loom).expect("boot"))
 }
 
@@ -59,7 +58,8 @@ fn sandbox_shell_tier_and_kernel_commands() {
     std::env::set_var("INTENTOS_SKIP_OOBE", "1");
     let dir = sandbox_dir();
     let rt = boot_in(&dir);
-    rt.loom.complete_oobe(intentos_kernel::ThresholdLevel::Medium)
+    rt.loom
+        .complete_oobe(intentos_kernel::ThresholdLevel::Medium)
         .unwrap();
     let mut session = ShellSession::new(rt);
     for cmd in [
@@ -91,7 +91,8 @@ fn sandbox_kernel_bar_and_vfs_flow() {
     std::env::set_var("INTENTOS_SKIP_OOBE", "1");
     let dir = sandbox_dir();
     let rt = boot_in(&dir);
-    rt.loom.complete_oobe(intentos_kernel::ThresholdLevel::Medium)
+    rt.loom
+        .complete_oobe(intentos_kernel::ThresholdLevel::Medium)
         .unwrap();
     let mut session = ShellSession::new(Arc::clone(&rt));
     eval_ok(&mut session, "field list");
@@ -110,7 +111,8 @@ fn sandbox_pqc_and_broker_wire() {
     std::env::set_var("INTENTOS_SKIP_OOBE", "1");
     let dir = sandbox_dir();
     let rt = boot_in(&dir);
-    rt.loom.complete_oobe(intentos_kernel::ThresholdLevel::Medium)
+    rt.loom
+        .complete_oobe(intentos_kernel::ThresholdLevel::Medium)
         .unwrap();
     rt.loom.set_pqc_tokens_enabled(true).unwrap();
     rt.sync_pqc_tokens_from_loom();
@@ -158,7 +160,8 @@ fn sandbox_audit_chain_stays_valid_after_session() {
     std::env::set_var("INTENTOS_SKIP_OOBE", "1");
     let dir = sandbox_dir();
     let rt = boot_in(&dir);
-    rt.loom.complete_oobe(intentos_kernel::ThresholdLevel::Medium)
+    rt.loom
+        .complete_oobe(intentos_kernel::ThresholdLevel::Medium)
         .unwrap();
     let mut session = ShellSession::new(Arc::clone(&rt));
     eval_ok(&mut session, "flow dir list");

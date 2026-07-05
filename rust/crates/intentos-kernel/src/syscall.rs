@@ -8,9 +8,14 @@ use crate::utilities;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine as _;
 
-pub fn dispatch_call(env: IkCallEnvelope, token: &VerifiedToken) -> Result<serde_json::Value, String> {
+pub fn dispatch_call(
+    env: IkCallEnvelope,
+    token: &VerifiedToken,
+) -> Result<serde_json::Value, String> {
     match env.call {
-        IkSyscall::IkPolicyExplain { syscall } => Ok(policy_inspector::explain(token, syscall.as_ref())),
+        IkSyscall::IkPolicyExplain { syscall } => {
+            Ok(policy_inspector::explain(token, syscall.as_ref()))
+        }
         call => {
             verify_token_scope(token, &call)?;
 

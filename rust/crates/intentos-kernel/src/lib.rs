@@ -10,6 +10,7 @@
 //! enforcement, and pluggable intent recognition in-process.
 
 mod broker;
+mod capability_schema;
 mod card;
 mod crypto;
 mod error;
@@ -21,46 +22,45 @@ mod policy;
 pub mod policy_inspector;
 mod policy_pack;
 mod recognizer;
-mod signals;
 mod revocation;
-mod capability_schema;
+mod signals;
 mod table;
 mod threshold;
 mod token;
 mod types;
 
+pub mod syscall;
 mod syscall_envelope;
 mod token_verifier;
 mod utilities;
-pub mod syscall;
 
 pub use broker::BrokerPeer;
+pub use capability_schema::{AiScope, FsOp, FsScope, NetScope, TokenScope};
 pub use card::IntentCard;
 pub use crypto::{
     generate_broker_keys, sign, sign_with_version, verify, verify_with_version, BrokerKeys,
     CryptoError, PUBLIC_KEY_LEN, SECRET_KEY_LEN, SIGNATURE_LEN, TOKEN_SIG_V1_ED25519,
     TOKEN_SIG_V2_PQC_HYBRID,
 };
-pub use field::Field;
 pub use error::KernelError;
-pub use loom::LoomSession;
-pub use threshold::{gate_outcome, risk_for, PolicyOutcome, ThresholdLevel};
-pub use lease::LeaseManager;
+pub use field::Field;
 pub use ip_policy::{
     apply_ip_policy, evaluate_ip, extract_ipv4_literals, verdict_from_threat_score, IpVerdict,
     ThreatLevel, META_DEST_IP, META_THREAT_SCORE,
 };
+pub use lease::LeaseManager;
+pub use loom::LoomSession;
 pub use policy::PolicyEngine;
 pub use policy_pack::PolicyPack;
-pub use signals::ThresholdSignals;
 pub use recognizer::{IntentRecognizer, RecognizedIntent, StubRecognizer};
 pub use revocation::RevocationList;
-pub use table::CapabilityTable;
-pub use token::TokenBroker;
-pub use types::*;
+pub use signals::ThresholdSignals;
 pub use syscall_envelope::{IkCallEnvelope, IkSyscall, OpenMode};
+pub use table::CapabilityTable;
+pub use threshold::{gate_outcome, risk_for, PolicyOutcome, ThresholdLevel};
+pub use token::TokenBroker;
 pub use token_verifier::{verify_token, verify_token_scope, VerifiedToken};
-pub use capability_schema::{AiScope, FsOp, FsScope, NetScope, TokenScope};
+pub use types::*;
 
 use intentos_audit::{AuditEventKind, AuditLog};
 use std::sync::{Arc, Mutex};
@@ -221,7 +221,10 @@ impl Kernel {
         self.audit_record(
             AuditEventKind::TokenMinted,
             &intent.actor,
-            format!("jti={} scope={}/{}", token.jti, intent.resource, intent.action),
+            format!(
+                "jti={} scope={}/{}",
+                token.jti, intent.resource, intent.action
+            ),
         );
         Ok(token)
     }
@@ -277,8 +280,14 @@ impl Kernel {
         }
         let result = state.table.syscall(handle, &req);
         let detail = match &result {
-            SyscallResult::Allowed { kind, remaining_uses } => {
-                format!("allowed {:?} target={} uses_left={}", kind, req.target, remaining_uses)
+            SyscallResult::Allowed {
+                kind,
+                remaining_uses,
+            } => {
+                format!(
+                    "allowed {:?} target={} uses_left={}",
+                    kind, req.target, remaining_uses
+                )
             }
             SyscallResult::Denied(reason) => format!("denied {reason} target={}", req.target),
         };
@@ -319,11 +328,7 @@ impl Kernel {
             state.revocations.revoke(jti)
         };
         if inserted {
-            self.audit_record(
-                AuditEventKind::TokenRevoked,
-                actor,
-                format!("jti={jti}"),
-            );
+            self.audit_record(AuditEventKind::TokenRevoked, actor, format!("jti={jti}"));
         }
         inserted
     }

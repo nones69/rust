@@ -103,7 +103,11 @@ mod tests {
 
     use crate::capability_schema::{FsOp, FsScope, TokenScope};
 
-    fn demo_token(expires_at: SystemTime, ops: Vec<FsOp>, remaining_uses: Option<u32>) -> VerifiedToken {
+    fn demo_token(
+        expires_at: SystemTime,
+        ops: Vec<FsOp>,
+        remaining_uses: Option<u32>,
+    ) -> VerifiedToken {
         VerifiedToken {
             id: Uuid::new_v4(),
             issued_to: "demo-principal".to_string(),

@@ -1,6 +1,6 @@
+use intentkernel_sys::syscall_types_impl::OpenMode;
 use intentkernel_sys::IkClient;
 use uuid::Uuid;
-use intentkernel_sys::syscall_types_impl::OpenMode;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut client = IkClient::new_unix("/tmp/intentos.sock");

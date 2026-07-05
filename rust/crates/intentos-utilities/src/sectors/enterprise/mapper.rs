@@ -1,7 +1,7 @@
 //! Enterprise command → intent mapping (PowerShell, Bash, CMD).
 
 use intentos_audit::{AuditEventKind, AuditLog};
-use intentos_kernel::{Intent, TrustAnchor, wall_ms};
+use intentos_kernel::{wall_ms, Intent, TrustAnchor};
 use std::collections::BTreeMap;
 
 /// Maps enterprise shell commands to structured intents.

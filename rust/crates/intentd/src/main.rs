@@ -6,9 +6,7 @@
 use anyhow::Result;
 use clap::Parser;
 use ikrl_transport::{rpc, Channel, Listener};
-use intentkernel_core::{
-    context_hash, default_policy, evaluate_ip, wall_epoch_ms, IntentEvent,
-};
+use intentkernel_core::{context_hash, default_policy, evaluate_ip, wall_epoch_ms, IntentEvent};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use tracing::{info, warn};

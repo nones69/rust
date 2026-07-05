@@ -198,12 +198,12 @@ pub fn apply_network_policy(
         .unwrap_or_default();
 
     for ip in &ips {
-        let verdict = if let Some(score) = metadata.get(META_THREAT_SCORE).and_then(|s| s.parse().ok())
-        {
-            verdict_from_threat_score(ip, score)
-        } else {
-            evaluate_ip(ip)
-        };
+        let verdict =
+            if let Some(score) = metadata.get(META_THREAT_SCORE).and_then(|s| s.parse().ok()) {
+                verdict_from_threat_score(ip, score)
+            } else {
+                evaluate_ip(ip)
+            };
 
         if !verdict.allowed {
             base.allowed = false;
@@ -220,14 +220,17 @@ pub fn apply_network_policy(
 }
 
 /// Block AI inference when prompts reference high-risk destinations.
-pub fn ai_prompt_ip_allowed(prompt: &str, metadata: &BTreeMap<String, String>) -> Result<(), String> {
+pub fn ai_prompt_ip_allowed(
+    prompt: &str,
+    metadata: &BTreeMap<String, String>,
+) -> Result<(), String> {
     for ip in extract_ipv4_literals(prompt) {
-        let verdict = if let Some(score) = metadata.get(META_THREAT_SCORE).and_then(|s| s.parse().ok())
-        {
-            verdict_from_threat_score(&ip, score)
-        } else {
-            evaluate_ip(&ip)
-        };
+        let verdict =
+            if let Some(score) = metadata.get(META_THREAT_SCORE).and_then(|s| s.parse().ok()) {
+                verdict_from_threat_score(&ip, score)
+            } else {
+                evaluate_ip(&ip)
+            };
         if !verdict.allowed {
             return Err(format!(
                 "prompt references blocked IP {} ({})",

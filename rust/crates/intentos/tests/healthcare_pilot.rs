@@ -21,8 +21,11 @@ fn healthcare_assessor_not_pilot_ready() {
 #[test]
 fn healthcare_map_and_audit() {
     let rt = OsRuntime::boot().expect("boot");
-    let intent = HealthcareMapper::map_and_audit("Observation.list", "clinician", &rt.audit)
-        .expect("map");
+    let intent =
+        HealthcareMapper::map_and_audit("Observation.list", "clinician", &rt.audit).expect("map");
     assert_eq!(intent.resource, "observation");
-    assert_eq!(intent.metadata.get("sector").map(String::as_str), Some("healthcare"));
+    assert_eq!(
+        intent.metadata.get("sector").map(String::as_str),
+        Some("healthcare")
+    );
 }

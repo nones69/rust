@@ -51,7 +51,10 @@ fn intentos_has_no_legacy_dependencies() {
 #[test]
 fn only_intentos_kernel_owns_crypto_deps() {
     let kernel = fs::read_to_string(manifest_path("intentos-kernel")).unwrap();
-    assert!(kernel.contains("ed25519-dalek"), "kernel owns native crypto");
+    assert!(
+        kernel.contains("ed25519-dalek"),
+        "kernel owns native crypto"
+    );
     let shell = fs::read_to_string(manifest_path("intentos-shell")).unwrap();
     assert!(!shell.contains("ed25519"), "shell must not embed crypto");
 }

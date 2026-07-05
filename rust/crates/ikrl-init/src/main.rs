@@ -151,10 +151,7 @@ async fn main() -> Result<()> {
             "ikrl-ai",
             &[
                 format!("--listen={}", strip_prefix(&args.ikrl_ai_addr)),
-                format!(
-                    "--eventscope-addr={}",
-                    strip_prefix(&args.eventscope_addr)
-                ),
+                format!("--eventscope-addr={}", strip_prefix(&args.eventscope_addr)),
             ],
         )?;
     }
@@ -167,10 +164,7 @@ async fn main() -> Result<()> {
             "ikrl-fs",
             &[
                 format!("--listen={}", strip_prefix(&args.ikrl_fs_addr)),
-                format!(
-                    "--eventscope-addr={}",
-                    strip_prefix(&args.eventscope_addr)
-                ),
+                format!("--eventscope-addr={}", strip_prefix(&args.eventscope_addr)),
             ],
         )?;
     }
@@ -203,40 +197,43 @@ async fn main() -> Result<()> {
     println!("\n  Kernel:     {} daemons running", KERNEL.len());
     println!(
         "  Utilities:  {} running",
-        daemons.lock().unwrap().iter().filter(|d| d.layer == OsLayer::Utilities).count()
+        daemons
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|d| d.layer == OsLayer::Utilities)
+            .count()
     );
     println!("  Shell:      launch interactive session:");
     println!("              {}\n", shell_exe.display());
     info!("IntentOS boot complete — press Ctrl-C to shut down");
 
     let monitor = Arc::clone(&daemons);
-    let monitor_handle = tokio::task::spawn_blocking(move || {
-        loop {
-            std::thread::sleep(std::time::Duration::from_secs(5));
-            let mut dead = Vec::new();
-            {
-                let mut d = monitor.lock().unwrap();
-                for (i, daemon) in d.iter_mut().enumerate() {
-                    match daemon.child.try_wait() {
-                        Ok(Some(status)) => {
-                            warn!("{} exited with {:?}", daemon.name, status);
-                            dead.push(i);
-                        }
-                        Ok(None) => {}
-                        Err(e) => {
-                            error!("failed to poll {}: {}", daemon.name, e);
-                            dead.push(i);
-                        }
+    let monitor_handle = tokio::task::spawn_blocking(move || loop {
+        std::thread::sleep(std::time::Duration::from_secs(5));
+        let mut dead = Vec::new();
+        {
+            let mut d = monitor.lock().unwrap();
+            for (i, daemon) in d.iter_mut().enumerate() {
+                match daemon.child.try_wait() {
+                    Ok(Some(status)) => {
+                        warn!("{} exited with {:?}", daemon.name, status);
+                        dead.push(i);
+                    }
+                    Ok(None) => {}
+                    Err(e) => {
+                        error!("failed to poll {}: {}", daemon.name, e);
+                        dead.push(i);
                     }
                 }
-                for &i in dead.iter().rev() {
-                    d.remove(i);
-                }
             }
-            if !dead.is_empty() {
-                error!("one or more daemons died; shutting down");
-                break;
+            for &i in dead.iter().rev() {
+                d.remove(i);
             }
+        }
+        if !dead.is_empty() {
+            error!("one or more daemons died; shutting down");
+            break;
         }
     });
 
@@ -266,7 +263,13 @@ fn spawn_daemon(
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit());
 
-    info!("[{}] spawning {}: {:?} {:?}", layer.label(), name, exe, args);
+    info!(
+        "[{}] spawning {}: {:?} {:?}",
+        layer.label(),
+        name,
+        exe,
+        args
+    );
     let child = cmd
         .spawn()
         .with_context(|| format!("failed to spawn {} from {}", name, exe.display()))?;

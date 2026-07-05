@@ -1,4 +1,4 @@
-use crate::types::{LeaseState, ProcessLease, wall_ms};
+use crate::types::{wall_ms, LeaseState, ProcessLease};
 use std::collections::HashMap;
 
 /// Native lease manager inside the IntentOS kernel.

@@ -33,7 +33,10 @@ impl VirtualFs {
             "/system/version",
             concat!(env!("CARGO_PKG_VERSION"), "\n").as_bytes(),
         );
-        self.write_raw("/home/user/notes.txt", b"Ground-up kernel, shell, utilities.\n");
+        self.write_raw(
+            "/home/user/notes.txt",
+            b"Ground-up kernel, shell, utilities.\n",
+        );
     }
 
     fn write_raw(&mut self, path: &str, data: &[u8]) {
@@ -55,7 +58,12 @@ impl VirtualFs {
         out
     }
 
-    pub fn list(&self, kernel: &Kernel, handle: Handle, path: &str) -> Result<Vec<String>, VfsError> {
+    pub fn list(
+        &self,
+        kernel: &Kernel,
+        handle: Handle,
+        path: &str,
+    ) -> Result<Vec<String>, VfsError> {
         match kernel.syscall(
             handle,
             SyscallRequest {
@@ -135,7 +143,7 @@ impl Default for VirtualFs {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use intentos_kernel::{Intent, TrustAnchor, wall_ms};
+    use intentos_kernel::{wall_ms, Intent, TrustAnchor};
 
     fn intent(resource: &str, action: &str) -> Intent {
         Intent {

@@ -43,10 +43,7 @@ async fn handle_client(ch: &mut Channel) -> Result<()> {
             }
         } else {
             BridgeResponse::Denied {
-                reason: local["reason"]
-                    .as_str()
-                    .unwrap_or("denied")
-                    .to_string(),
+                reason: local["reason"].as_str().unwrap_or("denied").to_string(),
             }
         };
         ch.send_json(&resp).await?;

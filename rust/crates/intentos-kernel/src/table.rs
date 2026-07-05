@@ -1,7 +1,7 @@
 use crate::error::KernelError;
 use crate::types::{
-    CapabilityKind, Handle, SlotEntry, SyscallOp, SyscallRequest, SyscallResult, Token,
-    CAP_TABLE_SIZE, handle_checksum, mono_ns,
+    handle_checksum, mono_ns, CapabilityKind, Handle, SlotEntry, SyscallOp, SyscallRequest,
+    SyscallResult, Token, CAP_TABLE_SIZE,
 };
 use std::collections::HashSet;
 
@@ -38,7 +38,10 @@ impl CapabilityTable {
         }
 
         let now = mono_ns();
-        let ttl_ns = token.exp.saturating_sub(crate::types::wall_ms()).saturating_mul(1_000_000);
+        let ttl_ns = token
+            .exp
+            .saturating_sub(crate::types::wall_ms())
+            .saturating_mul(1_000_000);
         let kind = CapabilityKind::from_scope(&token.scope.resource, &token.scope.action);
 
         for (idx, slot) in self.slots.iter_mut().enumerate() {
@@ -112,7 +115,11 @@ impl CapabilityTable {
         let now = mono_ns();
         self.slots
             .iter()
-            .filter(|s| s.as_ref().map(|e| e.expires_ns >= now && e.uses_left > 0).unwrap_or(false))
+            .filter(|s| {
+                s.as_ref()
+                    .map(|e| e.expires_ns >= now && e.uses_left > 0)
+                    .unwrap_or(false)
+            })
             .count()
     }
 
@@ -153,7 +160,7 @@ mod tests {
     use super::*;
     use crate::policy::PolicyEngine;
     use crate::token::TokenBroker;
-    use crate::types::{Intent, TrustAnchor, wall_ms};
+    use crate::types::{wall_ms, Intent, TrustAnchor};
 
     fn read_intent() -> Intent {
         Intent {
@@ -207,16 +214,27 @@ mod tests {
 
         let first = table.syscall(
             handle,
-            &SyscallRequest { op: SyscallOp::Read, target: "/tmp/x".into(), payload: vec![] },
+            &SyscallRequest {
+                op: SyscallOp::Read,
+                target: "/tmp/x".into(),
+                payload: vec![],
+            },
         );
         assert!(matches!(
             first,
-            SyscallResult::Allowed { remaining_uses: 0, .. }
+            SyscallResult::Allowed {
+                remaining_uses: 0,
+                ..
+            }
         ));
 
         let second = table.syscall(
             handle,
-            &SyscallRequest { op: SyscallOp::Read, target: "/tmp/x".into(), payload: vec![] },
+            &SyscallRequest {
+                op: SyscallOp::Read,
+                target: "/tmp/x".into(),
+                payload: vec![],
+            },
         );
         // After exhaustion the slot expires (expires_ns=0), so a stale-capability
         // denial is what actually fires here — still a hard deny.
@@ -232,7 +250,11 @@ mod tests {
 
         let denied = table.syscall(
             handle,
-            &SyscallRequest { op: SyscallOp::Write, target: "/tmp/x".into(), payload: vec![] },
+            &SyscallRequest {
+                op: SyscallOp::Write,
+                target: "/tmp/x".into(),
+                payload: vec![],
+            },
         );
         match denied {
             SyscallResult::Denied(reason) => assert!(reason.contains("not allowed")),
@@ -249,7 +271,11 @@ mod tests {
 
         let denied = table.syscall(
             handle,
-            &SyscallRequest { op: SyscallOp::Read, target: "/tmp/x".into(), payload: vec![] },
+            &SyscallRequest {
+                op: SyscallOp::Read,
+                target: "/tmp/x".into(),
+                payload: vec![],
+            },
         );
         match denied {
             SyscallResult::Denied(reason) => assert!(reason.contains("not allowed")),
@@ -274,7 +300,11 @@ mod tests {
 
         let result = table.syscall(
             handle,
-            &SyscallRequest { op: SyscallOp::Read, target: "/tmp/x".into(), payload: vec![] },
+            &SyscallRequest {
+                op: SyscallOp::Read,
+                target: "/tmp/x".into(),
+                payload: vec![],
+            },
         );
         assert_eq!(result, SyscallResult::Denied("capability expired".into()));
     }
@@ -358,6 +388,9 @@ mod tests {
             },
         );
 
-        assert_eq!(result, SyscallResult::Denied("handle checksum mismatch".into()));
+        assert_eq!(
+            result,
+            SyscallResult::Denied("handle checksum mismatch".into())
+        );
     }
 }

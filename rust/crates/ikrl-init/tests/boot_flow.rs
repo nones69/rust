@@ -92,7 +92,10 @@ fn wait_for_tcp(addr: &str) {
 #[test]
 fn ikrl_init_boots_kernel_and_shell_can_observe_it() {
     let init_bin = current_bin("ikrl-init");
-    let bin_dir = init_bin.parent().expect("ikrl-init parent dir").to_path_buf();
+    let bin_dir = init_bin
+        .parent()
+        .expect("ikrl-init parent dir")
+        .to_path_buf();
     sibling_bin(&bin_dir, "capd");
     sibling_bin(&bin_dir, "intentd");
     sibling_bin(&bin_dir, "leasebroker");
@@ -159,15 +162,14 @@ fn ikrl_init_boots_kernel_and_shell_can_observe_it() {
     let shell_stdout = String::from_utf8_lossy(&shell_output.stdout);
     let shell_stderr = String::from_utf8_lossy(&shell_output.stderr);
 
-    assert!(shell_output.status.success(), "ikrl-shell failed: {shell_stderr}");
+    assert!(
+        shell_output.status.success(),
+        "ikrl-shell failed: {shell_stderr}"
+    );
     assert!(shell_stdout.contains("intentd") && shell_stdout.contains(&intentd_addr));
     assert!(shell_stdout.contains("capd") && shell_stdout.contains(&capd_addr));
-    assert!(
-        shell_stdout.contains("leasebroker") && shell_stdout.contains(&leasebroker_addr)
-    );
-    assert!(
-        shell_stdout.contains("eventscope") && shell_stdout.contains(&eventscope_addr)
-    );
+    assert!(shell_stdout.contains("leasebroker") && shell_stdout.contains(&leasebroker_addr));
+    assert!(shell_stdout.contains("eventscope") && shell_stdout.contains(&eventscope_addr));
     assert!(shell_stdout.contains("ikrl-shell     active"));
     assert!(shell_stdout.contains("ikrl-ai") && shell_stdout.contains("down"));
     assert!(shell_stdout.contains("ikrl-fs") && shell_stdout.contains("down"));
