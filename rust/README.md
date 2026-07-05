@@ -62,7 +62,8 @@ What remains unproven in this reference runtime:
 - the AI path is a **stub**, not a full external model runtime
 - the implementation is **in-process**, not a hardened isolation boundary
 - the runtime does **not** establish system-wide immunity to malware, ransomware, spyware, or botnet behavior
-- the runtime does **not** establish production post-quantum cryptography or a production host-interception boundary
+- the runtime does **not** establish production post-quantum cryptography in this reference runtime
+- the runtime does **not** establish a production-grade syscall or host-kernel interception boundary
 
 ## Architecture
 
