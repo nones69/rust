@@ -155,11 +155,35 @@ fn ikrl_init_boots_kernel_and_shell_can_observe_it() {
         stdin.flush().expect("flush shell commands");
     }
 
-    let shell_output = shell.wait_with_output().expect("wait for ikrl-shell");
-    let shell_stdout = String::from_utf8_lossy(&shell_output.stdout);
-    let shell_stderr = String::from_utf8_lossy(&shell_output.stderr);
+    // Poll until ikrl-shell exits (up to 30 s), then read pipes (non-blocking since write ends closed)
+    let shell_deadline = Instant::now() + Duration::from_secs(30);
+    loop {
+        match shell.try_wait().expect("try_wait ikrl-shell") {
+            Some(_) => break,
+            None => {
+                assert!(
+                    Instant::now() < shell_deadline,
+                    "ikrl-shell did not exit within 30 s"
+                );
+                thread::sleep(Duration::from_millis(100));
+            }
+        }
+    }
+    let shell_status = shell.try_wait().expect("try_wait ikrl-shell final").unwrap();
+    let mut shell_stdout_bytes = Vec::new();
+    let mut shell_stderr_bytes = Vec::new();
+    if let Some(mut out) = shell.stdout.take() {
+        use std::io::Read;
+        let _ = out.read_to_end(&mut shell_stdout_bytes);
+    }
+    if let Some(mut err) = shell.stderr.take() {
+        use std::io::Read;
+        let _ = err.read_to_end(&mut shell_stderr_bytes);
+    }
+    let shell_stdout = String::from_utf8_lossy(&shell_stdout_bytes);
+    let shell_stderr = String::from_utf8_lossy(&shell_stderr_bytes);
 
-    assert!(shell_output.status.success(), "ikrl-shell failed: {shell_stderr}");
+    assert!(shell_status.success(), "ikrl-shell failed: {shell_stderr}");
     assert!(shell_stdout.contains("intentd") && shell_stdout.contains(&intentd_addr));
     assert!(shell_stdout.contains("capd") && shell_stdout.contains(&capd_addr));
     assert!(
@@ -173,9 +197,32 @@ fn ikrl_init_boots_kernel_and_shell_can_observe_it() {
     assert!(shell_stdout.contains("ikrl-fs") && shell_stdout.contains("down"));
 
     let _ = init.kill();
-    let init_output = init.wait_with_output().expect("wait for ikrl-init");
-    let init_stdout = String::from_utf8_lossy(&init_output.stdout);
-    let init_stderr = String::from_utf8_lossy(&init_output.stderr);
+    // Poll until ikrl-init exits after kill (up to 15 s), then read pipes
+    let init_deadline = Instant::now() + Duration::from_secs(15);
+    loop {
+        match init.try_wait().expect("try_wait ikrl-init") {
+            Some(_) => break,
+            None => {
+                assert!(
+                    Instant::now() < init_deadline,
+                    "ikrl-init did not exit within 15 s after kill"
+                );
+                thread::sleep(Duration::from_millis(100));
+            }
+        }
+    }
+    let mut init_stdout_bytes = Vec::new();
+    let mut init_stderr_bytes = Vec::new();
+    if let Some(mut out) = init.stdout.take() {
+        use std::io::Read;
+        let _ = out.read_to_end(&mut init_stdout_bytes);
+    }
+    if let Some(mut err) = init.stderr.take() {
+        use std::io::Read;
+        let _ = err.read_to_end(&mut init_stderr_bytes);
+    }
+    let init_stdout = String::from_utf8_lossy(&init_stdout_bytes);
+    let init_stderr = String::from_utf8_lossy(&init_stderr_bytes);
 
     assert!(
         init_stdout.contains("Shell:") && init_stdout.contains("ikrl-shell"),

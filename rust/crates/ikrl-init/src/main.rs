@@ -263,8 +263,8 @@ fn spawn_daemon(
     let exe = bin_dir.join(exe_name(name));
     let mut cmd = Command::new(&exe);
     cmd.args(args)
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit());
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
 
     info!("[{}] spawning {}: {:?} {:?}", layer.label(), name, exe, args);
     let child = cmd
