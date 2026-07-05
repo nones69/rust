@@ -1,16 +1,18 @@
 //! Token verification stub for the kernel dispatch layer.
 
+use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, SystemTime};
 use uuid::Uuid;
-use lazy_static::lazy_static;
 
-use crate::capability_schema::{FsOp, FsScope, TokenScope};
+use crate::capability_schema::{AiScope, FsOp, FsScope, TokenScope};
 use crate::syscall_envelope::IkSyscall;
 
 lazy_static! {
     static ref TEST_TOKEN_ID: Uuid =
         Uuid::parse_str("11111111-2222-3333-4444-555555555555").expect("valid test token UUID");
+    static ref TEST_AI_TOKEN_ID: Uuid =
+        Uuid::parse_str("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee").expect("valid test AI token UUID");
 }
 
 /// A verified capability token with its core identity fields.
@@ -46,6 +48,16 @@ pub fn verify_token(token_id: &Uuid) -> Result<VerifiedToken, String> {
                 ops: vec![FsOp::Read, FsOp::Write],
             }),
         })
+    } else if token_id == &*TEST_AI_TOKEN_ID {
+        Ok(VerifiedToken {
+            id: *token_id,
+            issued_to: "demo-principal".to_string(),
+            expires_at: SystemTime::now() + Duration::from_secs(60 * 60),
+            scope: TokenScope::Ai(AiScope {
+                model: "intentos".to_string(),
+                max_tokens: Some(256),
+            }),
+        })
     } else {
         Err("unknown token".to_string())
     }
@@ -61,6 +73,28 @@ mod tests {
         let id = Uuid::parse_str("11111111-2222-3333-4444-555555555555").unwrap();
         let t = verify_token(&id).unwrap();
         assert_eq!(t.id, id);
-        verify_token_scope(&t, &IkSyscall::IkRead { handle: Uuid::new_v4(), len: 1 }).unwrap();
+        verify_token_scope(
+            &t,
+            &IkSyscall::IkRead {
+                handle: Uuid::new_v4(),
+                len: 1,
+            },
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn ai_stub_token_allows_matching_model_syscall() {
+        let id = Uuid::parse_str("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee").unwrap();
+        let t = verify_token(&id).unwrap();
+        verify_token_scope(
+            &t,
+            &IkSyscall::IkAiInfer {
+                model: "intentos".to_string(),
+                prompt: "hello".to_string(),
+                max_tokens: Some(128),
+            },
+        )
+        .unwrap();
     }
 }

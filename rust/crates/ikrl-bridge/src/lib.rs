@@ -155,7 +155,9 @@ fn infer_resource(payload: &str) -> &'static str {
 }
 
 fn extract_dest_ip(payload: &str) -> Option<String> {
-    intentkernel_core::extract_ipv4_literals(payload).into_iter().next()
+    intentkernel_core::extract_ipv4_literals(payload)
+        .into_iter()
+        .next()
 }
 
 #[cfg(test)]

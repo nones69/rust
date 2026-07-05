@@ -41,8 +41,8 @@ impl OllamaClient {
             .unwrap_or_else(|_| DEFAULT_URL.to_string())
             .trim_end_matches('/')
             .to_string();
-        let model = std::env::var("INTENTOS_OLLAMA_MODEL")
-            .unwrap_or_else(|_| DEFAULT_MODEL.to_string());
+        let model =
+            std::env::var("INTENTOS_OLLAMA_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.to_string());
 
         let http = reqwest::blocking::Client::builder()
             .timeout(Duration::from_millis(TIMEOUT_MS))

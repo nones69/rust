@@ -1,6 +1,6 @@
 use crate::crypto::{self, BrokerKeys, SIGNATURE_LEN, TOKEN_SIG_V1_ED25519};
 use crate::error::KernelError;
-use crate::types::{Intent, PolicyDecision, Token, TokenType, wall_ms};
+use crate::types::{wall_ms, Intent, PolicyDecision, Token, TokenType};
 
 /// Broker identity and token signing — native IntentOS kernel code.
 pub struct TokenBroker {
@@ -26,11 +26,7 @@ impl TokenBroker {
         self.sig_version
     }
 
-    pub fn mint(
-        &self,
-        intent: &Intent,
-        decision: &PolicyDecision,
-    ) -> Result<Token, KernelError> {
+    pub fn mint(&self, intent: &Intent, decision: &PolicyDecision) -> Result<Token, KernelError> {
         if !decision.allowed {
             return Err(KernelError::PolicyDenied(decision.reason.clone()));
         }
@@ -125,7 +121,10 @@ mod tests {
         let mut token = broker.mint(&intent, &decision).unwrap();
         token.nbf = wall_ms() + 60_000;
 
-        assert!(matches!(broker.verify(&token), Err(KernelError::NotYetValid)));
+        assert!(matches!(
+            broker.verify(&token),
+            Err(KernelError::NotYetValid)
+        ));
     }
 
     #[test]
@@ -148,7 +147,10 @@ mod tests {
         // Flip a bit in the raw Ed25519 signature region.
         token.signature[0] ^= 0xFF;
 
-        assert!(matches!(broker.verify(&token), Err(KernelError::BadSignature)));
+        assert!(matches!(
+            broker.verify(&token),
+            Err(KernelError::BadSignature)
+        ));
     }
 
     #[test]
@@ -161,7 +163,10 @@ mod tests {
         // so changing the subject must invalidate it (privilege-escalation attempt).
         token.sub = "attacker".into();
 
-        assert!(matches!(broker.verify(&token), Err(KernelError::BadSignature)));
+        assert!(matches!(
+            broker.verify(&token),
+            Err(KernelError::BadSignature)
+        ));
     }
 
     #[test]
@@ -174,7 +179,10 @@ mod tests {
         // against the legitimate broker.
         let token = attacker.mint(&intent, &decision).unwrap();
 
-        assert!(matches!(broker.verify(&token), Err(KernelError::BadSignature)));
+        assert!(matches!(
+            broker.verify(&token),
+            Err(KernelError::BadSignature)
+        ));
     }
 
     #[test]
@@ -197,6 +205,9 @@ mod tests {
         let mut token = broker.mint(&intent, &decision).unwrap();
         token.signature.truncate(10);
 
-        assert!(matches!(broker.verify(&token), Err(KernelError::BadSignature)));
+        assert!(matches!(
+            broker.verify(&token),
+            Err(KernelError::BadSignature)
+        ));
     }
 }

@@ -33,11 +33,7 @@ impl PublicSafetyAssessor {
                 "CJIS security policy test harness not shipped".into(),
                 "99.999% uptime SLA controls not validated".into(),
             ],
-            compliance_targets: vec![
-                "CJIS".into(),
-                "FedRAMP".into(),
-                "FISMA".into(),
-            ],
+            compliance_targets: vec!["CJIS".into(), "FedRAMP".into(), "FISMA".into()],
         }
     }
 }

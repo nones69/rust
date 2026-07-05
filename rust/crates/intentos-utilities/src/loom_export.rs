@@ -1,10 +1,10 @@
 //! Signed Loom export/import — portable session bundles between machines.
 
+use crate::loom_store::hex_bytes;
 use crate::loom_store::LoomStore;
 use intentos_kernel::{
-    sign, verify, IntentCard, ThresholdLevel, SECRET_KEY_LEN, SIGNATURE_LEN, PUBLIC_KEY_LEN,
+    sign, verify, IntentCard, ThresholdLevel, PUBLIC_KEY_LEN, SECRET_KEY_LEN, SIGNATURE_LEN,
 };
-use crate::loom_store::hex_bytes;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
@@ -60,9 +60,8 @@ impl LoomStore {
 
         let payload_bytes = serde_json::to_vec(&payload)?;
         let secret_key = decode_secret_key(&session.signing_secret_key_hex)?;
-        let signature = sign(&secret_key, &payload_bytes).map_err(|e| {
-            LoomError::State(format!("sign export: {e}"))
-        })?;
+        let signature = sign(&secret_key, &payload_bytes)
+            .map_err(|e| LoomError::State(format!("sign export: {e}")))?;
 
         let bundle = LoomSignedExport {
             export_version: LOOM_EXPORT_VERSION,
@@ -94,14 +93,12 @@ impl LoomStore {
         let payload_bytes = serde_json::to_vec(&bundle.payload)?;
         let public_key = decode_public_key(&bundle.signing_public_key_hex)?;
         let signature = decode_signature(&bundle.signature_hex)?;
-        verify(&public_key, &payload_bytes, &signature).map_err(|e| {
-            LoomError::State(format!("import signature invalid: {e}"))
-        })?;
+        verify(&public_key, &payload_bytes, &signature)
+            .map_err(|e| LoomError::State(format!("import signature invalid: {e}")))?;
 
         self.merge_import_payload(&bundle.payload)?;
         Ok(bundle.payload)
     }
-
 }
 
 fn decode_secret_key(hex_str: &str) -> Result<[u8; SECRET_KEY_LEN], LoomError> {

@@ -51,16 +51,36 @@ impl MarketDeploymentReporter {
         let financial_markets = MarketsAssessor::assess(platform);
 
         let sectors = vec![
-            sector_row(&migration.sector, migration.readiness_score, migration.pilot_ready, &migration.blockers),
-            sector_row(&healthcare.sector, healthcare.readiness_score, healthcare.pilot_ready, &healthcare.blockers),
+            sector_row(
+                &migration.sector,
+                migration.readiness_score,
+                migration.pilot_ready,
+                &migration.blockers,
+            ),
+            sector_row(
+                &healthcare.sector,
+                healthcare.readiness_score,
+                healthcare.pilot_ready,
+                &healthcare.blockers,
+            ),
             sector_row(
                 &public_safety.sector,
                 public_safety.readiness_score,
                 public_safety.pilot_ready,
                 &public_safety.blockers,
             ),
-            sector_row(&banking.sector, banking.readiness_score, banking.pilot_ready, &banking.blockers),
-            sector_row(&iot.sector, iot.readiness_score, iot.pilot_ready, &iot.blockers),
+            sector_row(
+                &banking.sector,
+                banking.readiness_score,
+                banking.pilot_ready,
+                &banking.blockers,
+            ),
+            sector_row(
+                &iot.sector,
+                iot.readiness_score,
+                iot.pilot_ready,
+                &iot.blockers,
+            ),
             sector_row(
                 &financial_markets.sector,
                 financial_markets.readiness_score,

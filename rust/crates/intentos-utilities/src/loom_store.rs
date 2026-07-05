@@ -3,8 +3,8 @@
 use intentos_audit::{AuditEventKind, AuditLog, CardAuditDetail};
 use intentos_hal::{DevicePosture, PlatformInfo};
 use intentos_kernel::{
-    BrokerPeer, Intent, IntentCard, LoomSession, PolicyEngine, PolicyOutcome, PolicyPack,
-    ThresholdLevel, ThresholdSignals, TrustAnchor, wall_ms, Handle, Kernel, KernelError,
+    wall_ms, BrokerPeer, Handle, Intent, IntentCard, Kernel, KernelError, LoomSession,
+    PolicyEngine, PolicyOutcome, PolicyPack, ThresholdLevel, ThresholdSignals, TrustAnchor,
 };
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -222,9 +222,7 @@ impl LoomStore {
             .ok_or_else(|| LoomError::State("no active field".into()))?;
         let risk = intentos_kernel::risk_for(resource, action);
         let card = IntentCard::new(title, &field_id, resource, action, risk);
-        session
-            .add_card(card.clone())
-            .map_err(LoomError::State)?;
+        session.add_card(card.clone()).map_err(LoomError::State)?;
         drop(session);
         self.save()?;
         Ok(card)
@@ -351,8 +349,7 @@ impl LoomStore {
             );
         }
 
-        let handle =
-            kernel.intent_to_handle_with_profile(intent, profile, user_confirmed)?;
+        let handle = kernel.intent_to_handle_with_profile(intent, profile, user_confirmed)?;
         let detail = CardAuditDetail {
             field_id: card.field_id.clone(),
             card_id: card_id.to_string(),
@@ -379,8 +376,7 @@ impl LoomStore {
         }
         let keys = intentos_kernel::generate_broker_keys()
             .map_err(|e| LoomError::State(format!("keygen: {e}")))?;
-        session.signing_public_key_hex =
-            hex_bytes(&keys.public_key_bytes()[..32]);
+        session.signing_public_key_hex = hex_bytes(&keys.public_key_bytes()[..32]);
         session.signing_secret_key_hex = hex_bytes(keys.secret_key_bytes());
         session.refresh_checksum();
         drop(session);
@@ -540,7 +536,9 @@ fn state_file_path() -> PathBuf {
         return PathBuf::from(dir).join("loom_state.json");
     }
     if let Ok(home) = std::env::var("USERPROFILE").or_else(|_| std::env::var("HOME")) {
-        return PathBuf::from(home).join(".intentos").join("loom_state.json");
+        return PathBuf::from(home)
+            .join(".intentos")
+            .join("loom_state.json");
     }
     PathBuf::from(".intentos").join("loom_state.json")
 }

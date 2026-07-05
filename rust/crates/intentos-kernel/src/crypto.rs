@@ -40,7 +40,10 @@ pub struct BrokerKeys {
 impl std::fmt::Debug for BrokerKeys {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BrokerKeys")
-            .field("public_key", &format!("{}…", hex_prefix(&self.public_key[..8])))
+            .field(
+                "public_key",
+                &format!("{}…", hex_prefix(&self.public_key[..8])),
+            )
             .field("secret_key", &"[REDACTED]")
             .finish()
     }
@@ -52,7 +55,9 @@ fn hex_prefix(bytes: &[u8]) -> String {
 
 pub fn generate_broker_keys() -> Result<BrokerKeys, CryptoError> {
     let mut seed = [0u8; 32];
-    OsRng.try_fill_bytes(&mut seed).map_err(|_| CryptoError::Rng)?;
+    OsRng
+        .try_fill_bytes(&mut seed)
+        .map_err(|_| CryptoError::Rng)?;
     let signing = SigningKey::from_bytes(&seed);
     let verifying = signing.verifying_key();
 
@@ -92,7 +97,11 @@ impl BrokerKeys {
         sign_with_version(&self.secret_key, message, ver)
     }
 
-    pub fn verify(&self, message: &[u8], signature: &[u8; SIGNATURE_LEN]) -> Result<(), CryptoError> {
+    pub fn verify(
+        &self,
+        message: &[u8],
+        signature: &[u8; SIGNATURE_LEN],
+    ) -> Result<(), CryptoError> {
         verify_with_version(&self.public_key, message, signature, TOKEN_SIG_V1_ED25519)
     }
 
@@ -106,8 +115,13 @@ impl BrokerKeys {
     }
 }
 
-pub fn sign(secret_key: &[u8; SECRET_KEY_LEN], message: &[u8]) -> Result<[u8; SIGNATURE_LEN], CryptoError> {
-    let seed: [u8; 32] = secret_key[..32].try_into().map_err(|_| CryptoError::InvalidKey)?;
+pub fn sign(
+    secret_key: &[u8; SECRET_KEY_LEN],
+    message: &[u8],
+) -> Result<[u8; SIGNATURE_LEN], CryptoError> {
+    let seed: [u8; 32] = secret_key[..32]
+        .try_into()
+        .map_err(|_| CryptoError::InvalidKey)?;
     let signing = SigningKey::from_bytes(&seed);
     let sig: Signature = signing.sign(message);
 
@@ -158,7 +172,9 @@ fn verify_ed25519(
     message: &[u8],
     signature: &[u8; SIGNATURE_LEN],
 ) -> Result<(), CryptoError> {
-    let pk: [u8; 32] = public_key[..32].try_into().map_err(|_| CryptoError::InvalidKey)?;
+    let pk: [u8; 32] = public_key[..32]
+        .try_into()
+        .map_err(|_| CryptoError::InvalidKey)?;
     let verifying = VerifyingKey::from_bytes(&pk).map_err(|_| CryptoError::InvalidKey)?;
     let sig_bytes: [u8; 64] = signature[..64]
         .try_into()
@@ -173,7 +189,9 @@ fn sign_pqc_hybrid(
     secret_key: &[u8; SECRET_KEY_LEN],
     message: &[u8],
 ) -> Result<[u8; SIGNATURE_LEN], CryptoError> {
-    let seed: [u8; 32] = secret_key[..32].try_into().map_err(|_| CryptoError::InvalidKey)?;
+    let seed: [u8; 32] = secret_key[..32]
+        .try_into()
+        .map_err(|_| CryptoError::InvalidKey)?;
     let signing = SigningKey::from_bytes(&seed);
     let sig: Signature = signing.sign(message);
 
@@ -245,7 +263,9 @@ mod tests {
         assert!(verify_with_version(&keys.public_key, msg, &sig, TOKEN_SIG_V2_PQC_HYBRID).is_ok());
         let mut tampered = sig;
         tampered[200] ^= 0xFF;
-        assert!(verify_with_version(&keys.public_key, msg, &tampered, TOKEN_SIG_V2_PQC_HYBRID).is_err());
+        assert!(
+            verify_with_version(&keys.public_key, msg, &tampered, TOKEN_SIG_V2_PQC_HYBRID).is_err()
+        );
     }
 
     #[test]

@@ -54,7 +54,9 @@ impl BrokerTcpTransport {
         Ok(manifest)
     }
 
-    pub fn read_listen_manifest(hub: &BrokerWireHub) -> Result<Option<TcpListenManifest>, BrokerWireError> {
+    pub fn read_listen_manifest(
+        hub: &BrokerWireHub,
+    ) -> Result<Option<TcpListenManifest>, BrokerWireError> {
         let path = hub.root().join("tcp_listen.json");
         if !path.exists() {
             return Ok(None);
@@ -128,9 +130,7 @@ impl BrokerTcpTransport {
 }
 
 fn resolve_addr(host_port: &str) -> Result<SocketAddr, BrokerWireError> {
-    let mut addrs = host_port
-        .to_socket_addrs()
-        .map_err(BrokerWireError::Io)?;
+    let mut addrs = host_port.to_socket_addrs().map_err(BrokerWireError::Io)?;
     addrs
         .next()
         .ok_or_else(|| BrokerWireError::Protocol(format!("unresolvable tcp address: {host_port}")))
@@ -157,7 +157,11 @@ mod tests {
         let root = temp_root();
         let hub = BrokerWireHub::open(&root);
         let keys = generate_broker_keys().unwrap();
-        let secret_hex: String = keys.secret_key_bytes().iter().map(|b| format!("{b:02x}")).collect();
+        let secret_hex: String = keys
+            .secret_key_bytes()
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect();
 
         let device_id = "device-tcp";
         let server_hub = BrokerWireHub::open(&root);

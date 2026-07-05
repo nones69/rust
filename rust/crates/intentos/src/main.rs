@@ -41,10 +41,7 @@ fn main() -> Result<()> {
         runtime.identity.backend()
     );
     match &runtime.ip_discrambler {
-        Some(bridge) => println!(
-            "  ip-discrambler online  root={}",
-            bridge.root().display()
-        ),
+        Some(bridge) => println!("  ip-discrambler online  root={}", bridge.root().display()),
         None => println!("  ip-discrambler offline (optional Python bridge)"),
     }
     println!("  [{TIER_SHELL}] shell    starting session — type 1|2|3 or `help`\n");

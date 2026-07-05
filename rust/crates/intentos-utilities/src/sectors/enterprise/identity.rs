@@ -96,13 +96,14 @@ impl IdentityBridge {
     }
 
     pub fn whoami(&self) -> Principal {
-        self.lookup(&self.default_user).unwrap_or_else(|| Principal {
-            backend: IdentityBackend::Local,
-            actor_id: self.default_user.clone(),
-            upn: format!("{}@{}", self.default_user, self.domain),
-            display_name: self.default_user.clone(),
-            groups: vec!["Users".into()],
-        })
+        self.lookup(&self.default_user)
+            .unwrap_or_else(|| Principal {
+                backend: IdentityBackend::Local,
+                actor_id: self.default_user.clone(),
+                upn: format!("{}@{}", self.default_user, self.domain),
+                display_name: self.default_user.clone(),
+                groups: vec!["Users".into()],
+            })
     }
 
     pub fn lookup(&self, user: &str) -> Option<Principal> {

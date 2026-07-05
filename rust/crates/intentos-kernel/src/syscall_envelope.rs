@@ -26,11 +26,26 @@ pub enum HttpMethod {
 /// All syscalls the dispatch layer can process.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum IkSyscall {
-    IkOpen { path: String, mode: OpenMode },
-    IkRead { handle: Uuid, len: u64 },
-    IkWrite { handle: Uuid, data: Vec<u8> },
-    IkClose { handle: Uuid },
-    IkAiInfer { prompt: String, max_tokens: Option<u64> },
+    IkOpen {
+        path: String,
+        mode: OpenMode,
+    },
+    IkRead {
+        handle: Uuid,
+        len: u64,
+    },
+    IkWrite {
+        handle: Uuid,
+        data: Vec<u8>,
+    },
+    IkClose {
+        handle: Uuid,
+    },
+    IkAiInfer {
+        model: String,
+        prompt: String,
+        max_tokens: Option<u64>,
+    },
     IkNetRequest {
         method: HttpMethod,
         url: String,

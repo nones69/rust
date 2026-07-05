@@ -163,11 +163,13 @@ pub fn boot_banner() -> String {
         "  ╔══════════════════════════════════════════════════════╗".into(),
         "  ║              IntentOS — AI Capability OS             ║".into(),
         "  ╠══════════════════════════════════════════════════════╣".into(),
-        format!("  ║  {:<12} capd · intentd · leasebroker · eventscope ║", "1. KERNEL"),
+        format!(
+            "  ║  {:<12} capd · intentd · leasebroker · eventscope ║",
+            "1. KERNEL"
+        ),
         format!(
             "  ║  {:<12} {} (interactive session)          ║",
-            "2. SHELL",
-            SHELL.binary
+            "2. SHELL", SHELL.binary
         ),
         format!(
             "  ║  {:<12} ikrl-ai · ikrl-fs · federation · bridge ║",

@@ -44,7 +44,11 @@ fn current_bin(bin_name: &str) -> PathBuf {
 
 fn build_bins(bin_names: &[&str]) {
     let mut command = Command::new("cargo");
-    command.arg("build").arg("--quiet").arg("--manifest-path").arg(workspace_manifest());
+    command
+        .arg("build")
+        .arg("--quiet")
+        .arg("--manifest-path")
+        .arg(workspace_manifest());
     for bin_name in bin_names {
         command.arg("-p").arg(bin_name);
     }
@@ -192,7 +196,10 @@ fn ikrl_cli_full_flow_hits_real_daemons() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
 
-    assert!(output.status.success(), "ikrl-cli failed\nstdout:\n{stdout}\nstderr:\n{stderr}");
+    assert!(
+        output.status.success(),
+        "ikrl-cli failed\nstdout:\n{stdout}\nstderr:\n{stderr}"
+    );
     assert!(stdout.contains("TOKEN_CBOR_HEX="), "stdout:\n{stdout}");
     assert!(stderr.contains("capd verify:"), "stderr:\n{stderr}");
     assert!(stderr.contains("eventscope register:"), "stderr:\n{stderr}");

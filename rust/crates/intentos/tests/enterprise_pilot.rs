@@ -6,12 +6,9 @@ use intentos_utilities::{AuditEventKind, EnterpriseMapper, MigrationAssessor, Os
 #[test]
 fn enterprise_command_maps_to_gated_handle() {
     let rt = OsRuntime::boot().expect("boot");
-    let intent = EnterpriseMapper::map_and_audit(
-        "Get-Content C:\\logs\\app.log",
-        "pilot-user",
-        &rt.audit,
-    )
-    .expect("map");
+    let intent =
+        EnterpriseMapper::map_and_audit("Get-Content C:\\logs\\app.log", "pilot-user", &rt.audit)
+            .expect("map");
 
     assert_eq!(intent.resource, "file");
     assert_eq!(intent.action, "read");
@@ -28,7 +25,10 @@ fn enterprise_command_maps_to_gated_handle() {
             payload: vec![],
         },
     );
-    assert!(matches!(result, intentos_kernel::SyscallResult::Allowed { .. }));
+    assert!(matches!(
+        result,
+        intentos_kernel::SyscallResult::Allowed { .. }
+    ));
 }
 
 #[test]

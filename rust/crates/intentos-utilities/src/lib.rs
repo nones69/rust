@@ -10,56 +10,58 @@
 //! and system tools — all gated through the kernel.
 
 mod ai;
+mod ai_backend;
 mod broker_tcp;
 mod broker_wire;
 mod federation;
+pub mod host_vfs;
 mod ip_discrambler;
 mod loom_export;
 mod loom_store;
-mod oobe_hooks;
 mod market_status;
+mod oobe_hooks;
 mod recognizer;
 mod sectors;
 mod syscall_envelope;
-pub mod host_vfs;
 mod tools;
 mod vfs;
 
 pub use ai::{AiError, AiGateway};
-pub use ip_discrambler::{
-    IpDiscramblerBridge, IpDiscramblerError, IpLookupResult, IpPolicyVerdict,
-};
+pub use ai_backend::{AiBackend, LocalAiBackend, RemoteAiBackend};
 pub use broker_tcp::{BrokerTcpTransport, TcpListenManifest};
 pub use broker_wire::{
     decode_payload_hex, BrokerWireError, BrokerWireHub, BrokerWireKind, BrokerWireMessage,
     BROKER_WIRE_VERSION,
 };
 pub use federation::{FederationError, FederationHub};
-pub use market_status::{MarketDeploymentReporter, MarketDeploymentStatus, SectorStatus};
+pub use host_vfs::{vfs_open, vfs_read, vfs_write};
 pub use intentos_audit::{AuditEntry, AuditEventKind, AuditLog};
 pub use intentos_hal::{
     native_hal, CpuArch, DevicePosture, HardwareAbstraction, HostOs, PlatformInfo,
 };
+pub use ip_discrambler::{
+    IpDiscramblerBridge, IpDiscramblerError, IpLookupResult, IpPolicyVerdict,
+};
+pub use loom_export::{LoomExportPayload, LoomSignedExport, LOOM_EXPORT_VERSION};
+pub use loom_store::{CardPreview, LoomError, LoomStore};
+pub use market_status::{MarketDeploymentReporter, MarketDeploymentStatus, SectorStatus};
 pub use oobe_hooks::{emit_oobe_hook, OobeHookManifest};
 pub use recognizer::{OllamaClient, PilotRecognizer};
+pub use sectors::banking::{BankingAssessor, BankingMapper, BankingPilotReport};
 pub use sectors::enterprise::{
     CompatReport, CompatibilityMatrix, EnterpriseHardeningAssessor, EnterpriseHardeningReport,
     EnterpriseMapper, HardeningGate, IdentityBackend, IdentityBridge, LdapConfig,
     MigrationAssessor, MigrationReport, Principal, RollbackCheckpoint, TARGET_COMPAT_PASS_PCT,
     TARGET_MIGRATION_READINESS,
 };
-pub use sectors::banking::{BankingAssessor, BankingMapper, BankingPilotReport};
+pub use sectors::financial_markets::{MarketsAssessor, MarketsMapper, MarketsPilotReport};
 pub use sectors::healthcare::{
     ClinicalMapping, HealthcareAssessor, HealthcareMapper, HealthcarePilotReport,
 };
-pub use sectors::financial_markets::{MarketsAssessor, MarketsMapper, MarketsPilotReport};
 pub use sectors::iot::{IotAssessor, IotMapper, IotPilotReport};
 pub use sectors::public_safety::{
     PublicSafetyAssessor, PublicSafetyMapper, PublicSafetyPilotReport,
 };
-pub use loom_export::{LoomExportPayload, LoomSignedExport, LOOM_EXPORT_VERSION};
-pub use loom_store::{CardPreview, LoomError, LoomStore};
-pub use host_vfs::{vfs_open, vfs_read, vfs_write};
 pub use tools::SysTools;
 pub use vfs::{VfsError, VirtualFs};
 
@@ -106,11 +108,10 @@ pub struct OsRuntime {
 
 impl OsRuntime {
     pub fn boot() -> Result<Self, intentos_kernel::KernelError> {
-        let audit = Arc::new(
-            AuditLog::open_default().map_err(|e| {
+        let audit =
+            Arc::new(AuditLog::open_default().map_err(|e| {
                 intentos_kernel::KernelError::Serialize(format!("audit open: {e}"))
-            })?,
-        );
+            })?);
         Self::boot_with_audit(audit)
     }
 
@@ -157,9 +158,10 @@ impl OsRuntime {
             );
         }
 
-        let loom = Arc::new(LoomStore::open().map_err(|e| {
-            intentos_kernel::KernelError::Serialize(format!("loom open: {e}"))
-        })?);
+        let loom = Arc::new(
+            LoomStore::open()
+                .map_err(|e| intentos_kernel::KernelError::Serialize(format!("loom open: {e}")))?,
+        );
         if loom.corruption_recovered() {
             let _ = audit.record(
                 AuditEventKind::LoomRecovery,
@@ -262,10 +264,8 @@ impl OsRuntime {
     pub fn sync_federation_from_loom(&self) {
         let session = self.loom.session();
         let mut utils = self.utilities.lock().unwrap();
-        utils.federation = FederationHub::from_peers(
-            &session.profile_id,
-            session.broker_peers.clone(),
-        );
+        utils.federation =
+            FederationHub::from_peers(&session.profile_id, session.broker_peers.clone());
     }
 
     pub fn kernel(&self) -> Arc<Kernel> {

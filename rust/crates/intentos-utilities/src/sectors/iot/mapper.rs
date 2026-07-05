@@ -1,7 +1,7 @@
 //! IoT/embedded sector plugin scaffold — OTA/secure-boot-shaped intent mapping (Phase 2).
 
 use intentos_audit::{AuditEventKind, AuditLog};
-use intentos_kernel::{Intent, TrustAnchor, wall_ms};
+use intentos_kernel::{wall_ms, Intent, TrustAnchor};
 use std::collections::BTreeMap;
 
 /// Device fleet / firmware-oriented command → capability intent mapper (rule-based pilot).

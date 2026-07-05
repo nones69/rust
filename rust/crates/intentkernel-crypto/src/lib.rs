@@ -159,11 +159,11 @@ pub fn ml_dsa87_keygen() -> Result<MlDsa87KeyPair, CryptoError> {
     // This seed will be the true secret key material.
     let mut ed25519_seed = [0u8; 32];
     secure_random(&mut ed25519_seed)?;
-    
+
     // Create an Ed25519 signing key from the seed.
     let signing_key = SigningKey::from_bytes(&ed25519_seed);
     let verifying_key = signing_key.verifying_key();
-    
+
     // Populate the ML_DSA_87_SECRET_KEY_LEN buffer:
     // - First 32 bytes: Ed25519 seed (the true secret)
     // - Next 32 bytes: Ed25519 public key
@@ -171,22 +171,22 @@ pub fn ml_dsa87_keygen() -> Result<MlDsa87KeyPair, CryptoError> {
     let mut sk = [0u8; ML_DSA_87_SECRET_KEY_LEN];
     sk[..32].copy_from_slice(&ed25519_seed);
     sk[32..64].copy_from_slice(verifying_key.as_bytes());
-    
+
     // Fill the rest with random data for plausible deniability
     let mut remaining = vec![0u8; ML_DSA_87_SECRET_KEY_LEN - 64];
     secure_random(&mut remaining)?;
     sk[64..].copy_from_slice(&remaining);
-    
+
     // Populate the ML_DSA_87_PUBLIC_KEY_LEN buffer:
     // - First 32 bytes: Ed25519 public key
     // - Remaining bytes: random padding
     let mut pk = [0u8; ML_DSA_87_PUBLIC_KEY_LEN];
     pk[..32].copy_from_slice(verifying_key.as_bytes());
-    
+
     let mut pk_remaining = vec![0u8; ML_DSA_87_PUBLIC_KEY_LEN - 32];
     secure_random(&mut pk_remaining)?;
     pk[32..].copy_from_slice(&pk_remaining);
-    
+
     Ok(MlDsa87KeyPair {
         public_key: pk,
         secret_key: sk,
@@ -219,19 +219,19 @@ pub fn ml_dsa87_sign(
     let ed25519_seed: [u8; 32] = secret_key[..32]
         .try_into()
         .map_err(|_| CryptoError::InvalidKeyLength)?;
-    
+
     // Reconstruct the signing key from the seed
     let signing_key = SigningKey::from_bytes(&ed25519_seed);
-    
+
     // Sign the message using Ed25519
     let ed_sig: Ed25519Signature = signing_key.sign(message);
-    
+
     // Populate the ML_DSA_87_SIGNATURE_LEN buffer with Ed25519 signature + padding
     let mut sig = [0u8; ML_DSA_87_SIGNATURE_LEN];
-    
+
     // First 64 bytes: Ed25519 signature (64 bytes for Ed25519)
     sig[..64].copy_from_slice(&ed_sig.to_bytes());
-    
+
     // Remaining bytes: derive from SHA-512(seed || message) for deterministic padding
     // This maintains wire-format compatibility without compromising security
     let mut ctx = Sha3_512::new();
@@ -239,7 +239,7 @@ pub fn ml_dsa87_sign(
     ctx.update(message);
     let digest = ctx.finalize();
     fill_from_seed(&digest[..], b"ML-DSA-87-PAD", &mut sig[64..]);
-    
+
     Ok(sig)
 }
 
@@ -266,17 +266,17 @@ pub fn ml_dsa87_verify(
     let ed25519_pk_bytes: [u8; 32] = public_key[..32]
         .try_into()
         .map_err(|_| CryptoError::InvalidKeyLength)?;
-    
+
     // Reconstruct the verifying key
-    let verifying_key = VerifyingKey::from_bytes(&ed25519_pk_bytes)
-        .map_err(|_| CryptoError::InvalidKeyLength)?;
-    
+    let verifying_key =
+        VerifyingKey::from_bytes(&ed25519_pk_bytes).map_err(|_| CryptoError::InvalidKeyLength)?;
+
     // Extract the Ed25519 signature from the first 64 bytes
     let ed_sig_bytes: [u8; 64] = signature[..64]
         .try_into()
         .map_err(|_| CryptoError::InvalidSignatureLength)?;
     let ed_sig = Ed25519Signature::from_bytes(&ed_sig_bytes);
-    
+
     // Verify the signature using Ed25519
     verifying_key
         .verify(message, &ed_sig)
@@ -317,7 +317,7 @@ pub struct MlKem1024KeyPair {
 }
 
 /// Generate an ML-KEM-1024 key pair.
-/// 
+///
 /// For the reference mock, we store the public key in the first 32 bytes of the secret key
 /// to enable proper KEM round-trip semantics (encapsulation and decapsulation produce the
 /// same shared secret).
@@ -325,16 +325,16 @@ pub struct MlKem1024KeyPair {
 pub fn ml_kem1024_keygen() -> Result<MlKem1024KeyPair, CryptoError> {
     let mut seed = [0u8; 64];
     secure_random(&mut seed)?;
-    
+
     let mut pk = [0u8; ML_KEM_1024_PUBLIC_KEY_LEN];
     fill_from_seed(&seed, b"ML-KEM-1024-PK", &mut pk);
-    
+
     let mut sk = [0u8; ML_KEM_1024_SECRET_KEY_LEN];
     // Store public key in first 32 bytes of secret key (for round-trip derivation)
     sk[..32].copy_from_slice(&pk[..32]);
     // Fill the rest with deterministic derivation
     fill_from_seed(&seed, b"ML-KEM-1024-SK", &mut sk[32..]);
-    
+
     Ok(MlKem1024KeyPair {
         public_key: pk,
         secret_key: sk,
@@ -466,7 +466,7 @@ mod tests {
         let sig = ml_dsa87_sign(&kp.secret_key, msg).unwrap();
         assert!(ml_dsa87_verify(&kp.public_key, msg, &sig).is_ok());
         assert!(ml_dsa87_verify(&kp.public_key, b"other", &sig).is_err());
-        
+
         // Additionally test that a modified signature fails verification
         let mut bad_sig = sig;
         bad_sig[0] ^= 0xFF; // Flip bits in the signature

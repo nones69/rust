@@ -85,7 +85,12 @@ fn permits_net(scope: &NetScope, syscall: &IkSyscall) -> bool {
 
 fn permits_ai(scope: &AiScope, syscall: &IkSyscall) -> bool {
     match syscall {
-        IkSyscall::IkAiInfer { max_tokens, .. } => {
+        IkSyscall::IkAiInfer {
+            model, max_tokens, ..
+        } => {
+            if !model_allowed(&scope.model, model) {
+                return false;
+            }
             if let Some(limit) = scope.max_tokens {
                 if let Some(req) = max_tokens {
                     return *req <= limit;
@@ -169,6 +174,12 @@ fn host_matches(host: &str, allowed: &str) -> bool {
     host == allowed || host.ends_with(&format!(".{allowed}"))
 }
 
+fn model_allowed(scope_model: &str, requested: &str) -> bool {
+    let scope_model = scope_model.trim();
+    let requested = requested.trim();
+    scope_model == "*" || scope_model.eq_ignore_ascii_case(requested)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -196,5 +207,46 @@ mod tests {
         assert!(host_matches("api.example.com", "example.com"));
         assert!(host_matches("example.com", "example.com"));
         assert!(!host_matches("malicious-example.com", "example.com"));
+    }
+
+    #[test]
+    fn ai_scope_rejects_wrong_model() {
+        let scope = AiScope {
+            model: "gpt-4o-mini".to_string(),
+            max_tokens: Some(50),
+        };
+        let syscall = IkSyscall::IkAiInfer {
+            model: "llama3".to_string(),
+            prompt: "hello".to_string(),
+            max_tokens: Some(25),
+        };
+        assert!(!permits_ai(&scope, &syscall));
+    }
+
+    #[test]
+    fn ai_scope_wildcard_model_with_limit() {
+        let scope = AiScope {
+            model: "*".to_string(),
+            max_tokens: Some(50),
+        };
+        let allowed = IkSyscall::IkAiInfer {
+            model: "llama3".to_string(),
+            prompt: "hello".to_string(),
+            max_tokens: Some(25),
+        };
+        let denied = IkSyscall::IkAiInfer {
+            model: "llama3".to_string(),
+            prompt: "hello".to_string(),
+            max_tokens: Some(75),
+        };
+        assert!(permits_ai(&scope, &allowed));
+        assert!(!permits_ai(&scope, &denied));
+    }
+
+    #[test]
+    fn model_matching_is_trimmed_case_insensitive() {
+        assert!(model_allowed(" GPT-4O ", "gpt-4o"));
+        assert!(model_allowed("*", "any-model"));
+        assert!(!model_allowed("gpt-4o", "gpt-4o-mini"));
     }
 }
