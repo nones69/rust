@@ -3,9 +3,15 @@
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, SystemTime};
 use uuid::Uuid;
+use lazy_static::lazy_static;
 
 use crate::capability_schema::{FsOp, FsScope, TokenScope};
 use crate::syscall_envelope::IkSyscall;
+
+lazy_static! {
+    static ref TEST_TOKEN_ID: Uuid =
+        Uuid::parse_str("11111111-2222-3333-4444-555555555555").expect("valid test token UUID");
+}
 
 /// A verified capability token with its core identity fields.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,10 +36,7 @@ pub fn verify_token_scope(token: &VerifiedToken, syscall: &IkSyscall) -> Result<
 /// Replace with real lookup and signature verification in production.
 pub fn verify_token(token_id: &Uuid) -> Result<VerifiedToken, String> {
     // TODO: replace with real lookup + signature verification.
-    let test_token = Uuid::parse_str("11111111-2222-3333-4444-555555555555")
-        .map_err(|e| format!("uuid parse error: {}", e))?;
-
-    if token_id == &test_token {
+    if token_id == &*TEST_TOKEN_ID {
         Ok(VerifiedToken {
             id: *token_id,
             issued_to: "demo-principal".to_string(),
@@ -51,20 +54,13 @@ pub fn verify_token(token_id: &Uuid) -> Result<VerifiedToken, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::syscall_envelope::{IkSyscall, OpenMode};
+    use crate::syscall_envelope::IkSyscall;
 
     #[test]
-    fn scoped_stub_token_allows_read_open() {
+    fn scoped_stub_token_allows_read_syscall() {
         let id = Uuid::parse_str("11111111-2222-3333-4444-555555555555").unwrap();
         let t = verify_token(&id).unwrap();
         assert_eq!(t.id, id);
-        verify_token_scope(
-            &t,
-            &IkSyscall::IkOpen {
-                path: "/tmp/intentos_root/file.txt".to_string(),
-                mode: OpenMode::Read,
-            },
-        )
-        .unwrap();
+        verify_token_scope(&t, &IkSyscall::IkRead { handle: Uuid::new_v4(), len: 1 }).unwrap();
     }
 }
