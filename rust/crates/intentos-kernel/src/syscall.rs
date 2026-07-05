@@ -1,15 +1,14 @@
 use serde_json::json;
 
 use crate::syscall_envelope::{IkCallEnvelope, IkSyscall};
-use crate::token_verifier::VerifiedToken;
+use crate::token_verifier::{verify_token_scope, VerifiedToken};
 use crate::utilities;
 
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine as _;
 
 pub fn dispatch_call(env: IkCallEnvelope, token: &VerifiedToken) -> Result<serde_json::Value, String> {
-    // Quick policy hook placeholder: ensure token is not expired (token verifier already checks expiry in real impl)
-    // TODO: implement full policy evaluation and evidence generation
+    verify_token_scope(token, &env.call)?;
 
     match env.call {
         IkSyscall::IkOpen { path, mode } => {

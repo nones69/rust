@@ -22,6 +22,7 @@ mod policy_pack;
 mod recognizer;
 mod signals;
 mod revocation;
+mod capability_schema;
 mod table;
 mod threshold;
 mod token;
@@ -57,7 +58,8 @@ pub use table::CapabilityTable;
 pub use token::TokenBroker;
 pub use types::*;
 pub use syscall_envelope::{IkCallEnvelope, IkSyscall, OpenMode};
-pub use token_verifier::{verify_token, VerifiedToken};
+pub use token_verifier::{verify_token, verify_token_scope, VerifiedToken};
+pub use capability_schema::{AiScope, FsOp, FsScope, NetScope, TokenScope};
 
 use intentos_audit::{AuditEventKind, AuditLog};
 use std::sync::{Arc, Mutex};
