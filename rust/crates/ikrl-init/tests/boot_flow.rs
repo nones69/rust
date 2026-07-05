@@ -119,7 +119,9 @@ fn terminate_init(child: &mut Child) {
                         .args(["-TERM", "-P", &pid])
                         .status()
                         .expect("terminate ikrl-init child daemons with pkill");
-                    assert!(status.success(), "pkill -TERM -P {pid} failed");
+                    // pkill exits 1 when no processes matched (already cleaned up); treat as ok
+                    let code = status.code().unwrap_or(0);
+                    assert!(code == 0 || code == 1, "pkill -TERM -P {pid} failed with exit code {code}");
                     let _ = child.kill();
                     break;
                 }
