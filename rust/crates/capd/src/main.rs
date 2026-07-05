@@ -25,6 +25,19 @@ struct Args {
 
     #[arg(long, help = "Path to persist broker key")]
     key_file: Option<String>,
+
+    /// Path to the server TLS certificate (PEM). If set, the daemon listens
+    /// on a `tls://` endpoint in addition to (or instead of) plain TCP.
+    #[arg(long, env = "CAPD_TLS_CERT")]
+    tls_cert: Option<String>,
+
+    /// Path to the server TLS private key (PEM).
+    #[arg(long, env = "CAPD_TLS_KEY")]
+    tls_key: Option<String>,
+
+    /// Path to the CA certificate (PEM) used to verify client certs (mTLS).
+    #[arg(long, env = "CAPD_CLIENT_CA")]
+    tls_client_ca: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

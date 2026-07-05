@@ -13,3 +13,4 @@ path = "src/main.rs"
 [dependencies]
 intentkernel-sys = { path = "../intentkernel-sys" }
 uuid = { workspace = true }
+tokio = { workspace = true }

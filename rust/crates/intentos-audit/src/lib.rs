@@ -49,6 +49,16 @@ pub enum AuditEventKind {
     PqcTokensDisabled,
     OobeHookEmitted,
     AuditRecovery,
+    /// A remote client connected over mTLS.
+    RemoteConnected,
+    /// A remote client was rejected (cert not trusted or version mismatch).
+    RemoteRejected,
+    /// A syscall was dispatched over the remote IPC channel.
+    RemoteSyscall,
+    /// A token was minted in response to a remote RPC.
+    RemoteTokenMinted,
+    /// A token was registered via the remote IPC channel.
+    RemoteHandleRegistered,
 }
 
 /// Single immutable audit record.

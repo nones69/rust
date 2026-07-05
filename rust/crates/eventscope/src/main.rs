@@ -21,6 +21,18 @@ struct Args {
 
     #[arg(long, default_value = "tcp://127.0.0.1:9101")]
     capd_addr: String,
+
+    /// Path to the server TLS certificate (PEM) for mTLS listener.
+    #[arg(long, env = "EVENTSCOPE_TLS_CERT")]
+    tls_cert: Option<String>,
+
+    /// Path to the server TLS private key (PEM).
+    #[arg(long, env = "EVENTSCOPE_TLS_KEY")]
+    tls_key: Option<String>,
+
+    /// Path to the CA certificate (PEM) used to verify client certs (mTLS).
+    #[arg(long, env = "EVENTSCOPE_CLIENT_CA")]
+    tls_client_ca: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

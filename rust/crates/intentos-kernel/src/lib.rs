@@ -137,6 +137,11 @@ impl Kernel {
         self.inner.lock().unwrap().boot_ms
     }
 
+    /// Return a reference to the audit log, if one was configured.
+    pub fn audit_ref(&self) -> Option<&Arc<AuditLog>> {
+        self.audit.as_ref()
+    }
+
     /// Select capability token signature scheme (`TOKEN_SIG_V1_ED25519` or `TOKEN_SIG_V2_PQC_HYBRID`).
     pub fn set_token_sig_version(&self, ver: u8) {
         self.inner.lock().unwrap().broker.set_sig_version(ver);

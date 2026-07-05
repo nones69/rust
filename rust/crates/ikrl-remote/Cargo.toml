@@ -1,13 +1,10 @@
 [package]
-name = "intentkernel-sys"
+name = "ikrl-remote"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
-description = "IntentKernel IPC client — connects to the kernel via Unix socket, TCP, or mTLS"
-
-[features]
-tls = ["ikrl-transport/tls"]
+description = "Shared wire protocol types for remote IntentKernel IPC"
 
 [dependencies]
 serde = { workspace = true }
@@ -15,6 +12,3 @@ serde_json = { workspace = true }
 uuid = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
-tokio = { workspace = true }
-ikrl-transport = { path = "../ikrl-transport" }
-ikrl-remote = { workspace = true }
