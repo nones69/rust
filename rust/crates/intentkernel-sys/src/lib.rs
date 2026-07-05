@@ -146,4 +146,61 @@ impl IkClient {
         };
         self.send_envelope(&envelope)
     }
+
+    pub fn read(
+        &mut self,
+        token_id: Uuid,
+        handle: Uuid,
+        len: u64,
+    ) -> Result<serde_json::Value, IkError> {
+        let envelope = types::IkCallEnvelope {
+            token_id,
+            call: syscall_types_impl::IkSyscall::IkRead { handle, len },
+            call_id: Uuid::new_v4(),
+            timestamp_ms: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_millis(),
+        };
+        self.send_envelope(&envelope)
+    }
+
+    pub fn write(
+        &mut self,
+        token_id: Uuid,
+        handle: Uuid,
+        data: Vec<u8>,
+    ) -> Result<serde_json::Value, IkError> {
+        let envelope = types::IkCallEnvelope {
+            token_id,
+            call: syscall_types_impl::IkSyscall::IkWrite { handle, data },
+            call_id: Uuid::new_v4(),
+            timestamp_ms: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_millis(),
+        };
+        self.send_envelope(&envelope)
+    }
+
+    pub fn ai_infer(
+        &mut self,
+        token_id: Uuid,
+        prompt: &str,
+        max_tokens: Option<u64>,
+    ) -> Result<serde_json::Value, IkError> {
+        let envelope = types::IkCallEnvelope {
+            token_id,
+            call: syscall_types_impl::IkSyscall::IkAiInfer {
+                prompt: prompt.to_string(),
+                max_tokens,
+            },
+            call_id: Uuid::new_v4(),
+            timestamp_ms: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_millis(),
+        };
+        self.send_envelope(&envelope)
+    }
 }

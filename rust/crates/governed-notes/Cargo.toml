@@ -1,0 +1,16 @@
+[package]
+name = "governed-notes"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Governed notes app — first real IntentKernel application"
+
+[[bin]]
+name = "governed-notes"
+path = "src/main.rs"
+
+[dependencies]
+intentkernel-sys = { path = "../intentkernel-sys" }
+uuid = { workspace = true }
+base64 = "0.21"
