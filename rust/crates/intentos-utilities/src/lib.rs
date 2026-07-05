@@ -12,10 +12,12 @@
 mod ai;
 mod broker_tcp;
 mod broker_wire;
+mod capability_schema;
 mod federation;
 mod ip_discrambler;
 mod loom_export;
 mod loom_store;
+mod net_gateway;
 mod oobe_hooks;
 mod market_status;
 mod recognizer;
@@ -34,8 +36,10 @@ pub use broker_wire::{
     decode_payload_hex, BrokerWireError, BrokerWireHub, BrokerWireKind, BrokerWireMessage,
     BROKER_WIRE_VERSION,
 };
+pub use capability_schema::NetScope;
 pub use federation::{FederationError, FederationHub};
 pub use market_status::{MarketDeploymentReporter, MarketDeploymentStatus, SectorStatus};
+pub use net_gateway::{NetGateway, NetGatewayError, NetGatewayResponse};
 pub use intentos_audit::{AuditEntry, AuditEventKind, AuditLog};
 pub use intentos_hal::{
     native_hal, CpuArch, DevicePosture, HardwareAbstraction, HostOs, PlatformInfo,
@@ -60,6 +64,7 @@ pub use sectors::public_safety::{
 pub use loom_export::{LoomExportPayload, LoomSignedExport, LOOM_EXPORT_VERSION};
 pub use loom_store::{CardPreview, LoomError, LoomStore};
 pub use host_vfs::{vfs_open, vfs_read, vfs_write};
+pub use syscall_envelope::HttpMethod;
 pub use tools::SysTools;
 pub use vfs::{VfsError, VirtualFs};
 
