@@ -51,7 +51,7 @@ The current runtime demonstrates the core reference flow:
 
 - policy evaluation from shell-generated intents
 - development-signed token minting and verification in the kernel
-- handle registration and kernel-checked mediated runtime operations
+- handle registration and kernel-checked, mediated runtime operations
 - gated access to an in-memory virtual filesystem
 - gated invocation of a stubbed AI utility
 - lease creation and reporting
