@@ -476,10 +476,10 @@ fn spawn_wasm(
     })
 }
 
-/// Spawn inside a lightweight container (bubblewrap or nsjail).
+/// Spawn inside a lightweight container (bubblewrap, nsjail, or firejail).
 ///
-/// On Linux, tries `bwrap` (bubblewrap) first, then `nsjail`.  On other
-/// platforms returns `UnsupportedPlatform`.
+/// On Linux, tries `bwrap` (bubblewrap) first, then `nsjail`, then `firejail`.
+/// On other platforms returns `UnsupportedPlatform`.
 fn spawn_container(
     token: &VerifiedToken,
     config: &SandboxConfig,
@@ -497,9 +497,9 @@ fn spawn_container(
         let now = wall_ms();
         let expires_at = config.ttl_ms.map(|t| now + t);
 
-        // Try bubblewrap first; fall back to nsjail.
+        // Try bubblewrap first, then nsjail, then firejail.
         let container_tool = find_container_tool()
-            .ok_or_else(|| SandboxError::ContainerToolMissing("bwrap, nsjail".into()))?;
+            .ok_or_else(|| SandboxError::ContainerToolMissing("bwrap, nsjail, firejail".into()))?;
 
         let child = build_container_command(&container_tool, token, program, args)
             .stdin(Stdio::null())
@@ -524,21 +524,31 @@ fn spawn_container(
 #[cfg(target_os = "linux")]
 fn find_container_tool() -> Option<&'static str> {
     for tool in &["bwrap", "nsjail", "firejail"] {
-        if which_tool(tool) {
+        if tool_on_path(tool) {
             return Some(tool);
         }
     }
     None
 }
 
-/// Returns `true` if `tool` is found on `$PATH`.
+/// Returns `true` if `tool` is found in any directory listed in `$PATH`.
+///
+/// Scans PATH directly instead of spawning a `which` subprocess.
 #[cfg(target_os = "linux")]
-fn which_tool(tool: &str) -> bool {
-    std::process::Command::new("which")
-        .arg(tool)
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
+fn tool_on_path(tool: &str) -> bool {
+    let path_var = match std::env::var_os("PATH") {
+        Some(v) => v,
+        None => return false,
+    };
+    std::env::split_paths(&path_var).any(|dir| {
+        let candidate = dir.join(tool);
+        std::fs::metadata(&candidate)
+            .map(|m| {
+                use std::os::unix::fs::PermissionsExt;
+                m.permissions().mode() & 0o111 != 0
+            })
+            .unwrap_or(false)
+    })
 }
 
 /// Build a container `Command` for the given tool.
@@ -555,6 +565,8 @@ fn build_container_command(
     let mut cmd = Command::new(tool);
     match tool {
         "bwrap" => {
+            // `--dev /dev` creates bwrap's own minimal /dev (not a host bind-mount),
+            // preventing direct access to sensitive host device files.
             cmd.args([
                 "--ro-bind", "/usr", "/usr",
                 "--ro-bind", "/lib", "/lib",
@@ -568,16 +580,31 @@ fn build_container_command(
             cmd.args(args);
         }
         "nsjail" => {
+            // Mount a tmpfs as root and bind-mount only the essential read-only
+            // paths, avoiding host filesystem exposure via a bare `--chroot /`.
             cmd.args([
                 "--mode", "o",
-                "--chroot", "/",
+                "--tmpfsmount", "/",
+                "--bindmount_ro", "/usr",
+                "--bindmount_ro", "/lib",
+                "--proc_rw",
                 "--",
                 program,
             ]);
             cmd.args(args);
         }
+        "firejail" => {
+            cmd.args([
+                "--quiet",
+                "--noprofile",
+                "--private",
+                "--net=none",
+                program,
+            ]);
+            cmd.args(args);
+        }
         _ => {
-            // firejail or unknown: best-effort passthrough
+            // Unknown tool: best-effort passthrough (should not be reached).
             cmd.arg(program).args(args);
         }
     }
