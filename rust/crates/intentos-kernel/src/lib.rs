@@ -31,6 +31,7 @@ mod types;
 mod syscall_envelope;
 mod token_verifier;
 mod utilities;
+pub mod sandbox_manager;
 pub mod syscall;
 
 pub use broker::BrokerPeer;
@@ -60,6 +61,7 @@ pub use types::*;
 pub use syscall_envelope::{IkCallEnvelope, IkSyscall, OpenMode};
 pub use token_verifier::{verify_token, verify_token_scope, VerifiedToken};
 pub use capability_schema::{AiScope, FsOp, FsScope, NetScope, TokenScope};
+pub use sandbox_manager::{SandboxConfig, SandboxError, SandboxManager, SandboxMode, SandboxProcess};
 
 use intentos_audit::{AuditEventKind, AuditLog};
 use std::sync::{Arc, Mutex};
