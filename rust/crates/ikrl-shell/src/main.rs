@@ -221,9 +221,11 @@ async fn ping(name: &str, addr: &str) {
         .strip_prefix("tcp://")
         .or_else(|| addr.strip_prefix("unix://"))
         .unwrap_or(addr);
-    match tokio::net::TcpStream::connect(host).await {
-        Ok(_) => println!("  {name:<14} up      {addr}"),
-        Err(e) => println!("  {name:<14} down    {addr} ({e})"),
+    let connect = tokio::net::TcpStream::connect(host);
+    match tokio::time::timeout(std::time::Duration::from_secs(2), connect).await {
+        Ok(Ok(_)) => println!("  {name:<14} up      {addr}"),
+        Ok(Err(e)) => println!("  {name:<14} down    {addr} ({e})"),
+        Err(_) => println!("  {name:<14} down    {addr} (timeout)"),
     }
 }
 
