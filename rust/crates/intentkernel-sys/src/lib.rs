@@ -18,6 +18,7 @@ pub mod syscall_types_impl {
         IkRead { handle: Uuid, len: u64 },
         IkWrite { handle: Uuid, data: Vec<u8> },
         IkClose { handle: Uuid },
+        IkPolicyExplain { syscall: Box<IkSyscall> },
         IkAiInfer { prompt: String, max_tokens: Option<u64> },
         IkNetRequest { method: HttpMethod, url: String, headers: Vec<(String, String)>, body: Vec<u8> },
     }
@@ -137,6 +138,25 @@ impl IkClient {
             call: syscall_types_impl::IkSyscall::IkOpen {
                 path: path.to_string(),
                 mode,
+            },
+            call_id: Uuid::new_v4(),
+            timestamp_ms: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_millis(),
+        };
+        self.send_envelope(&envelope)
+    }
+
+    pub fn policy_explain(
+        &mut self,
+        token_id: Uuid,
+        syscall: syscall_types_impl::IkSyscall,
+    ) -> Result<serde_json::Value, IkError> {
+        let envelope = types::IkCallEnvelope {
+            token_id,
+            call: syscall_types_impl::IkSyscall::IkPolicyExplain {
+                syscall: Box::new(syscall),
             },
             call_id: Uuid::new_v4(),
             timestamp_ms: SystemTime::now()

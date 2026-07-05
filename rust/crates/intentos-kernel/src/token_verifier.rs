@@ -20,11 +20,15 @@ pub struct VerifiedToken {
     pub issued_to: String,
     pub expires_at: SystemTime,
     pub scope: TokenScope,
+    pub remaining_uses: Option<u32>,
 }
 
 pub fn verify_token_scope(token: &VerifiedToken, syscall: &IkSyscall) -> Result<(), String> {
     if token.expires_at <= SystemTime::now() {
         return Err("token expired".to_string());
+    }
+    if matches!(token.remaining_uses, Some(0)) {
+        return Err("token quota exhausted".to_string());
     }
     if !token.scope.permits(syscall) {
         return Err("scope does not permit syscall".to_string());
@@ -45,6 +49,7 @@ pub fn verify_token(token_id: &Uuid) -> Result<VerifiedToken, String> {
                 path_prefix: "/tmp/intentos_root".to_string(),
                 ops: vec![FsOp::Read, FsOp::Write],
             }),
+            remaining_uses: Some(64),
         })
     } else {
         Err("unknown token".to_string())
@@ -62,5 +67,28 @@ mod tests {
         let t = verify_token(&id).unwrap();
         assert_eq!(t.id, id);
         verify_token_scope(&t, &IkSyscall::IkRead { handle: Uuid::new_v4(), len: 1 }).unwrap();
+    }
+
+    #[test]
+    fn exhausted_token_is_denied() {
+        let token = VerifiedToken {
+            id: Uuid::new_v4(),
+            issued_to: "demo-principal".to_string(),
+            expires_at: SystemTime::now() + Duration::from_secs(60),
+            scope: TokenScope::Fs(FsScope {
+                path_prefix: "/tmp/intentos_root".to_string(),
+                ops: vec![FsOp::Read],
+            }),
+            remaining_uses: Some(0),
+        };
+        let err = verify_token_scope(
+            &token,
+            &IkSyscall::IkRead {
+                handle: Uuid::new_v4(),
+                len: 1,
+            },
+        )
+        .unwrap_err();
+        assert_eq!(err, "token quota exhausted");
     }
 }

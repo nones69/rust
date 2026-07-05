@@ -1,0 +1,12 @@
+[package]
+name = "policy-inspector"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "IntentKernel policy explanation CLI"
+
+[dependencies]
+intentkernel-sys = { path = "../intentkernel-sys" }
+serde_json = { workspace = true }
+uuid = { workspace = true }

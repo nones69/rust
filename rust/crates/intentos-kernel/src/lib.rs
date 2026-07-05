@@ -18,6 +18,7 @@ mod ip_policy;
 mod lease;
 mod loom;
 mod policy;
+pub mod policy_inspector;
 mod policy_pack;
 mod recognizer;
 mod signals;
