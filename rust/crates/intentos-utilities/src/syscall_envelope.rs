@@ -10,3 +10,14 @@ pub enum OpenMode {
     ReadWrite,
     Create,
 }
+
+/// HTTP methods for network syscalls.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[allow(clippy::upper_case_acronyms)]
+pub enum HttpMethod {
+    GET,
+    POST,
+    PUT,
+    DELETE,
+    PATCH,
+}
