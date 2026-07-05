@@ -16,7 +16,14 @@ pub fn enforce_quota(token: &VerifiedToken, syscall: &IkSyscall) -> Result<(), S
             .duration_since(UNIX_EPOCH)
             .map_err(|e| format!("time error: {e}"))?
             .as_millis() as u64;
-        if now > token.quota.issued_at_ms + ttl {
+
+        let expires_at = token
+            .quota
+            .issued_at_ms
+            .checked_add(ttl)
+            .ok_or_else(|| "quota TTL overflow".to_string())?;
+
+        if now > expires_at {
             return Err("quota TTL expired".into());
         }
     }
