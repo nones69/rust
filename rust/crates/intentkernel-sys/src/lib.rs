@@ -98,6 +98,13 @@ impl IkClient {
         }
     }
 
+    fn now_ms() -> u128 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis()
+    }
+
     pub fn send_envelope(&mut self, envelope: &types::IkCallEnvelope) -> Result<serde_json::Value, IkError> {
         self.ensure_connected()?;
         #[cfg(unix)]
@@ -139,10 +146,7 @@ impl IkClient {
                 mode,
             },
             call_id: Uuid::new_v4(),
-            timestamp_ms: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_millis(),
+            timestamp_ms: Self::now_ms(),
         };
         self.send_envelope(&envelope)
     }
@@ -157,10 +161,7 @@ impl IkClient {
             token_id,
             call: syscall_types_impl::IkSyscall::IkRead { handle, len },
             call_id: Uuid::new_v4(),
-            timestamp_ms: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_millis(),
+            timestamp_ms: Self::now_ms(),
         };
         self.send_envelope(&envelope)
     }
@@ -175,10 +176,7 @@ impl IkClient {
             token_id,
             call: syscall_types_impl::IkSyscall::IkWrite { handle, data },
             call_id: Uuid::new_v4(),
-            timestamp_ms: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_millis(),
+            timestamp_ms: Self::now_ms(),
         };
         self.send_envelope(&envelope)
     }
@@ -196,10 +194,7 @@ impl IkClient {
                 max_tokens,
             },
             call_id: Uuid::new_v4(),
-            timestamp_ms: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_millis(),
+            timestamp_ms: Self::now_ms(),
         };
         self.send_envelope(&envelope)
     }

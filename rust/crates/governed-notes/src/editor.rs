@@ -39,7 +39,9 @@ impl Editor {
             .read(self.token, handle, 4096)
             .map_err(|e| format!("read error: {e}"))?;
 
-        let data = resp["data"].as_str().unwrap_or("");
+        let data = resp["data"]
+            .as_str()
+            .ok_or("kernel response missing 'data' field")?;
         let bytes = BASE64.decode(data).map_err(|e| format!("{e}"))?;
         let text = String::from_utf8_lossy(&bytes);
 
@@ -64,7 +66,9 @@ impl Editor {
             .ai_infer(self.token, prompt, Some(128))
             .map_err(|e| format!("ai error: {e}"))?;
 
-        let text = resp["text"].as_str().unwrap_or("");
+        let text = resp["text"]
+            .as_str()
+            .ok_or("kernel response missing 'text' field")?;
         println!("AI Suggestion:\n{text}");
         Ok(())
     }
