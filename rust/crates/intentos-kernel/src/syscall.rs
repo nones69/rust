@@ -12,21 +12,21 @@ pub fn dispatch_call(env: IkCallEnvelope, token: &mut VerifiedToken) -> Result<s
     verify_token_scope(token, &env.call)?;
     enforce_quota(token, &env.call)?;
 
-    let result = match env.call {
-        IkSyscall::IkOpen { ref path, ref mode } => {
+    let result = match &env.call {
+        IkSyscall::IkOpen { path, mode } => {
             match utilities::host_vfs::vfs_open(&token.id, path.as_str(), *mode) {
                 Ok(handle) => Ok(json!({"handle": handle.to_string()})),
                 Err(e) => Err(format!("vfs_open error: {}", e)),
             }
         }
         IkSyscall::IkRead { handle, len } => {
-            match utilities::host_vfs::vfs_read(&token.id, handle, len) {
+            match utilities::host_vfs::vfs_read(&token.id, *handle, *len) {
                 Ok(bytes) => Ok(json!({"data": BASE64.encode(&bytes)})),
                 Err(e) => Err(format!("vfs_read error: {}", e)),
             }
         }
-        IkSyscall::IkWrite { handle, ref data } => {
-            match utilities::host_vfs::vfs_write(&token.id, handle, data) {
+        IkSyscall::IkWrite { handle, data } => {
+            match utilities::host_vfs::vfs_write(&token.id, *handle, data) {
                 Ok(()) => Ok(json!({"written": data.len()})),
                 Err(e) => Err(format!("vfs_write error: {}", e)),
             }
