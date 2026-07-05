@@ -1,7 +1,28 @@
 //! Native IntentOS cryptography — owned by the kernel, not IKRL.
 //!
-//! Wire-format slots match ML-DSA-87 sizes; signing uses Ed25519 with
-//! secret-key binding (dev path). No `intentkernel-crypto` dependency.
+//! ## Current state (development path)
+//!
+//! Wire-format slots match ML-DSA-87 sizes so the token wire format does not
+//! need to change when real PQC is integrated.  However, the actual signing
+//! in **both** version bytes below is Ed25519 — this is a development
+//! convenience, not post-quantum cryptography.
+//!
+//! - [`TOKEN_SIG_V1_ED25519`]: Ed25519 with SHA-3 padding into ML-DSA-sized
+//!   slots.  The default for all current in-process token paths.
+//! - [`TOKEN_SIG_V2_PQC_HYBRID`]: Ed25519 + public-key-bound SHA-3 padding.
+//!   **The name is aspirational, not descriptive**: this version does not
+//!   include any ML-DSA or ML-KEM operation.  It is also a development
+//!   convenience.
+//!
+//! ## Migration path
+//!
+//! The [`SigningBackend`] trait defines the interface that a real ML-DSA-87
+//! implementation must satisfy.  When Program 2 of the verification roadmap
+//! is complete, a `TOKEN_SIG_V3_ML_DSA` variant backed by a FIPS 204
+//! implementation will replace V1 and V2.  See
+//! `roadmap/verification_hardening_roadmap.md`, Program 2.
+//!
+//! No `intentkernel-crypto` dependency.
 
 use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 use rand::{rngs::OsRng, TryRngCore};
@@ -13,8 +34,12 @@ pub const SECRET_KEY_LEN: usize = 4896;
 pub const SIGNATURE_LEN: usize = 4595;
 
 /// Ed25519 dev path — ML-DSA-sized slots with seed-bound padding.
+/// Not post-quantum. Default for the current in-process runtime.
 pub const TOKEN_SIG_V1_ED25519: u8 = 1;
-/// PQC-hybrid path — Ed25519 + public-key-bound SHA3-512 padding (verify without secret).
+/// Development convenience path. **Not a real hybrid post-quantum scheme.**
+/// Ed25519 + public-key-bound SHA3-512 padding; no ML-DSA or ML-KEM
+/// operations are performed. Retained for wire-format compatibility testing
+/// only. Do not describe this as PQC in any user-facing context.
 pub const TOKEN_SIG_V2_PQC_HYBRID: u8 = 2;
 
 const PQC_PAD_DOMAIN: &[u8] = b"INTENTOS-PQC-V2";
@@ -29,6 +54,20 @@ pub enum CryptoError {
     InvalidSignature,
     #[error("signature verification failed")]
     VerifyFailed,
+}
+
+/// Signing backend abstraction — the migration interface for real PQC.
+///
+/// A future `MlDsaBackend` struct implementing this trait (backed by a FIPS 204
+/// ML-DSA-87 implementation) can replace the current Ed25519 development path
+/// without changing token or kernel logic.
+pub trait SigningBackend: Send + Sync {
+    /// Returns the version byte this backend produces.
+    fn version(&self) -> u8;
+    /// Sign `message` and return a [`SIGNATURE_LEN`]-byte signature.
+    fn sign(&self, message: &[u8]) -> Result<[u8; SIGNATURE_LEN], CryptoError>;
+    /// Verify `signature` over `message`.
+    fn verify(&self, message: &[u8], signature: &[u8; SIGNATURE_LEN]) -> Result<(), CryptoError>;
 }
 
 #[derive(Clone)]

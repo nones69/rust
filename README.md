@@ -207,6 +207,8 @@ src/
 - Token RFC: [`docs/token_rfc.md`](docs/token_rfc.md)
 - Thesis proposal: [`docs/thesis_proposal.md`](docs/thesis_proposal.md)
 - Build instructions: [`BUILD.md`](BUILD.md)
+- **Verification and hardening roadmap**: [`roadmap/verification_hardening_roadmap.md`](roadmap/verification_hardening_roadmap.md) — the engineering program that defines when each disclaimer above is removed
+- **Claim–evidence matrix**: [`roadmap/claim_evidence_matrix.md`](roadmap/claim_evidence_matrix.md) — maps every public security claim to its evidence gate
 
 ---
 

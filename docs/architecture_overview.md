@@ -62,7 +62,7 @@ The system is divided into four interoperable components:
 
 IntentKernel follows a Compatibility First doctrine. It enters as a security runtime on existing operating systems and evolves toward native hardware — mirroring the success of TCP/IP, TLS, Docker, and POSIX.
 
-Stage 1 targets IKRL deployment as a hardened Windows Service using VBS, providing ransomware immunity for existing enterprise fleets. In the current Rust repo, that Windows path is still partial: `ikrl-windows` registers a service entry, but the actual runnable stack is launched directly with `ikrl-init` and uses TCP rather than named pipes. Stage 2 targets Linux and cloud infrastructure via LSM modules and eBPF. Stage 3 covers mobile devices via privileged system services. Stage 4 addresses embedded systems and IoT via firmware supervisors. Stage 5 delivers native hardware enforcement with the IntentKernel microkernel on bare metal.
+Stage 1 targets IKRL deployment as a hardened Windows Service using VBS, structurally reducing the attack surface for unauthorized file writes on existing enterprise fleets. In the current Rust repo, that Windows path is still partial: `ikrl-windows` registers a service entry, but the actual runnable stack is launched directly with `ikrl-init` and uses TCP rather than named pipes. Stage 2 targets Linux and cloud infrastructure via LSM modules and eBPF. Stage 3 covers mobile devices via privileged system services. Stage 4 addresses embedded systems and IoT via firmware supervisors. Stage 5 delivers native hardware enforcement with the IntentKernel microkernel on bare metal.
 
 We are not distributing a new operating system. We are distributing a Runtime Environment compatible with existing OSes. This eliminates the friction that killed every previous secure OS attempt.
 
@@ -70,19 +70,53 @@ We are not distributing a new operating system. We are distributing a Runtime En
 
 ## 6. Capability Token Specification
 
-Tokens follow RFC-INTENT-001 (see `token_rfc.md`). Key characteristics: CBOR binary encoding for efficiency across IoT and high-performance contexts, ML-DSA-87 post-quantum signatures, Kernel Handle optimization (64-bit handles for syscalls to avoid verifying the full ~4.6KB signature on every call), and global revocation list propagation with sub-100ms latency for critical revocation.
+Tokens follow RFC-INTENT-001 (see `token_rfc.md`). Key characteristics: CBOR binary encoding for efficiency across IoT and high-performance contexts, Kernel Handle optimization (64-bit handles for syscalls to avoid verifying the full ~4.6KB signature on every call), and global revocation list propagation with sub-100ms latency for critical revocation. The production token signing target is ML-DSA-87 (FIPS 204); the current `intentos-*` runtime uses an Ed25519 development signing path while the PQC migration is in progress (see [`roadmap/verification_hardening_roadmap.md`](../roadmap/verification_hardening_roadmap.md#program-2--production-post-quantum-cryptography)).
 
 ---
 
-## 7. Security Guarantees
+## 7. Security Properties
 
-Ransomware is eliminated because no file write capability exists unless explicitly triggered by user action. Spyware is eliminated because input and sensor capabilities expire instantly after capture. Backdoors are eliminated because background services require heartbeat lease renewal or are killed. Data exfiltration is eliminated because network capabilities are scoped per destination and revoked after transfer. Privilege escalation is eliminated because no process can grant itself permissions — only the Broker can issue tokens. Quantum attacks are mitigated because all tokens use NIST-standardized post-quantum algorithms.
+The following describes the structural security properties the architecture is
+designed to enforce, and the assumptions under which each property holds.
+These are not absolute guarantees — they apply within a defined trust model
+and assumption set. For the precise, evidence-gated version of each claim see
+[`roadmap/claim_evidence_matrix.md`](../roadmap/claim_evidence_matrix.md).
+
+**Unauthorized file writes** are structurally prevented — under the assumption
+that the enforcement backend has no unpatched bypass, the host kernel is
+uncompromised, and the user was not deceived into approving a malicious intent
+— because no file write capability can exist without an in-scope, non-expired
+token issued by the broker for that exact resource and action.
+
+**Unauthorized sensor and input capture** is structurally prevented under the
+same assumption set, because capabilities are scoped per event and expire
+immediately after use.
+
+**Background persistence without user knowledge** is structurally prevented
+because background services require heartbeat lease renewal or are terminated
+by the lease manager.
+
+**Network exfiltration via unconstrained sockets** is structurally prevented
+because network capabilities are scoped per destination and revoked after the
+authorized transfer completes.
+
+**Privilege escalation within the capability model** is structurally prevented
+because no process can issue its own tokens — only the broker can, and only
+after a policy-allowed intent.
+
+**Out-of-scope threats** — user deception (phishing, spoofed UI, social
+engineering), supply-chain compromise, hardware side channels
+(Spectre/Meltdown-class), and attacks that compromise the host kernel before
+the enforcement backend loads — are **not** covered by the above properties.
+No capability system, including seL4, can provide structural protection
+against these classes of attack. The README disclaimers reflect this boundary
+honestly.
 
 ---
 
 ## 8. Governance
 
-To maintain architectural integrity, all implementations claiming IntentKernel compatibility must adhere to the principles defined in `governance/principles.md`. The core requirements are: structural immunity through enforcement (not detection), user sovereignty (no backdoors), transparency (all capabilities visible), portability (protocol works across all stages), and open core (specifications remain publicly available).
+To maintain architectural integrity, all implementations claiming IntentKernel compatibility must adhere to the principles defined in `governance/principles.md`. The core requirements are: structural enforcement (not detection-based), user sovereignty (no backdoors), transparency (all capabilities visible), portability (protocol works across all stages), and open core (specifications remain publicly available).
 
 ---
 

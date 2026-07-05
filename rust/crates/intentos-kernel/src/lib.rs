@@ -31,8 +31,8 @@ pub use broker::BrokerPeer;
 pub use card::IntentCard;
 pub use crypto::{
     generate_broker_keys, sign, sign_with_version, verify, verify_with_version, BrokerKeys,
-    CryptoError, PUBLIC_KEY_LEN, SECRET_KEY_LEN, SIGNATURE_LEN, TOKEN_SIG_V1_ED25519,
-    TOKEN_SIG_V2_PQC_HYBRID,
+    CryptoError, SigningBackend, PUBLIC_KEY_LEN, SECRET_KEY_LEN, SIGNATURE_LEN,
+    TOKEN_SIG_V1_ED25519, TOKEN_SIG_V2_PQC_HYBRID,
 };
 pub use field::Field;
 pub use error::KernelError;
