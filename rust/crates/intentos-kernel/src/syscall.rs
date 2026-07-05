@@ -44,6 +44,9 @@ pub fn dispatch_call(
             Ok(_) => "ok".to_string(),
             Err(e) => format!("err: {e}"),
         };
+        // Audit failures are intentionally non-fatal: the syscall result
+        // must be delivered regardless of whether the log write succeeds
+        // (e.g. disk full).  Silencing the error here is by design.
         let _ = log.record(
             AuditEventKind::Syscall,
             &token.issued_to,
