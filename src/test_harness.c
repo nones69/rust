@@ -24,7 +24,8 @@ uint64_t get_time(void) {
     /* POSIX monotonic implementation */
     struct timespec ts;
     if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
-        return 0;
+        perror("clock_gettime(CLOCK_MONOTONIC)");
+        exit(EXIT_FAILURE);
     }
     return (uint64_t)ts.tv_sec * 1000000000ULL + (uint64_t)ts.tv_nsec;
     #endif
