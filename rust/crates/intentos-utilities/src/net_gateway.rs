@@ -41,12 +41,18 @@ pub enum NetGatewayError {
     InvalidHeaderValue { name: String, reason: String },
     #[error("http request failed: {0}")]
     Http(String),
+    #[error("response header value for {name} is not valid UTF-8")]
+    ResponseHeaderEncoding { name: String },
 }
 
 impl NetGateway {
     pub fn new() -> Self {
+        Self::new_with_timeout(Duration::from_secs(10))
+    }
+
+    pub fn new_with_timeout(timeout: Duration) -> Self {
         let client = Client::builder()
-            .timeout(Duration::from_secs(10))
+            .timeout(timeout)
             .build()
             .expect("net client build failed");
         Self { client }
@@ -96,13 +102,13 @@ impl NetGateway {
         let response_headers = resp
             .headers()
             .iter()
-            .map(|(name, value)| {
-                (
-                    name.as_str().to_string(),
-                    value.to_str().unwrap_or_default().to_string(),
-                )
+            .map(|(name, value)| -> Result<(String, String), NetGatewayError> {
+                let value = value.to_str().map_err(|_| NetGatewayError::ResponseHeaderEncoding {
+                    name: name.as_str().to_string(),
+                })?;
+                Ok((name.as_str().to_string(), value.to_string()))
             })
-            .collect();
+            .collect::<Result<Vec<_>, _>>()?;
         let body = resp
             .bytes()
             .map_err(|e| NetGatewayError::Http(e.to_string()))?
@@ -176,7 +182,10 @@ fn host_matches(host: &str, allowed: &str) -> bool {
     if allowed.is_empty() {
         return false;
     }
-    host == allowed || host.ends_with(&format!(".{allowed}"))
+    host == allowed
+        || (host.len() > allowed.len()
+            && host.as_bytes()[host.len() - allowed.len() - 1] == b'.'
+            && host.ends_with(&allowed))
 }
 
 #[cfg(test)]
