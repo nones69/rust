@@ -32,7 +32,12 @@ pub fn enforce_quota(token: &VerifiedToken, syscall: &IkSyscall) -> Result<(), S
     match syscall {
         IkSyscall::IkRead { len, .. } => {
             if let Some(max) = token.quota.max_bytes {
-                if token.quota.bytes_used + len > max {
+                let projected = token
+                    .quota
+                    .bytes_used
+                    .checked_add(*len)
+                    .ok_or_else(|| "quota bytes_used overflow".to_string())?;
+                if projected > max {
                     return Err("quota max_bytes exceeded".into());
                 }
             }
@@ -40,7 +45,12 @@ pub fn enforce_quota(token: &VerifiedToken, syscall: &IkSyscall) -> Result<(), S
         IkSyscall::IkWrite { data, .. } => {
             let len = data.len() as u64;
             if let Some(max) = token.quota.max_bytes {
-                if token.quota.bytes_used + len > max {
+                let projected = token
+                    .quota
+                    .bytes_used
+                    .checked_add(len)
+                    .ok_or_else(|| "quota bytes_used overflow".to_string())?;
+                if projected > max {
                     return Err("quota max_bytes exceeded".into());
                 }
             }
