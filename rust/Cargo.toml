@@ -70,6 +70,10 @@ futures = "0.3"
 mdns-sd = "0.13"
 tempfile = "3.14"
 walkdir = "2.5"
+rustls = { version = "0.23.25", default-features = false, features = ["ring", "logging", "std", "tls12"] }
+tokio-rustls = { version = "0.26.2", default-features = false, features = ["ring", "tls12"] }
+rustls-pemfile = "2.2"
+rcgen = "0.13.1"
 
 [profile.dev]
 debug = 0

@@ -49,6 +49,16 @@ pub enum AuditEventKind {
     PqcTokensDisabled,
     OobeHookEmitted,
     AuditRecovery,
+    /// A secure IPC listener started (records mode: ServerOnly or Mutual).
+    IpcListenerStarted,
+    /// An inbound IPC connection was accepted and its identity was verified.
+    IpcAuthSuccess,
+    /// An inbound IPC connection failed authentication or TLS handshake.
+    IpcAuthFailure,
+    /// A replayed or stale request was rejected by the replay guard.
+    IpcReplayRejected,
+    /// A TLS certificate or key pair was rotated.
+    IpcCertRotated,
 }
 
 /// Single immutable audit record.

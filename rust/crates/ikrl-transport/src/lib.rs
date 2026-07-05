@@ -11,6 +11,21 @@
 //!
 //! All transports carry length-prefixed JSON messages so every daemon can
 //! speak the same protocol regardless of the underlying socket type.
+//!
+//! # Security modules
+//!
+//! - [`tls`] — mTLS-backed [`SecureListener`] / [`SecureChannel`] and [`TlsConfig`]
+//! - [`replay`] — [`ReplayGuard`] for timestamp-and-nonce replay protection
+//! - [`peer_creds`] — OS-level Unix peer credential extraction (Unix only)
+
+pub mod replay;
+pub mod tls;
+
+#[cfg(unix)]
+pub mod peer_creds;
+
+pub use replay::{ReplayError, ReplayGuard};
+pub use tls::{PeerIdentity, SecureChannel, SecureListener, TlsConfig, TlsMode};
 
 use anyhow::{Context, Result};
 use serde::{de::DeserializeOwned, Serialize};
