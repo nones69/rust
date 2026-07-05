@@ -5,7 +5,7 @@ use std::time::{Duration, SystemTime};
 use uuid::Uuid;
 use lazy_static::lazy_static;
 
-use crate::capability_schema::{FsOp, FsScope, TokenScope};
+use crate::capability_schema::{FsOp, FsScope, TokenQuota, TokenScope};
 use crate::syscall_envelope::IkSyscall;
 
 lazy_static! {
@@ -20,6 +20,7 @@ pub struct VerifiedToken {
     pub issued_to: String,
     pub expires_at: SystemTime,
     pub scope: TokenScope,
+    pub quota: TokenQuota,
 }
 
 pub fn verify_token_scope(token: &VerifiedToken, syscall: &IkSyscall) -> Result<(), String> {
@@ -45,6 +46,13 @@ pub fn verify_token(token_id: &Uuid) -> Result<VerifiedToken, String> {
                 path_prefix: "/tmp/intentos_root".to_string(),
                 ops: vec![FsOp::Read, FsOp::Write],
             }),
+            quota: TokenQuota {
+                max_bytes: Some(10_000),
+                bytes_used: 0,
+                max_requests: Some(100),
+                requests_used: 0,
+                ttl_ms: Some(60_000),
+            },
         })
     } else {
         Err("unknown token".to_string())

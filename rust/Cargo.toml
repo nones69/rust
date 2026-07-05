@@ -30,6 +30,7 @@ members = [
     "crates/ikrl-bridge",
     "crates/intentkernel-sys",
     "crates/governed-editor",
+    "crates/capability-visualizer",
 ]
 
 resolver = "3"

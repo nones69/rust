@@ -59,7 +59,7 @@ pub use token::TokenBroker;
 pub use types::*;
 pub use syscall_envelope::{IkCallEnvelope, IkSyscall, OpenMode};
 pub use token_verifier::{verify_token, verify_token_scope, VerifiedToken};
-pub use capability_schema::{AiScope, FsOp, FsScope, NetScope, TokenScope};
+pub use capability_schema::{AiScope, FsOp, FsScope, NetScope, TokenQuota, TokenScope};
 
 use intentos_audit::{AuditEventKind, AuditLog};
 use std::sync::{Arc, Mutex};

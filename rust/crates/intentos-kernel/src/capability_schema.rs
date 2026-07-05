@@ -3,6 +3,16 @@ use std::path::{Component, Path, PathBuf};
 
 use crate::syscall_envelope::{HttpMethod, IkSyscall, OpenMode};
 
+/// Resource-usage quotas carried by a capability token.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct TokenQuota {
+    pub max_bytes: Option<u64>,
+    pub bytes_used: u64,
+    pub max_requests: Option<u64>,
+    pub requests_used: u64,
+    pub ttl_ms: Option<u64>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FsOp {
     Read,

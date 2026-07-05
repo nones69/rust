@@ -1,0 +1,16 @@
+[package]
+name = "capability-visualizer"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "CLI tool for visualizing IntentOS capability tokens as an ASCII tree"
+
+[[bin]]
+name = "capability-visualizer"
+path = "src/main.rs"
+
+[dependencies]
+intentos-kernel = { path = "../intentos-kernel" }
+uuid = { workspace = true }
+serde = { workspace = true }
