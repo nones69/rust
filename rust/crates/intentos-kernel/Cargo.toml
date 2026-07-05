@@ -19,3 +19,4 @@ thiserror = { workspace = true }
 chrono = { workspace = true }
 base64 = "0.21"
 lazy_static = "1.5"
+libc = { workspace = true }
