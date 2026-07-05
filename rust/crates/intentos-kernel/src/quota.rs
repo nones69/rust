@@ -77,14 +77,14 @@ pub fn apply_quota(token: &mut VerifiedToken, syscall: &IkSyscall, result: &Resu
         return;
     }
 
-    token.quota.requests_used += 1;
+    token.quota.requests_used = token.quota.requests_used.saturating_add(1);
 
     match syscall {
         IkSyscall::IkRead { len, .. } => {
-            token.quota.bytes_used += len;
+            token.quota.bytes_used = token.quota.bytes_used.saturating_add(*len);
         }
         IkSyscall::IkWrite { data, .. } => {
-            token.quota.bytes_used += data.len() as u64;
+            token.quota.bytes_used = token.quota.bytes_used.saturating_add(data.len() as u64);
         }
         _ => {}
     }
@@ -209,5 +209,22 @@ mod tests {
         apply_quota(&mut token, &syscall, &err);
         assert_eq!(token.quota.requests_used, 0);
         assert_eq!(token.quota.bytes_used, 0);
+    }
+
+    #[test]
+    fn apply_quota_saturates_counters_on_overflow() {
+        let mut token = make_token(TokenQuota {
+            max_bytes: None,
+            max_requests: None,
+            ttl_ms: None,
+            bytes_used: u64::MAX,
+            requests_used: u64::MAX,
+            issued_at_ms: now_ms(),
+        });
+        let syscall = IkSyscall::IkRead { handle: Uuid::new_v4(), len: 1 };
+        let ok: Result<serde_json::Value, String> = Ok(serde_json::json!({}));
+        apply_quota(&mut token, &syscall, &ok);
+        assert_eq!(token.quota.requests_used, u64::MAX);
+        assert_eq!(token.quota.bytes_used, u64::MAX);
     }
 }
