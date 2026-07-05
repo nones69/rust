@@ -24,13 +24,25 @@ pub enum HttpMethod {
 }
 
 /// Sandbox isolation mode for delegated tasks.
+///
+/// Controls the capability and filesystem scope granted to a remotely
+/// delegated process:
+///
+/// * `Strict` — only the capabilities explicitly listed in the delegation
+///   token are granted; the filesystem is mounted read-only and no ambient
+///   authority is inherited from the host kernel.
+/// * `Permissive` — the process inherits the delegating token's full scope;
+///   suitable for trusted first-party workloads where broad access is
+///   intentional and audited.
+/// * `ReadOnly` — filesystem access is restricted to read operations only;
+///   network and device capabilities follow the token scope.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SandboxMode {
-    /// Strict capability-only isolation (default).
+    /// Strict capability-only isolation (default). No ambient authority.
     Strict,
-    /// Permissive mode for trusted workloads.
+    /// Permissive mode for trusted, explicitly-audited workloads.
     Permissive,
-    /// Read-only filesystem sandbox.
+    /// Read-only filesystem sandbox; writes are denied at the kernel level.
     ReadOnly,
 }
 

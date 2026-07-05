@@ -375,10 +375,27 @@ impl FederationCluster {
 
     // ── Policy replication ──────────────────────────────────────────────────
 
-    /// Update local policy hash (called after a `PolicyUpdate` is verified).
-    pub fn apply_policy_update(&self, update: &PolicyUpdate) {
-        // In production: verify the leader's signature before applying.
+    /// Update local policy hash after verifying the update.
+    ///
+    /// In production, this must verify the leader's Ed25519/PQC signature
+    /// over `update.policy_hash` before accepting the new policy.  The
+    /// signature field is checked to be non-empty as a minimum guard; callers
+    /// with access to the cluster's verification key should perform full
+    /// cryptographic verification here.
+    ///
+    /// Returns `Err` if the update is unsigned (signature field empty).
+    pub fn apply_policy_update(&self, update: &PolicyUpdate) -> Result<(), String> {
+        if update.signature.is_empty() {
+            return Err(
+                "policy update rejected: missing leader signature — \
+                 apply_policy_update requires a signed PolicyUpdate"
+                    .to_string(),
+            );
+        }
+        // TODO: verify update.signature over update.policy_hash with the
+        // cluster leader's public key stored in cluster state before accepting.
         self.inner.lock().unwrap().policy_hash = update.policy_hash.clone();
+        Ok(())
     }
 
     pub fn policy_hash(&self) -> String {
@@ -743,6 +760,34 @@ mod tests {
         };
         node.complete_task(&result);
         assert_eq!(node.pending_task_count(), 0);
+    }
+
+    #[test]
+    fn policy_update_rejected_without_signature() {
+        let node = make_node(FederationRole::Worker);
+        let update = PolicyUpdate {
+            cluster_id: Uuid::new_v4(),
+            policy_json: r#"{"allow_all": false}"#.into(),
+            policy_hash: "deadbeef".into(),
+            signature: String::new(), // intentionally empty
+            from: Uuid::new_v4(),
+        };
+        assert!(node.apply_policy_update(&update).is_err());
+        assert!(node.policy_hash().is_empty(), "hash must not change on rejected update");
+    }
+
+    #[test]
+    fn policy_update_accepted_with_signature() {
+        let node = make_node(FederationRole::Worker);
+        let update = PolicyUpdate {
+            cluster_id: Uuid::new_v4(),
+            policy_json: r#"{"allow_all": false}"#.into(),
+            policy_hash: "cafecafe".into(),
+            signature: "mock-leader-sig".into(),
+            from: Uuid::new_v4(),
+        };
+        assert!(node.apply_policy_update(&update).is_ok());
+        assert_eq!(node.policy_hash(), "cafecafe");
     }
 
     #[test]
