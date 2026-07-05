@@ -49,6 +49,16 @@ pub enum AuditEventKind {
     PqcTokensDisabled,
     OobeHookEmitted,
     AuditRecovery,
+    FederationJoined,
+    FederationLeft,
+    FederationHello,
+    FederationWelcome,
+    FederationHeartbeat,
+    FederationPolicyReplicated,
+    FederationLogReplicated,
+    FederationForward,
+    FederationTaskDelegate,
+    FederationPeerDiscovered,
 }
 
 /// Single immutable audit record.

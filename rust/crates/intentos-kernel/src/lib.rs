@@ -31,6 +31,7 @@ mod types;
 mod syscall_envelope;
 mod token_verifier;
 mod utilities;
+pub mod federation;
 pub mod syscall;
 
 pub use broker::BrokerPeer;
@@ -57,9 +58,14 @@ pub use revocation::RevocationList;
 pub use table::CapabilityTable;
 pub use token::TokenBroker;
 pub use types::*;
-pub use syscall_envelope::{IkCallEnvelope, IkSyscall, OpenMode};
+pub use syscall_envelope::{IkCallEnvelope, IkSyscall, OpenMode, SandboxMode, TaskPriority};
 pub use token_verifier::{verify_token, verify_token_scope, VerifiedToken};
 pub use capability_schema::{AiScope, FsOp, FsScope, NetScope, TokenScope};
+pub use federation::{
+    FederationCluster, FederationPeer, FederationRole, FederationStatus, FederatedAuditEntry,
+    HelloMessage, WelcomeMessage, HeartbeatMessage, PolicyUpdate, TaskDelegation, TaskResult,
+    ForwardedSyscall, ForwardResult, dispatch_federation_syscall,
+};
 
 use intentos_audit::{AuditEventKind, AuditLog};
 use std::sync::{Arc, Mutex};

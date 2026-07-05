@@ -23,6 +23,26 @@ pub enum HttpMethod {
     PATCH,
 }
 
+/// Sandbox isolation mode for delegated tasks.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SandboxMode {
+    /// Strict capability-only isolation (default).
+    Strict,
+    /// Permissive mode for trusted workloads.
+    Permissive,
+    /// Read-only filesystem sandbox.
+    ReadOnly,
+}
+
+/// Priority level for scheduled or delegated tasks.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TaskPriority {
+    Low,
+    Normal,
+    High,
+    Critical,
+}
+
 /// All syscalls the dispatch layer can process.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum IkSyscall {
@@ -36,6 +56,31 @@ pub enum IkSyscall {
         url: String,
         headers: Vec<(String, String)>,
         body: Vec<u8>,
+    },
+    /// Federation handshake: this kernel announces itself to a peer.
+    IkFederationHello {
+        kernel_id: Uuid,
+        capabilities: Vec<String>,
+        version: String,
+    },
+    /// Federation handshake response: peer acknowledges cluster membership.
+    IkFederationWelcome {
+        cluster_id: Uuid,
+        peers: Vec<String>,
+        policy_hash: String,
+    },
+    /// Forward a governed syscall to a remote kernel for execution.
+    IkForward {
+        target_kernel: Uuid,
+        syscall: Box<IkSyscall>,
+    },
+    /// Delegate a sandboxed task to a remote kernel.
+    IkTaskDelegate {
+        target_kernel: Uuid,
+        program: String,
+        args: Vec<String>,
+        mode: SandboxMode,
+        priority: TaskPriority,
     },
 }
 

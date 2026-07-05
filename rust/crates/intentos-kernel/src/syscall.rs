@@ -29,6 +29,12 @@ pub fn dispatch_call(env: IkCallEnvelope, token: &VerifiedToken) -> Result<serde
                 Err(e) => Err(format!("vfs_write error: {}", e)),
             }
         }
+        IkSyscall::IkFederationHello { .. }
+        | IkSyscall::IkFederationWelcome { .. }
+        | IkSyscall::IkForward { .. }
+        | IkSyscall::IkTaskDelegate { .. } => {
+            Err("federation syscalls require a FederationCluster context".to_string())
+        }
         _ => Err("syscall not implemented in demo".to_string()),
     }
 }
