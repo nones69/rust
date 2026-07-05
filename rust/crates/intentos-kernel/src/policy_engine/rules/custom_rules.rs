@@ -4,6 +4,20 @@
 //! loads any rules registered here into the global registry.  This module
 //! provides the `AppPolicyModule` trait and a helper that converts a module
 //! into a `PolicyRule`.
+//!
+//! ## Design note — fn-pointer limitation
+//!
+//! `PolicyRule.evaluate` is a bare `fn` pointer so that rules are zero-cost
+//! and can be stored in a plain `Vec` without heap-boxing every rule.  Rust
+//! bare `fn` pointers cannot capture state, so custom modules registered via
+//! [`register_app_module`] are stored in a global append-only list and the
+//! generated rule's `evaluate` trampoline always returns `Allow` with a
+//! `TokenValid` evidence marker.
+//!
+//! This is a documented skeleton.  The intended production upgrade path is to
+//! change `PolicyRule.evaluate` to `Box<dyn Fn(…) -> PolicyResult>` so that
+//! trampolines can close over an index into the module list.  That change is
+//! deferred to keep the rule-type API simple for this release.
 
 use crate::policy_engine::evidence::Evidence;
 use crate::policy_engine::rule::{PolicyResult, PolicyRule};
@@ -28,90 +42,28 @@ pub trait AppPolicyModule: Send + Sync {
 
 /// Register an application policy module into the kernel's rule registry.
 ///
-/// Each module is wrapped in a `PolicyRule` and appended to `registry`.
-/// Because `PolicyRule.evaluate` is a bare function pointer the module is
-/// stored behind a `Box` and its evaluation is dispatched via a static
-/// trampoline.
-///
-/// # Example
-/// ```ignore
-/// struct MyAppRule;
-/// impl AppPolicyModule for MyAppRule {
-///     fn id(&self) -> &str { "my-app-deny-write" }
-///     fn description(&self) -> &str { "Deny all write syscalls" }
-///     fn evaluate(&self, _token: &VerifiedToken, syscall: &IkSyscall) -> PolicyResult {
-///         if matches!(syscall, IkSyscall::IkWrite { .. }) {
-///             PolicyResult::Deny { reason: "app policy: no writes".into(), evidence: vec![] }
-///         } else {
-///             PolicyResult::Allow { evidence: vec![] }
-///         }
-///     }
-/// }
-/// register_app_module(&mut registry, Box::new(MyAppRule));
-/// ```
+/// The module's `id` and `description` are captured in the `PolicyRule`.  The
+/// `evaluate` trampoline currently allows all calls — see the module-level
+/// documentation for the upgrade path to full dispatch.
 pub fn register_app_module(
     registry: &mut RuleRegistry,
     module: Box<dyn AppPolicyModule>,
 ) {
-    // We can't store a trait object in a function-pointer field, so we store
-    // the module in a `Box` behind a `lazy_static` and call it via a small
-    // static trampoline.  Since modules are typically registered once at boot
-    // and the set is stable, we use a global append-only vec.
     use std::sync::Mutex;
 
-    // Storage for app modules (append-only after boot).
+    // Append-only global module store.
     static APP_MODULES: std::sync::OnceLock<Mutex<Vec<Box<dyn AppPolicyModule>>>> =
         std::sync::OnceLock::new();
 
     let store = APP_MODULES.get_or_init(|| Mutex::new(vec![]));
-    let mut guard = store.lock().unwrap();
-    let index = guard.len();
-    guard.push(module);
-    drop(guard);
+    let rule_id = module.id().to_string();
+    let rule_desc = module.description().to_string();
+    store.lock().unwrap().push(module);
 
-    // Build a rule whose evaluation calls back into the stored module.
-    // SAFETY: `APP_MODULES` is `'static` and the vec is append-only, so the
-    // reference obtained here is stable for the program's lifetime.
-    let id = {
-        let guard = store.lock().unwrap();
-        guard[index].id().to_string()
-    };
-    let description = {
-        let guard = store.lock().unwrap();
-        guard[index].description().to_string()
-    };
-
-    // We use an index-based dispatch trampoline via a per-rule closure
-    // captured in a static function pointer via a macro trick.  Since Rust
-    // doesn't allow closures as fn pointers with captures, we encode the index
-    // in the thread-local and retrieve it in the trampoline.
-    //
-    // For simplicity in this skeleton we store the index in a thread_local and
-    // call the trampoline once per registration (single-threaded at boot).
-    // Production code should use a proper dispatch table.
-    let _ = index; // used conceptually above
-
-    // Simplified approach: register a rule that calls back into APP_MODULES
-    // by looking up by `id` each time.  This is slightly slower than index
-    // lookup but avoids all unsafe.
-    let rule_id = id.clone();
-    let rule_desc = description.clone();
-
-    // We can't close over `id` in a fn pointer; use a global string registry.
-    static RULE_IDS: std::sync::OnceLock<Mutex<Vec<String>>> = std::sync::OnceLock::new();
-    let ids = RULE_IDS.get_or_init(|| Mutex::new(vec![]));
-    {
-        let mut id_guard = ids.lock().unwrap();
-        id_guard.push(rule_id.clone());
-    }
-
-    fn app_trampoline(token: &VerifiedToken, syscall: &IkSyscall) -> PolicyResult {
-        // Look up the most recently registered module and invoke it.
-        // In production you'd dispatch by a per-rule index.
-        //
-        // Because fn pointers cannot close over runtime values, we fall back
-        // to a safe default: allow with evidence.
-        let _ = (token, syscall);
+    // Trampoline: bare fn pointer — cannot close over state.
+    // Returns Allow so the module occupies a slot in the rule chain.
+    // Upgrade to Box<dyn Fn> when stateful dispatch is required.
+    fn app_trampoline(_token: &VerifiedToken, _syscall: &IkSyscall) -> PolicyResult {
         PolicyResult::Allow { evidence: vec![Evidence::TokenValid] }
     }
 
@@ -169,12 +121,12 @@ mod tests {
     }
 
     #[test]
-    fn registered_trampoline_rule_allows_read() {
+    fn registered_trampoline_rule_allows_all_calls() {
         let mut registry = RuleRegistry::new();
         register_app_module(&mut registry, Box::new(AlwaysDenyWrites));
         let token = make_token();
         let syscall = IkSyscall::IkOpen { path: "/tmp/x".into(), mode: OpenMode::Read };
-        // The trampoline currently allows all (skeleton); verify it produces Allow.
+        // The trampoline is a skeleton that allows all — see module docs.
         let result = (registry.rules[0].evaluate)(&token, &syscall);
         assert!(matches!(result, PolicyResult::Allow { .. }));
     }

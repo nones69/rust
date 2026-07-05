@@ -3,26 +3,31 @@ use serde_json::json;
 use crate::syscall_envelope::{IkCallEnvelope, IkSyscall};
 use crate::token_verifier::{verify_token_scope, VerifiedToken};
 use crate::utilities;
-use crate::policy_engine::{build_default_registry, evaluate as ikpe_evaluate};
+use crate::policy_engine::{evaluate as ikpe_evaluate, RuleRegistry};
 
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine as _;
 
-pub fn dispatch_call(env: IkCallEnvelope, token: &VerifiedToken) -> Result<serde_json::Value, String> {
+/// Dispatch a kernel syscall after scope and policy-engine validation.
+///
+/// The caller is responsible for providing a pre-built `RuleRegistry`.  In
+/// production the registry is created once at kernel boot via
+/// [`build_default_registry`](crate::policy_engine::build_default_registry) and
+/// reused for every syscall, avoiding per-call allocation overhead.
+pub fn dispatch_call(
+    env: IkCallEnvelope,
+    token: &VerifiedToken,
+    registry: &RuleRegistry,
+) -> Result<serde_json::Value, String> {
     verify_token_scope(token, &env.call)?;
 
     // ── Policy engine evaluation ──────────────────────────────────────────────
     // Evaluate every registered rule before executing the syscall.  A denial
-    // short-circuits dispatch and returns an error that callers can surface to
-    // the audit log.
-    let registry = build_default_registry();
-    let decision = ikpe_evaluate(&registry, token, &env.call);
+    // short-circuits dispatch and the full evidence chain is returned in the
+    // error so callers can surface it to the audit log.
+    let decision = ikpe_evaluate(registry, token, &env.call);
     if !decision.allow {
-        return Err(format!(
-            "policy denied syscall: {} [evidence: {}]",
-            decision.deny_reason,
-            decision.evidence.iter().map(|e| e.label()).collect::<Vec<_>>().join(", ")
-        ));
+        return Err(format!("policy denied syscall: {}", decision.summary()));
     }
 
     match env.call {
