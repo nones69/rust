@@ -1,7 +1,7 @@
 //! Token verification stub for the kernel dispatch layer.
 
 use serde::{Deserialize, Serialize};
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 use lazy_static::lazy_static;
 
@@ -13,6 +13,23 @@ lazy_static! {
         Uuid::parse_str("11111111-2222-3333-4444-555555555555").expect("valid test token UUID");
 }
 
+/// Per-token resource quota limits and usage counters.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TokenQuota {
+    /// Maximum total bytes allowed across read/write syscalls.
+    pub max_bytes: Option<u64>,
+    /// Maximum total syscall count allowed.
+    pub max_requests: Option<u64>,
+    /// Time-to-live in milliseconds from issuance.
+    pub ttl_ms: Option<u64>,
+    /// Running byte counter (read + write bytes consumed).
+    pub bytes_used: u64,
+    /// Running syscall counter.
+    pub requests_used: u64,
+    /// Timestamp of token issuance (milliseconds since UNIX_EPOCH).
+    pub issued_at_ms: u128,
+}
+
 /// A verified capability token with its core identity fields.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VerifiedToken {
@@ -20,6 +37,7 @@ pub struct VerifiedToken {
     pub issued_to: String,
     pub expires_at: SystemTime,
     pub scope: TokenScope,
+    pub quota: TokenQuota,
 }
 
 pub fn verify_token_scope(token: &VerifiedToken, syscall: &IkSyscall) -> Result<(), String> {
@@ -45,6 +63,17 @@ pub fn verify_token(token_id: &Uuid) -> Result<VerifiedToken, String> {
                 path_prefix: "/tmp/intentos_root".to_string(),
                 ops: vec![FsOp::Read, FsOp::Write],
             }),
+            quota: TokenQuota {
+                max_bytes: Some(10_000),
+                max_requests: Some(100),
+                ttl_ms: Some(60_000),
+                bytes_used: 0,
+                requests_used: 0,
+                issued_at_ms: SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis(),
+            },
         })
     } else {
         Err("unknown token".to_string())
