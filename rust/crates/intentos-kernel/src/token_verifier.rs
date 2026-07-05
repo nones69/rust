@@ -27,7 +27,7 @@ pub struct TokenQuota {
     /// Running syscall counter.
     pub requests_used: u64,
     /// Timestamp of token issuance (milliseconds since UNIX_EPOCH).
-    pub issued_at_ms: u128,
+    pub issued_at_ms: u64,
 }
 
 /// A verified capability token with its core identity fields.
@@ -72,7 +72,7 @@ pub fn verify_token(token_id: &Uuid) -> Result<VerifiedToken, String> {
                 issued_at_ms: SystemTime::now()
                     .duration_since(UNIX_EPOCH)
                     .unwrap_or_default()
-                    .as_millis(),
+                    .as_millis() as u64,
             },
         })
     } else {

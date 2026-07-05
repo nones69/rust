@@ -15,8 +15,8 @@ pub fn enforce_quota(token: &VerifiedToken, syscall: &IkSyscall) -> Result<(), S
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_err(|e| format!("time error: {e}"))?
-            .as_millis();
-        if now > token.quota.issued_at_ms + u128::from(ttl) {
+            .as_millis() as u64;
+        if now > token.quota.issued_at_ms + ttl {
             return Err("quota TTL expired".into());
         }
     }
@@ -94,11 +94,11 @@ mod tests {
         }
     }
 
-    fn now_ms() -> u128 {
+    fn now_ms() -> u64 {
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
-            .as_millis()
+            .as_millis() as u64
     }
 
     #[test]

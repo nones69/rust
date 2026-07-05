@@ -14,7 +14,7 @@ pub fn dispatch_call(env: IkCallEnvelope, token: &mut VerifiedToken) -> Result<s
 
     let result = match env.call {
         IkSyscall::IkOpen { ref path, ref mode } => {
-            match utilities::host_vfs::vfs_open(&token.id, path.as_str(), mode.clone()) {
+            match utilities::host_vfs::vfs_open(&token.id, path.as_str(), *mode) {
                 Ok(handle) => Ok(json!({"handle": handle.to_string()})),
                 Err(e) => Err(format!("vfs_open error: {}", e)),
             }
