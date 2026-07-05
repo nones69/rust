@@ -51,7 +51,7 @@ Those parts are useful context, but they should not be confused with the current
 
 The active `intentos-*` crates provide a self-contained reference implementation of the IntentKernel execution flow. They currently demonstrate:
 
-- evaluating intent in [`rust/crates/intentos-kernel/src/policy.rs`](rust/crates/intentos-kernel/src/policy.rs)
+- evaluating an intent in [`rust/crates/intentos-kernel/src/policy.rs`](rust/crates/intentos-kernel/src/policy.rs)
 - minting and verifying development-signed capability tokens in [`rust/crates/intentos-kernel/src/token.rs`](rust/crates/intentos-kernel/src/token.rs)
 - registering handles and mediating runtime operations through kernel-managed checks in [`rust/crates/intentos-kernel/src/lib.rs`](rust/crates/intentos-kernel/src/lib.rs)
 - exposing gated utilities such as an in-memory virtual filesystem in [`rust/crates/intentos-utilities/src/vfs.rs`](rust/crates/intentos-utilities/src/vfs.rs)
