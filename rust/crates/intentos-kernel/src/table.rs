@@ -360,4 +360,38 @@ mod tests {
 
         assert_eq!(result, SyscallResult::Denied("handle checksum mismatch".into()));
     }
+
+    /// Registering more tokens than `CAP_TABLE_SIZE` allows must fail closed with
+    /// `KernelError::TableFull`, not panic, corrupt state, or silently drop a live
+    /// capability.  This test mints and registers `CAP_TABLE_SIZE` tokens (filling
+    /// every slot), then confirms that the next registration attempt is refused.
+    #[test]
+    fn cap_table_full_returns_table_full_error() {
+        let broker = TokenBroker::generate("test-broker").unwrap();
+        let mut table = CapabilityTable::new();
+
+        // Fill every slot. Each token needs a distinct jti so we generate them
+        // individually. Set a generous TTL so slots stay alive during the loop.
+        for _ in 0..CAP_TABLE_SIZE {
+            let intent = read_intent();
+            let mut decision = PolicyEngine::evaluate(&intent);
+            // Use enough TTL that no slot expires before we finish filling the table.
+            decision.ttl_ms = 60_000;
+            decision.max_uses = 32;
+            let token = broker.mint(&intent, &decision).unwrap();
+            assert!(table.register(&token).is_ok(), "expected slot to be available");
+        }
+
+        // Now every slot is live; the next registration must fail closed.
+        let intent = read_intent();
+        let mut decision = PolicyEngine::evaluate(&intent);
+        decision.ttl_ms = 60_000;
+        decision.max_uses = 1;
+        let token = broker.mint(&intent, &decision).unwrap();
+        let err = table.register(&token).unwrap_err();
+        assert!(
+            matches!(err, KernelError::TableFull),
+            "expected TableFull, got {err:?}"
+        );
+    }
 }

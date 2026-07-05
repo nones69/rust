@@ -202,12 +202,17 @@ pub fn wall_ms() -> u64 {
     chrono::Utc::now().timestamp_millis() as u64
 }
 
+/// Returns nanoseconds elapsed since a fixed in-process epoch using a monotonic clock.
+///
+/// Unlike `wall_ms()`, this value is unaffected by wall-clock adjustments (NTP steps,
+/// VM pause/resume, manual clock changes) and is therefore safe for TTL enforcement.
+/// Values are not meaningful across process restarts; use `wall_ms()` for audit timestamps.
 pub fn mono_ns() -> u64 {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos() as u64
+    use std::sync::OnceLock;
+    use std::time::Instant;
+    static MONO_ORIGIN: OnceLock<Instant> = OnceLock::new();
+    let origin = MONO_ORIGIN.get_or_init(Instant::now);
+    Instant::now().duration_since(*origin).as_nanos() as u64
 }
 
 pub fn handle_checksum(slot: u32, generation: u16) -> u16 {

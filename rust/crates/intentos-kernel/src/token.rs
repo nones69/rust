@@ -178,14 +178,14 @@ mod tests {
     }
 
     #[test]
-    fn pqc_hybrid_mint_and_verify() {
-        use crate::crypto::TOKEN_SIG_V2_PQC_HYBRID;
+    fn pqc_simulation_mint_and_verify() {
+        use crate::crypto::TOKEN_SIG_V2_PQC_SIMULATION;
         let mut broker = TokenBroker::generate("pqc-broker").unwrap();
-        broker.set_sig_version(TOKEN_SIG_V2_PQC_HYBRID);
+        broker.set_sig_version(TOKEN_SIG_V2_PQC_SIMULATION);
         let intent = read_intent();
         let decision = PolicyEngine::evaluate(&intent);
         let token = broker.mint(&intent, &decision).unwrap();
-        assert_eq!(token.ver, TOKEN_SIG_V2_PQC_HYBRID);
+        assert_eq!(token.ver, TOKEN_SIG_V2_PQC_SIMULATION);
         assert!(broker.verify(&token).is_ok());
     }
 
