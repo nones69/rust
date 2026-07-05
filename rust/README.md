@@ -45,23 +45,35 @@ One-shot command:
 cargo run -p intentos --release -- -c "flow file read"
 ```
 
-## Current behavior
+## Current implementation status
 
-The current runtime demonstrates:
+The table below summarizes what the repository currently implements or includes.
 
-- policy evaluation from shell-generated intents
-- token minting and verification in the kernel
-- handle registration and gated operations
-- an in-memory virtual filesystem
-- a stubbed AI utility gated by kernel approval
-- lease creation and reporting
+| Topic | Status | Notes |
+|---|---|---|
+| Event-scoped capability flow | Implemented in active Rust runtime | `intentos-kernel` evaluates intent, mints and verifies tokens, registers handles, and mediates runtime operations |
+| Interactive shell workflow | Implemented | `intentos-shell` provides commands such as `status`, `flow`, `ls`, `cat`, `write`, `ai infer`, and `lease` |
+| File access mediation demo | Implemented in-memory | `intentos-utilities` gates reads and writes to an in-memory VFS, not the host filesystem |
+| AI utility gating | Implemented as a stub | The AI utility returns a local stub response after kernel authorization |
+| Lease lifecycle management | Implemented | Grant, renew, tick, expire, and list logic exists in `intentos-kernel` |
+| Legacy IKRL daemon stack | Present / legacy | `capd`, `intentd`, `leasebroker`, `eventscope`, and related crates remain in the workspace |
+| Bare-metal / native OS path | Experimental | C reference code and low-level kernel sources exist, but this is not the primary runnable path today |
+| Host-kernel syscall interception for `intentos-*` | Not yet implemented | The active Rust runtime is an in-process reference model, not yet a production host-enforcement boundary |
+| Production host filesystem mediation | Not yet implemented | Current file mediation is against the in-memory VFS only |
+| Production AI provider integration | Not yet implemented | Current AI path is a stubbed utility, not a production external-model integration |
 
-Important limits:
+## Security and assurance status
 
-- the VFS is **in-memory**, not a host filesystem mediator
-- the AI path is a **stub**, not a full external model runtime
-- the implementation is **in-process**, not a hardened isolation boundary
-- the runtime demonstrates the model; it does **not** prove system-wide immunity claims
+The table below summarizes security properties and assurance levels that are **design goals or research targets**, rather than established guarantees of the current repository.
+
+| Topic | Status | Notes |
+|---|---|---|
+| System-wide ransomware resistance | Not yet demonstrated | The repository includes architecture work, demos, and prototype flows, but not a system-wide proof or production validation |
+| System-wide spyware resistance | Not yet demonstrated | No formal or host-wide proof is currently provided |
+| System-wide botnet resistance | Not yet demonstrated | No complete network or OS-wide proof is currently provided |
+| Formal verification | Not yet implemented | The repository does not currently provide a formally verified kernel or formally verified runtime model |
+| Production post-quantum cryptography in active runtime | Not yet implemented | The active `intentos-*` runtime currently uses development-oriented Ed25519-based signing rather than production PQC |
+| Legacy OS replacement | Not yet achieved | The repository does not currently replace Windows, Linux, macOS, Android, or iOS |
 
 ## Architecture
 
