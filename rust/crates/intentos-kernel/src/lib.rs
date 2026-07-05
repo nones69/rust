@@ -31,6 +31,7 @@ mod types;
 mod syscall_envelope;
 mod token_verifier;
 mod utilities;
+pub mod policy_engine;
 pub mod syscall;
 
 pub use broker::BrokerPeer;
@@ -51,6 +52,10 @@ pub use ip_policy::{
 };
 pub use policy::PolicyEngine;
 pub use policy_pack::PolicyPack;
+pub use policy_engine::{
+    build_default_registry, evaluate as ikpe_evaluate, Evidence, IkpeDecision, PolicyResult,
+    PolicyRule, RuleRegistry,
+};
 pub use signals::ThresholdSignals;
 pub use recognizer::{IntentRecognizer, RecognizedIntent, StubRecognizer};
 pub use revocation::RevocationList;
