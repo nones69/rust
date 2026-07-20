@@ -1,0 +1,40 @@
+name: Rust
+
+on:
+  push:
+    paths:
+      - "rust/**"
+      - ".github/workflows/rust.yml"
+  pull_request:
+    paths:
+      - "rust/**"
+      - ".github/workflows/rust.yml"
+
+jobs:
+  test:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+
+      - name: Unit tests (core + crypto)
+        run: cargo test -p intentkernel-core -p intentkernel-crypto
+
+      - name: Release build
+        run: cargo build --release
+
+      - name: Simulator smoke
+        run: cargo run -p ikrl-sim --release -- --resource file --action read
+
+      - name: Ransomware demo smoke
+        run: cargo run -p ransomware-demo --release -- --target-dir demo_victim_ci

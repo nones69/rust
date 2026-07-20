@@ -762,37 +762,139 @@ mod tests {
         ));
     }
 
-    #[test]
-    fn register_full_token_rejects_replay() {
-        let table = CapabilityTable::new();
-        let kp = crypto::ml_dsa87_keygen().unwrap();
-        table.set_broker_key(kp.public_key);
+    fn signed_token(
+        kp: &crypto::MlDsa87KeyPair,
+        resource: &str,
+        action: &str,
+        uses: u32,
+        jti: &str,
+    ) -> CapabilityToken {
         let mut token = CapabilityToken {
             ver: 1,
             typ: TokenType::Capability,
             alg: 1,
             anchor: TrustAnchor::UiEvent,
-            iss: "broker-1".into(),
-            sub: "myapp".into(),
-            ctx: b"ctx".to_vec(),
-            scope: CapabilityScope::new("file", "read"),
+            iss: "broker-test".into(),
+            sub: "app://test".into(),
+            ctx: context_hash(
+                "app://test",
+                "user",
+                "device",
+                &format!("{resource}/{action}"),
+                wall_epoch_ms(),
+            ),
+            scope: CapabilityScope::new(resource, action),
             exp: wall_epoch_ms() + 60_000,
             nbf: wall_epoch_ms(),
-            uses: 1,
+            uses,
             state: LeaseState::Granted,
-            jti: uuid::Uuid::new_v4().to_string(),
+            jti: jti.to_string(),
             signature: Vec::new(),
         };
         let mut sign_token = token.clone();
         sign_token.signature.clear();
         let cbor = token_to_cbor(&sign_token).unwrap();
-        let sig = crypto::ml_dsa87_sign(&kp.secret_key, &cbor).unwrap();
-        token.signature = sig.to_vec();
+        token.signature = crypto::ml_dsa87_sign(&kp.secret_key, &cbor)
+            .unwrap()
+            .to_vec();
+        token
+    }
 
+    /// Full IKRL flow: intent → policy → signed token → handle → single-use burn.
+    #[test]
+    fn full_capability_flow_single_use() {
+        let kp = crypto::ml_dsa87_keygen().unwrap();
+        let table = CapabilityTable::new();
+        table.set_broker_key(kp.public_key);
+
+        let event = IntentEvent {
+            actor_id: "app://editor".into(),
+            action: "read".into(),
+            resource: "file".into(),
+            anchor: TrustAnchor::UiEvent,
+            timestamp_ms: wall_epoch_ms(),
+            metadata: BTreeMap::new(),
+        };
+        let decision = default_policy(&event);
+        assert!(decision.allowed);
+        assert_eq!(decision.max_uses, 1);
+
+        let token = signed_token(&kp, "file", "read", decision.max_uses, "flow-jti-1");
+        let handle = table.register_full_token(&token).expect("register");
+        assert_eq!(
+            table.validate_handle(handle).unwrap(),
+            CapabilityType::FileReadOnce
+        );
+        assert!(matches!(
+            table.validate_handle(handle),
+            Err(ValidationResult::Exausted)
+        ));
+    }
+
+    #[test]
+    fn register_full_token_rejects_replay() {
+        let kp = crypto::ml_dsa87_keygen().unwrap();
+        let table = CapabilityTable::new();
+        table.set_broker_key(kp.public_key);
+
+        let token = signed_token(&kp, "file", "write", 1, "replay-jti");
         assert!(table.register_full_token(&token).is_ok());
         assert!(matches!(
             table.register_full_token(&token),
             Err(CoreError::ReplayDetected)
+        ));
+    }
+
+    #[test]
+    fn register_rejects_tampered_signature() {
+        let kp = crypto::ml_dsa87_keygen().unwrap();
+        let table = CapabilityTable::new();
+        table.set_broker_key(kp.public_key);
+
+        let mut token = signed_token(&kp, "file", "write", 1, "tamper-jti");
+        token.signature[0] ^= 0xff;
+        assert!(matches!(
+            table.register_full_token(&token),
+            Err(CoreError::InvalidSignature)
+        ));
+    }
+
+    #[test]
+    fn register_requires_broker_key() {
+        let kp = crypto::ml_dsa87_keygen().unwrap();
+        let table = CapabilityTable::new();
+        let token = signed_token(&kp, "file", "read", 1, "no-key-jti");
+        assert!(matches!(
+            table.register_full_token(&token),
+            Err(CoreError::MissingBrokerKey)
+        ));
+    }
+
+    #[test]
+    fn policy_denies_unanchored_intent() {
+        let event = IntentEvent {
+            actor_id: "malware".into(),
+            action: "write".into(),
+            resource: "file".into(),
+            anchor: TrustAnchor::None,
+            timestamp_ms: wall_epoch_ms(),
+            metadata: BTreeMap::new(),
+        };
+        let decision = default_policy(&event);
+        assert!(!decision.allowed);
+    }
+
+    #[test]
+    fn revoke_invalidates_handle() {
+        let kp = crypto::ml_dsa87_keygen().unwrap();
+        let table = CapabilityTable::new();
+        table.set_broker_key(kp.public_key);
+        let token = signed_token(&kp, "network", "connect", 5, "revoke-jti");
+        let handle = table.register_full_token(&token).unwrap();
+        table.revoke(handle.table_index).unwrap();
+        assert!(matches!(
+            table.validate_handle(handle),
+            Err(ValidationResult::Exausted) | Err(ValidationResult::Expired)
         ));
     }
 }

@@ -1,5 +1,8 @@
 # IntentKernel Implementation Plan
 
+> **Tracking checklist:** See [`REMAINING_WORK.md`](REMAINING_WORK.md) for live done/remaining status.  
+> **Market sequencing:** See [`../docs/market_deployment_framework.md`](../docs/market_deployment_framework.md).
+
 ## Phase 1: Proof of Concept (Months 1-3)
 
 ### Objective
@@ -10,6 +13,16 @@ Demonstrate ransomware immunity on a standard Windows/Linux system.
 - **eventscope** interception library for C/Python
 - **capd** token issuer using ML-DSA-87 (via liboqs)
 - Live demonstration: ransomware binary runs inside IKRL, attempts file encryption, achieves 0 bytes encrypted
+
+### Status (2026-06-20)
+| Deliverable | State |
+|-------------|--------|
+| Rust capd / intentd / leasebroker / eventscope | **Done** (userspace reference) |
+| CBOR token wire format | **Done** |
+| ML-DSA-87 path | **Partial** (mock by default; `oqs` feature optional) |
+| Ransomware demo (0 bytes unauthorized) | **Done** |
+| Core unit + full-flow tests | **Done** |
+| Production liboqs + seccomp/VBS hardening | **Remaining** |
 
 ### Technical Milestones
 | Week | Milestone |

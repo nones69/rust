@@ -519,4 +519,33 @@ mod tests {
         let pt2 = aes_256_gcm_decrypt(&key, &ct, aad, &nonce, &tag).unwrap();
         assert_eq!(pt2, pt);
     }
+
+    #[test]
+    fn test_ml_dsa87_wire_sizes() {
+        let kp = ml_dsa87_keygen().unwrap();
+        assert_eq!(kp.public_key.len(), ML_DSA_87_PUBLIC_KEY_LEN);
+        assert_eq!(kp.secret_key.len(), ML_DSA_87_SECRET_KEY_LEN);
+        let sig = ml_dsa87_sign(&kp.secret_key, b"size-check").unwrap();
+        assert_eq!(sig.len(), ML_DSA_87_SIGNATURE_LEN);
+    }
+
+    #[test]
+    fn test_ml_kem1024_keygen_sizes() {
+        let kp = ml_kem1024_keygen().unwrap();
+        assert_eq!(kp.public_key.len(), ML_KEM_1024_PUBLIC_KEY_LEN);
+        assert_eq!(kp.secret_key.len(), ML_KEM_1024_SECRET_KEY_LEN);
+        let (ct, ss) = ml_kem1024_encapsulate(&kp.public_key).unwrap();
+        assert_eq!(ct.len(), ML_KEM_1024_CIPHERTEXT_LEN);
+        assert_eq!(ss.len(), ML_KEM_1024_SHARED_SECRET_LEN);
+        let ss2 = ml_kem1024_decapsulate(&kp.secret_key, &ct).unwrap();
+        assert_eq!(ss2.len(), ML_KEM_1024_SHARED_SECRET_LEN);
+    }
+
+    #[test]
+    fn test_secure_random_nonzero() {
+        let a = secure_random_vec(32).unwrap();
+        let b = secure_random_vec(32).unwrap();
+        assert_eq!(a.len(), 32);
+        assert_ne!(a, b);
+    }
 }

@@ -232,6 +232,9 @@ The main design and specification documents currently include:
 - Intent Broker Protocol: [`docs/ibp_spec.md`](docs/ibp_spec.md)
 - Token RFC: [`docs/token_rfc.md`](docs/token_rfc.md)
 - Thesis proposal: [`docs/thesis_proposal.md`](docs/thesis_proposal.md)
+- Market deployment framework: [`docs/market_deployment_framework.md`](docs/market_deployment_framework.md)
+- OS architectures + UX Intent Kernel (FOSS): [`docs/intent_kernel_ux_blueprint.md`](docs/intent_kernel_ux_blueprint.md)
+- Remaining work checklist: [`roadmap/REMAINING_WORK.md`](roadmap/REMAINING_WORK.md)
 - Build instructions: [`BUILD.md`](BUILD.md)
 
 ---

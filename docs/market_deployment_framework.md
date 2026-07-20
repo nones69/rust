@@ -514,6 +514,15 @@
 
 ---
 
-*Document Version: 1.0*
-*Last Updated: 2026-06-21*
+## Related documents
+
+- [`intent_kernel_ux_blueprint.md`](intent_kernel_ux_blueprint.md) — OS architecture survey + FOSS UX Intent Kernel
+- [`architecture_overview.md`](architecture_overview.md)
+- [`../roadmap/REMAINING_WORK.md`](../roadmap/REMAINING_WORK.md)
+- [`../roadmap/implementation_plan.md`](../roadmap/implementation_plan.md)
+
+---
+
+*Document Version: 1.0*  
+*Last Updated: 2026-06-21*  
 *Classification: Strategic Planning - Market Deployment*
