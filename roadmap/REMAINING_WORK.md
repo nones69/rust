@@ -2,7 +2,7 @@
 
 **Status date:** 2026-06-20  
 **Repo:** `projects/intentkernel`  
-**Source of truth:** This checklist + `docs/market_deployment_framework.md` + `roadmap/implementation_plan.md`
+**Source of truth:** This checklist + `docs/market_deployment_framework.md` + `docs/intent_kernel_ux_blueprint.md` + `roadmap/implementation_plan.md`
 
 Legend: `[x]` done · `[~]` partial · `[ ]` not started
 

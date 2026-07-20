@@ -518,6 +518,8 @@
 
 - [`intent_kernel_ux_blueprint.md`](intent_kernel_ux_blueprint.md) — OS architecture survey + FOSS UX Intent Kernel
 - [`architecture_overview.md`](architecture_overview.md)
+- [`ikrl_spec.md`](ikrl_spec.md)
+- [`intentkernel_thesis.md`](intentkernel_thesis.md)
 - [`../roadmap/REMAINING_WORK.md`](../roadmap/REMAINING_WORK.md)
 - [`../roadmap/implementation_plan.md`](../roadmap/implementation_plan.md)
 
