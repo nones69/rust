@@ -1,0 +1,9 @@
+{
+  "name": "aws___list_regions",
+  "description": "Retrieve a list of all AWS regions.\n\n## Usage\nThis tool provides information about all AWS regions, including their identifiers and names.\n\n## When to Use\n- When planning global infrastructure deployments\n- To validate region codes for other API calls\n- To get a complete AWS regional inventory\n\n## Do Not Use This Tool For\n- Answering questions about how many regions exist in a geography (e.g., \"how many AP regions?\") — use this tool to get the full list, then count from the result, or use `search_documentation` for a documented answer\n- Questions about service or feature availability in specific regions — use `get_regional_availability` for known product names, or `search_documentation` for general coverage questions\n- Any question that can be answered from AWS documentation — use `search_documentation` instead\n\n## Result Interpretation\nEach region result includes:\n- region_id: The unique region code (e.g., 'us-east-1') \n- region_long_name: The human-friendly name (e.g., 'US East (N. Virginia)')\n \n## Common Use Cases\n1. Infrastructure Planning: Review available regions for global deployment\n2. Region Validation: Verify region codes before using in other operations\n3. Regional Inventory: Get a complete list of AWS's global infrastructure\n",
+  "inputSchema": {
+    "type": "object",
+    "properties": {},
+    "required": []
+  }
+}

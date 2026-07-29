@@ -1,0 +1,100 @@
+#!/bin/bash
+# All-In-One ISO Build System — Live Chroot Customization Hook
+# Executed by live-build inside the Ubuntu 24.04 Noble chroot.
+
+set -euo pipefail
+export DEBIAN_FRONTEND=noninteractive
+
+echo "[hook] Starting 0010-custom.hook.chroot ..."
+
+echo "custom-os" > /etc/hostname
+cat > /etc/hosts <<'EOF'
+127.0.0.1   localhost
+127.0.1.1   custom-os
+::1         localhost ip6-localhost ip6-loopback
+fe00::0     ip6-localnet
+ff00::0     ip6-mcastprefix
+ff02::1     ip6-allnodes
+ff02::2     ip6-allrouters
+EOF
+echo "[hook] Hostname set to: custom-os"
+
+ln -sf /usr/share/zoneinfo/UTC /etc/localtime
+echo "UTC" > /etc/timezone
+dpkg-reconfigure -f noninteractive tzdata
+echo "[hook] Timezone set to: UTC"
+
+if id liveuser &>/dev/null; then
+    echo "liveuser:live" | chpasswd
+    usermod -aG sudo,adm,audio,video,plugdev,netdev,docker liveuser 2>/dev/null || true
+else
+    useradd \
+        --create-home \
+        --shell /bin/bash \
+        --comment "Live Session User" \
+        --groups "sudo,adm,audio,video,plugdev,netdev,docker" \
+        liveuser
+    echo "liveuser:live" | chpasswd
+fi
+
+echo "liveuser ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/liveuser
+chmod 440 /etc/sudoers.d/liveuser
+echo "[hook] User 'liveuser' configured (password: live)"
+
+systemctl enable ssh
+sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
+sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+echo "[hook] SSH enabled and configured"
+
+if dpkg -l cloud-init >/dev/null 2>&1; then
+    systemctl disable cloud-init || true
+    systemctl disable cloud-init-local || true
+    systemctl disable cloud-config || true
+    systemctl disable cloud-final || true
+    mkdir -p /etc/cloud
+    touch /etc/cloud/cloud-init.disabled
+    echo "[hook] cloud-init disabled"
+fi
+
+chmod +x /usr/local/bin/custom-init.sh
+chmod +x /usr/local/sbin/intentos-upgrade.sh
+systemctl enable custom-init.service
+echo "[hook] custom-init.service enabled"
+
+systemctl enable docker
+usermod -aG docker liveuser 2>/dev/null || true
+echo "[hook] Docker enabled, liveuser added to docker group"
+
+pip3 install --no-cache-dir --break-system-packages \
+    requests \
+    paramiko \
+    pyyaml \
+    click \
+    rich
+echo "[hook] Python packages installed"
+
+locale-gen en_US.UTF-8
+update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+echo "[hook] Locale set to en_US.UTF-8"
+
+if ! grep -q 'Custom OS Live Session Prompt' /etc/bash.bashrc; then
+    cat >> /etc/bash.bashrc <<'BASHRC'
+
+# Custom OS Live Session Prompt
+export PS1='\[\e[1;32m\]\u@custom-os\[\e[0m\]:\[\e[1;34m\]\w\[\e[0m\]\$ '
+export EDITOR=vim
+alias ll='ls -lah --color=auto'
+alias la='ls -A --color=auto'
+alias ..='cd ..'
+BASHRC
+fi
+
+apt-get autoremove -y --purge
+apt-get clean
+rm -rf /var/lib/apt/lists/*
+rm -rf /var/cache/apt/archives/*
+rm -rf /tmp/* /var/tmp/*
+rm -rf /var/log/*.log /var/log/**/*.log 2>/dev/null || true
+
+echo "[hook] APT cache cleaned"
+echo "[hook] 0010-custom.hook.chroot completed successfully."

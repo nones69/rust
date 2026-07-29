@@ -1,0 +1,22 @@
+{
+  "name": "check_cloudformation_template_compliance",
+  "description": "Validate CloudFormation template against security and compliance rules using cfn-guard.\n\nThis tool performs compliance validation for CloudFormation templates. It validates:\n- Security best practices and controls\n- AWS Control Tower proactive controls\n- Organizational policy requirements\n- Resource configuration compliance\n\nUse this tool to:\n- Validate templates against security and compliance rules\n- Catch policy violations before deployment\n- Get remediation guidance for each violation\n- Ensure templates meet organizational standards\n- Receive specific CloudFormation template fixes for each violation\n\nReturns validation results including:\n- is_compliant (Boolean indicating if template passes all rules)\n- violation_count (Number of compliance violations)\n- violations (List of violations categorized by severity)\n\nNOTE: Some rules check multiple sub-properties, so the violation count may appear high.\nEach missing or misconfigured sub-property is counted as a separate violation.\n\nOUTPUT FORMATTING REQUIREMENTS:\n- Start with: \"Your template has X violations\"\n- Group related violations (e.g., all PublicAccessBlock settings together)\n- Prioritize by severity: critical security issues first, then optional features\n- For repeated sub-properties, show once: \"Settings (A, B, C, D) must all be true\"\n- Add context for optional features (ObjectLock, Replication may not be needed)\n- Show only the properties that need to be added/changed, not entire resources\n- Use inline YAML comments to explain why each property is needed\n- Avoid redundant \"Key Changes\" sections - the code should be self-explanatory\n\nMANDATORY REMEDIATION REQUIREMENTS:\n- Provide specific CloudFormation template code fixes\n- Show exact YAML/JSON properties to add or modify\n- Use inline comments to explain each fix\n- Focus on what changed, not the entire resource definition",
+  "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+      "template_content": {
+        "type": "string",
+        "description": "CloudFormation template as YAML or JSON string"
+      },
+      "rules_file_path": {
+        "default": "default_guard_rules.guard",
+        "type": "string",
+        "description": "Path to guard rules file (default: default_guard_rules.guard)"
+      }
+    },
+    "required": [
+      "template_content"
+    ],
+    "type": "object"
+  }
+}

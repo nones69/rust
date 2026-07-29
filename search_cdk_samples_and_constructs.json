@@ -1,0 +1,29 @@
+{
+  "name": "search_cdk_samples_and_constructs",
+  "description": "Searches CDK code samples, examples, constructs, and patterns documentation.\n\n## Usage\n\nThis tool searches across CDK code samples, community constructs, and implementation patterns to find working examples and reusable components for your CDK projects.\n\n## When to Use\n\n- Find working CDK code examples and samples\n- Look up implementation patterns for specific use cases\n- Get sample code for AWS service integrations\n- Research complete CDK application examples\n- Find L3 constructs created by the community\n- Discover construct documentation and usage patterns\n- Find architectural patterns and best practices\n\n## Search Tips\n\n- Use exact phrases for specific patterns: \"serverless API\", \"microservices architecture\"\n- Combine services with boolean operators: \"Lambda AND API Gateway\", \"S3 OR DynamoDB\"\n- Exclude unwanted results: \"TypeScript NOT Python\", \"L2 NOT L1\"\n- Use wildcards for broader searches: \"example*\", \"*pattern\", \"*construct\"\n- Search for specific constructs: \"aws-s3.Bucket\", \"aws-lambda.Function\"\n- Include language preferences: \"Python examples\", \"TypeScript patterns\"\n- Target construct levels: \"L3 constructs\", \"higher-level constructs\"\n\n## Language Filtering\n\nSpecify your preferred programming language to get relevant examples:\n- typescript (default)\n- python\n- java\n- csharp\n- go\n\n## Result Interpretation\n\nReturns JSON with:\n- knowledge_response: Details of the response\n  - results: Array with single result containing:\n    - rank: Search relevance ranking (1 = most relevant, higher is less relevant)\n    - title: Document title or filename\n    - url: Source URL of the document\n    - context: Full or paginated document content\n- next_step_guidance: If present, suggested next actions to take for answering user query\n\n\nUse rank to prioritize results. Check error field first - if not null, the search failed.",
+  "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "Search query for CDK samples and constructs"
+      },
+      "language": {
+        "default": "typescript",
+        "enum": [
+          "typescript",
+          "python",
+          "java",
+          "csharp",
+          "go"
+        ],
+        "type": "string",
+        "description": "Programming language filter (default: \"typescript\")"
+      }
+    },
+    "required": [
+      "query"
+    ],
+    "type": "object"
+  }
+}

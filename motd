@@ -1,0 +1,10 @@
+╔══════════════════════════════════════════════════════════════╗
+║          All-In-One ISO Build System — Custom OS             ║
+║          Ubuntu 24.04 LTS (Noble Numbat) — Live Session      ║
+║                                                              ║
+║  User: liveuser | Password: live | Sudo: NOPASSWD            ║
+║  SSH: enabled on :22  | Docker: enabled                      ║
+║  Rust OS Kernel: /boot/rust-os.elf                           ║
+║                                                              ║
+║  Build System Author: Dan | Version: 1.0.0 | July 2026       ║
+╚══════════════════════════════════════════════════════════════╝

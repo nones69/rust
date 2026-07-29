@@ -1,0 +1,9 @@
+{
+  "name": "get_cloudformation_pre_deploy_validation_instructions",
+  "description": "Get instructions for CloudFormation pre-deployment validation.\n\nReturns structured JSON guidance for using CloudFormation's pre-deployment validation feature\nthat catches deployment errors before resource provisioning begins.\n\nWhen you create a change set, CloudFormation automatically validates your template against\nthree common failure causes:\n1. Invalid property syntax\n2. Resource name conflicts with existing resources in your account\n3. S3 bucket emptiness constraint on delete operations\n\nIf validation fails, the change set status shows 'FAILED' with detailed validation failure\ninformation. You can view details for each failure, including the property path, to pinpoint\nexactly where issues occur in your template.\n\nThe tool returns JSON with:\n- Overview of validation feature and workflow phases\n- Detailed descriptions of 3 validation types with failure modes (FAIL blocks execution, WARN allows with warnings)\n- Complete AWS CLI commands for creating change sets and checking validation results via describe-events API\n- Key field descriptions (EventType, ValidationName, ValidationStatus, ValidationPath, ValidationFailureMode)\n- Example commands and remediation guidance\n- Considerations and limitations\n\nNote: Validated change sets can still fail during execution due to resource-specific runtime\nerrors (resource limits, service constraints, permissions). Pre-deployment validation reduces\nlikelihood of common failures but doesn't guarantee deployment success.",
+  "inputSchema": {
+    "additionalProperties": false,
+    "properties": {},
+    "type": "object"
+  }
+}

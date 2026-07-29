@@ -1,0 +1,38 @@
+{
+  "name": "aws___get_regional_availability",
+  "description": "Check AWS resource availability across regions for products (service and features), APIs, and CloudFormation resources.\n\n## Quick Reference\n- Maximum 10 regions per call (split into multiple calls for more regions)\n- Single region: filters optional, supports pagination\n- Multiple regions: filters required, no pagination, queries run concurrently\n- Status values: 'isAvailableIn' | 'isNotAvailableIn' | 'isPlannedIn' | 'Not Found'\n- Response field: 'products' (product), 'service_apis' (api), 'cfn_resources' (cfn)\n\n## When to Use\n1. Pre-deployment Validation\n    - Verify resource availability before deployment\n    - Prevent deployment failures due to regional restrictions\n    - Validate multi-region architecture requirements\n\n2. Architecture Planning\n    - Design region-specific solutions\n    - Plan multi-region deployments\n    - Compare regional capabilities\n\n## Do Not Use This Tool For\n- Counting or listing regions by geography (e.g., \"how many AP regions exist?\") — use `list_regions` then count, or use `search_documentation`\n- Questions about documentation, announcements, or general service availability dates — use `search_documentation`\n- CloudFormation resource coverage questions across all regions — use `search_documentation` with topic `cloudformation`\n- Any question that asks about availability in general without specifying a known product name, API, or CFN resource type — use `search_documentation` instead, as this tool requires exact resource identifiers and will return 'Not Found' for vague queries\n\n## Examples\n\n**Check specific resources in one region**:\n```\nregions=[\"us-east-1\"], resource_type=\"product\", filters=[\"AWS Lambda\"]\nregions=[\"us-east-1\"], resource_type=\"api\", filters=[\"Lambda+Invoke\", \"S3+GetObject\"]\nregions=[\"us-east-1\"], resource_type=\"cfn\", filters=[\"AWS::Lambda::Function\"]\n```\n\n**Compare availability across regions**:\n```\nregions=[\"us-east-1\", \"eu-west-1\"], resource_type=\"product\", filters=[\"AWS Lambda\"]\n```\n\n**Explore all resources** (single region only, with pagination handling support via next_token due to large output):\n```\nregions=[\"us-east-1\"], resource_type=\"product\"\n```\nFollow up with next_token from response to get more results.\n\n## Response Format\n\n**Single Region**: Flat structure with optional next_token. Example:\n```\n{\"products\": {\"AWS Lambda\": \"isAvailableIn\"}, \"next_token\": null, \"failed_regions\": null}\n```\n\n**Multiple Regions**: Nested by region. Example:\n```\n{\"products\": {\"AWS Lambda\": {\"us-east-1\": \"isAvailableIn\", \"eu-west-2\": \"isAvailableIn\"}}, ...}\n```\n\n## Filter Guidelines\nThe filters must be passed as an array of values and must follow the format below.\n1. Product - service and feature (resource_type='product')\n    Format: 'Product'\n    Example filters:\n    - ['Latency-Based Routing', 'AWS Amplify', 'AWS Application Auto Scaling']\n    - ['PrivateLink Support', 'Amazon Aurora']\n2. APIs (resource_type='api')\n    Format: to filter on API level 'SdkServiceId+APIOperation'\n    Example filters:\n    - ['Athena+UpdateNamedQuery', 'ACM PCA+CreateCertificateAuthority', 'IAM+GetSSHPublicKey']\n    Format: to filter on SdkService level 'SdkServiceId'\n    Example filters:\n    - ['EC2', 'ACM PCA']\n3. CloudFormation (resource_type='cfn')\n    Format: 'CloudformationResourceType'\n    Example filters:\n    - ['AWS::EC2::Instance', 'AWS::Lambda::Function', 'AWS::Logs::LogGroup']\n",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "regions": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "One or more AWS region codes (e.g., us-east-1, eu-west-1). Maximum 10 regions per call. Single region supports pagination. Multiple regions require filters."
+      },
+      "filters": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Optional list of one or multiple specific resources to check. Format depends on resource_type:\n- Products: ['AWS Lambda', 'Amazon S3']\n- APIs: ['IAM+GetSSHPublicKey', 'EC2']\n- CloudFormation: ['AWS::EC2::Instance']\nMust follow the format specified in the tool description."
+      },
+      "next_token": {
+        "type": "string",
+        "description": "Pagination token from previous response for retrieving additional results. Only valid for single region queries and no filters."
+      },
+      "region": {
+        "type": "string",
+        "description": "Target AWS region code (e.g., us-east-1, eu-west-1, ap-southeast-2)."
+      },
+      "resource_type": {
+        "type": "string",
+        "description": "Type of AWS resource: 'product' (AWS services/features), 'api' (SDK/API operations), or 'cfn' (CloudFormation resource types)."
+      }
+    },
+    "required": [
+      "resource_type"
+    ]
+  }
+}

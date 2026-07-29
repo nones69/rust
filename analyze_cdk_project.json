@@ -1,0 +1,18 @@
+{
+  "name": "analyze_cdk_project",
+  "description": "Analyze a CDK project to identify AWS services used. This tool dynamically extracts service information from CDK constructs without relying on hardcoded service mappings.",
+  "inputSchema": {
+    "properties": {
+      "project_path": {
+        "description": "Path to the project directory",
+        "title": "Project Path",
+        "type": "string"
+      }
+    },
+    "required": [
+      "project_path"
+    ],
+    "title": "analyze_cdk_project_wrapperArguments",
+    "type": "object"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "get_pricing_service_codes",
+  "description": "Get AWS service codes available in the Price List API.\n\n    **PURPOSE:** Discover which AWS services have pricing information available in the AWS Price List API.\n\n    **PARAMETERS:**\n    - filter (optional): Case-insensitive regex pattern to filter service codes (e.g., \"bedrock\" matches \"AmazonBedrock\", \"AmazonBedrockService\")\n\n    **WORKFLOW:** This is the starting point for any pricing query. Use this first to find the correct service code.\n\n    **RETURNS:** List of service codes (e.g., 'AmazonEC2', 'AmazonS3', 'AWSLambda') that can be used with other pricing tools.\n\n    **NEXT STEPS:**\n    - Use get_pricing_service_attributes() to see what filters are available for a service\n    - Use get_pricing() to get actual pricing data for a service\n\n    **NOTE:** Service codes may differ from AWS console names (e.g., 'AmazonES' for OpenSearch, 'AWSLambda' for Lambda).\n    ",
+  "inputSchema": {
+    "properties": {
+      "filter": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Optional case-insensitive regex pattern to filter service codes",
+        "title": "Filter"
+      }
+    },
+    "title": "get_pricing_service_codesArguments",
+    "type": "object"
+  }
+}
