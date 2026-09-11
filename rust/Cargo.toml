@@ -33,6 +33,8 @@ members = [
     "crates/intentkernel-sys",
     "crates/governed-editor",
     "crates/governed-notes",
+    "crates/ik-overlay-stage1",
+    "crates/ik-overlay-stage2",
 ]
 
 resolver = "3"

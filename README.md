@@ -21,6 +21,7 @@ overclaims; treat those as historical drafts superseded by this README and the v
 | Legacy IKRL daemon stack | `rust/crates/{capd,intentd,...}` | Multi-process compatibility experiments |
 | C reference core | [`src/reference/`](src/reference/) | Minimal capability-table harness |
 | Build / run docs | [`BUILD.md`](BUILD.md), [`rust/README.md`](rust/README.md) | How to build and exercise the prototype |
+| Stage 1/2 overlay foundations | [`docs/overlay/`](docs/overlay/) | VBS / LSM scaffolds — not host-wide enforcement |
 
 The primary runnable path is the **`intentos`** single-process reference runtime under `rust/`.
 
