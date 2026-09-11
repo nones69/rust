@@ -14,6 +14,7 @@ mod capability_schema;
 mod card;
 mod crypto;
 mod error;
+pub mod federation;
 mod field;
 mod ip_policy;
 mod lease;
@@ -46,6 +47,11 @@ pub use crypto::{
     TOKEN_SIG_V2_PQC_SIMULATION,
 };
 pub use error::KernelError;
+pub use federation::{
+    FedSandboxMode, FedTaskPriority, FederatedAuditEntry, FederationCluster, FederationPeer,
+    FederationRole, FederationStatus, ForwardedSyscall, HeartbeatMessage, HelloMessage,
+    PolicyUpdate, TaskDelegation, TaskResult, WelcomeMessage,
+};
 pub use field::Field;
 pub use ip_policy::{
     apply_ip_policy, evaluate_ip, extract_ipv4_literals, verdict_from_threat_score, IpVerdict,

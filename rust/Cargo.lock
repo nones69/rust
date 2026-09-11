@@ -1562,6 +1562,7 @@ dependencies = [
  "chrono",
  "ciborium",
  "ed25519-dalek",
+ "hex",
  "intentos-audit",
  "lazy_static",
  "libc",
