@@ -304,6 +304,7 @@ impl Default for Scheduler {
 mod tests {
     use super::*;
     use crate::capability_schema::{FsOp, FsScope, TokenScope};
+    use crate::token_verifier::TokenQuota;
     use std::time::Duration;
 
     fn make_token() -> VerifiedToken {
@@ -315,6 +316,7 @@ mod tests {
                 path_prefix: "/tmp".into(),
                 ops: vec![FsOp::Read],
             }),
+            quota: TokenQuota::unlimited_now(),
         }
     }
 
