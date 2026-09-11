@@ -25,7 +25,7 @@ fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
     let args = Args::parse();
 
-    info!("=== IntentKernel Ransomware Immunity Demo ===");
+    info!("=== IntentKernel in-process ransomware capability demo ===");
 
     // Set up broker key (capd stub)
     let kp = crypto::ml_dsa87_keygen()?;
@@ -42,7 +42,7 @@ fn main() -> Result<()> {
     info!("\n[Phase 1] Ransomware attempts silent encryption...");
     let encrypted_bytes_1 = simulate_ransomware(&victim_path, None, &table);
     if encrypted_bytes_1 == 0 {
-        info!("RESULT: 0 bytes encrypted — ransomware structurally blocked.");
+        info!("RESULT: 0 bytes encrypted — blocked by missing capability (in-process demo).");
     } else {
         error!("FAILURE: {} bytes encrypted", encrypted_bytes_1);
     }
@@ -76,7 +76,7 @@ fn main() -> Result<()> {
     );
     info!("Authorized write (user intent): {} bytes", written_bytes);
     info!("Reused token writes: {} bytes", encrypted_bytes_2);
-    info!("This architecture makes ransomware structurally impossible.");
+    info!("In-process demo only: unauthorized writes blocked by capability checks — not a host-wide immunity proof.");
 
     Ok(())
 }

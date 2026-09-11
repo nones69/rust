@@ -1,4 +1,8 @@
-//! IP-Discrambler bridge — invokes the Python toolchain from IntentOS utilities tier.
+//! Optional IP enrichment bridge for IntentOS utilities.
+//!
+//! Discovers an external Python toolchain if present (`tools/ip-discrambler` or
+//! `INTENTOS_IP_DISCRAMBLER_ROOT`). That package is **not** shipped in this
+//! repository; when absent, IntentOS uses local bogon/reserved heuristics only.
 
 use intentos_audit::{AuditEventKind, AuditLog};
 use intentos_kernel::{

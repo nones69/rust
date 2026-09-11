@@ -10,4 +10,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Workflow metadata placeholder
-        run: echo "Use build.yml and ip-discrambler.yml for active CI."
+        run: echo "Use rust.yml (prototype) and build.yml / iso-build.yml for active CI."
