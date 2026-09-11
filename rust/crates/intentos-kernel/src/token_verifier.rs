@@ -1,9 +1,9 @@
 //! Token verification stub for the kernel dispatch layer.
 
+use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, SystemTime};
 use uuid::Uuid;
-use lazy_static::lazy_static;
 
 use crate::capability_schema::{FsOp, FsScope, TokenScope};
 use crate::syscall_envelope::IkSyscall;
@@ -61,6 +61,13 @@ mod tests {
         let id = Uuid::parse_str("11111111-2222-3333-4444-555555555555").unwrap();
         let t = verify_token(&id).unwrap();
         assert_eq!(t.id, id);
-        verify_token_scope(&t, &IkSyscall::IkRead { handle: Uuid::new_v4(), len: 1 }).unwrap();
+        verify_token_scope(
+            &t,
+            &IkSyscall::IkRead {
+                handle: Uuid::new_v4(),
+                len: 1,
+            },
+        )
+        .unwrap();
     }
 }

@@ -2,8 +2,8 @@
 //! This is a small, test-friendly client. Production clients should add retries, timeouts, and stronger error handling.
 
 use std::io::{Read, Write};
-use uuid::Uuid;
 use std::time::{SystemTime, UNIX_EPOCH};
+use uuid::Uuid;
 
 #[cfg(unix)]
 use std::os::unix::net::UnixStream;
@@ -14,26 +14,56 @@ pub mod syscall_types_impl {
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub enum IkSyscall {
-        IkOpen { path: String, mode: OpenMode },
-        IkRead { handle: Uuid, len: u64 },
-        IkWrite { handle: Uuid, data: Vec<u8> },
-        IkClose { handle: Uuid },
-        IkAiInfer { prompt: String, max_tokens: Option<u64> },
-        IkNetRequest { method: HttpMethod, url: String, headers: Vec<(String, String)>, body: Vec<u8> },
+        IkOpen {
+            path: String,
+            mode: OpenMode,
+        },
+        IkRead {
+            handle: Uuid,
+            len: u64,
+        },
+        IkWrite {
+            handle: Uuid,
+            data: Vec<u8>,
+        },
+        IkClose {
+            handle: Uuid,
+        },
+        IkAiInfer {
+            prompt: String,
+            max_tokens: Option<u64>,
+        },
+        IkNetRequest {
+            method: HttpMethod,
+            url: String,
+            headers: Vec<(String, String)>,
+            body: Vec<u8>,
+        },
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
-    pub enum OpenMode { Read, Write, ReadWrite, Create }
+    pub enum OpenMode {
+        Read,
+        Write,
+        ReadWrite,
+        Create,
+    }
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     #[allow(clippy::upper_case_acronyms)]
-    pub enum HttpMethod { GET, POST, PUT, DELETE, PATCH }
+    pub enum HttpMethod {
+        GET,
+        POST,
+        PUT,
+        DELETE,
+        PATCH,
+    }
 }
 
 pub mod types {
+    use super::syscall_types_impl;
     use serde::{Deserialize, Serialize};
     use uuid::Uuid;
-    use super::syscall_types_impl;
 
     pub type CapabilityTokenId = Uuid;
     pub type HandleId = Uuid;
@@ -105,7 +135,10 @@ impl IkClient {
             .as_millis()
     }
 
-    pub fn send_envelope(&mut self, envelope: &types::IkCallEnvelope) -> Result<serde_json::Value, IkError> {
+    pub fn send_envelope(
+        &mut self,
+        envelope: &types::IkCallEnvelope,
+    ) -> Result<serde_json::Value, IkError> {
         self.ensure_connected()?;
         #[cfg(unix)]
         {

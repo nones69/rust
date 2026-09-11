@@ -4,11 +4,9 @@ use crate::builtins::BuiltinContext;
 use crate::parser::ParsedLine;
 use anyhow::{Context, Result};
 use intentos_audit::AuditEventKind;
-use intentos_kernel::{BrokerPeer, wall_ms};
 use intentos_kernel::TrustAnchor;
-use intentos_utilities::{
-    decode_payload_hex, BrokerTcpTransport, BrokerWireHub, FederationError,
-};
+use intentos_kernel::{wall_ms, BrokerPeer};
+use intentos_utilities::{decode_payload_hex, BrokerTcpTransport, BrokerWireHub, FederationError};
 
 impl BuiltinContext<'_> {
     pub fn broker_cmd(&mut self, parsed: &ParsedLine<'_>) -> Result<()> {
@@ -38,10 +36,7 @@ impl BuiltinContext<'_> {
                     wire.root().display()
                 );
                 if let Ok(Some(m)) = BrokerTcpTransport::read_listen_manifest(&wire) {
-                    println!(
-                        "tcp_listen={} device={}",
-                        m.endpoint, m.device_id
-                    );
+                    println!("tcp_listen={} device={}", m.endpoint, m.device_id);
                 }
                 println!(
                     "wire_version={} sig_version={}",
@@ -73,9 +68,9 @@ impl BuiltinContext<'_> {
                 let peer_id = parsed
                     .arg(1)
                     .context("usage: broker register <peer_id> <public_key_hex> [label]")?;
-                let pubkey = parsed.arg(2).context(
-                    "usage: broker register <peer_id> <public_key_hex> [label]",
-                )?;
+                let pubkey = parsed
+                    .arg(2)
+                    .context("usage: broker register <peer_id> <public_key_hex> [label]")?;
                 let mut peer = BrokerPeer::new(peer_id, pubkey, wall_ms());
                 if let Some(a3) = parsed.arg(3) {
                     if a3.starts_with("tcp://") || a3.starts_with("file://") {
@@ -92,7 +87,11 @@ impl BuiltinContext<'_> {
                 let _ = self.runtime.audit.record(
                     AuditEventKind::BrokerPeerRegistered,
                     &self.state.actor,
-                    format!("peer={} key_prefix={}", peer.peer_id, &peer.public_key_hex[..16.min(peer.public_key_hex.len())]),
+                    format!(
+                        "peer={} key_prefix={}",
+                        peer.peer_id,
+                        &peer.public_key_hex[..16.min(peer.public_key_hex.len())]
+                    ),
                 );
                 println!("registered broker peer={}", peer.peer_id);
             }
@@ -140,14 +139,17 @@ impl BuiltinContext<'_> {
                         payload.len()
                     ),
                 );
-                println!("wire sent peer={peer_id} transport={transport} nonce={}", msg.nonce);
+                println!(
+                    "wire sent peer={peer_id} transport={transport} nonce={}",
+                    msg.nonce
+                );
             }
             "listen" => {
                 let port: u16 = parsed
                     .arg(1)
                     .and_then(|s| s.parse().ok())
                     .unwrap_or(BrokerTcpTransport::default_port());
-                let once = parsed.args.iter().any(|a| *a == "--once");
+                let once = parsed.args.contains(&"--once");
                 let device_id = self.runtime.loom.profile_id();
                 let wire = BrokerWireHub::open_default();
                 println!(
@@ -158,7 +160,10 @@ impl BuiltinContext<'_> {
                 let _ = self.runtime.audit.record(
                     AuditEventKind::BrokerTcpListening,
                     &self.state.actor,
-                    format!("endpoint={} device={}", manifest.endpoint, manifest.device_id),
+                    format!(
+                        "endpoint={} device={}",
+                        manifest.endpoint, manifest.device_id
+                    ),
                 );
                 println!(
                     "tcp listen complete endpoint={} (run `broker recv` to process inbox)",
@@ -237,16 +242,20 @@ impl BuiltinContext<'_> {
                         payload.as_bytes(),
                     )
                 }
-                    .map_err(|e| match e {
-                        FederationError::Denied(r) => anyhow::anyhow!("delegation denied: {r}"),
-                        FederationError::UnknownPeer(id) => {
-                            anyhow::anyhow!("unknown peer: {id}")
-                        }
-                    })?;
+                .map_err(|e| match e {
+                    FederationError::Denied(r) => anyhow::anyhow!("delegation denied: {r}"),
+                    FederationError::UnknownPeer(id) => {
+                        anyhow::anyhow!("unknown peer: {id}")
+                    }
+                })?;
                 let _ = self.runtime.audit.record(
                     AuditEventKind::BrokerDelegated,
                     &self.state.actor,
-                    format!("peer={peer_id} bytes={} result_len={}", payload.len(), out.len()),
+                    format!(
+                        "peer={peer_id} bytes={} result_len={}",
+                        payload.len(),
+                        out.len()
+                    ),
                 );
                 println!("{}", String::from_utf8_lossy(&out));
             }

@@ -11,7 +11,7 @@ fn public_safety_mapper_ncic_lookup() {
 
 #[test]
 fn public_safety_assessor_not_pilot_ready() {
-    let rt = OsRuntime::boot().expect("boot");
+    let rt = OsRuntime::boot_ephemeral().expect("boot");
     let report = PublicSafetyAssessor::assess(&rt.platform);
     assert_eq!(report.sector, "public_safety");
     assert!(!report.pilot_ready);
@@ -20,7 +20,7 @@ fn public_safety_assessor_not_pilot_ready() {
 
 #[test]
 fn public_safety_map_and_audit() {
-    let rt = OsRuntime::boot().expect("boot");
+    let rt = OsRuntime::boot_ephemeral().expect("boot");
     let intent = PublicSafetyMapper::map_and_audit("CAD.dispatch.create", "dispatcher", &rt.audit)
         .expect("map");
     assert_eq!(intent.resource, "dispatch");

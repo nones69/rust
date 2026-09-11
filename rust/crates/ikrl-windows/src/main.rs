@@ -11,6 +11,7 @@
 
 use clap::Parser;
 
+#[allow(dead_code)]
 const SERVICE_DISPLAY_NAME: &str = "IntentKernel Security Substrate";
 
 #[cfg(windows)]
@@ -38,8 +39,9 @@ mod win {
     use std::time::Duration;
     use windows_service::{
         service::{
-            ServiceAccess, ServiceControl, ServiceControlAccept, ServiceErrorControl, ServiceExitCode,
-            ServiceInfo, ServiceStartType, ServiceState, ServiceStatus, ServiceType,
+            ServiceAccess, ServiceControl, ServiceControlAccept, ServiceErrorControl,
+            ServiceExitCode, ServiceInfo, ServiceStartType, ServiceState, ServiceStatus,
+            ServiceType,
         },
         service_control_handler::{self, ServiceControlHandlerResult},
         service_dispatcher,

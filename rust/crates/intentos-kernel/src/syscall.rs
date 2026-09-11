@@ -50,7 +50,10 @@ pub fn dispatch_call(
         let _ = log.record(
             AuditEventKind::Syscall,
             &token.issued_to,
-            format!("syscall={syscall_name} token={} outcome={outcome}", token.id),
+            format!(
+                "syscall={syscall_name} token={} outcome={outcome}",
+                token.id
+            ),
         );
     }
 

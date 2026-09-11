@@ -24,6 +24,10 @@ impl RevocationList {
     pub fn len(&self) -> usize {
         self.revoked.len()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.revoked.is_empty()
+    }
 }
 
 #[cfg(test)]

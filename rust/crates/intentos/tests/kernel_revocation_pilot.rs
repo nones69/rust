@@ -1,22 +1,21 @@
 //! Kernel JTI revocation and boot baseline checkpoint tests.
 
 use intentos_audit::AuditEventKind;
-use intentos_kernel::{Handle, Intent, SyscallOp, SyscallRequest, TrustAnchor, wall_ms};
+use intentos_kernel::{wall_ms, Handle, Intent, SyscallOp, SyscallRequest, TrustAnchor};
 use intentos_utilities::OsRuntime;
 
 #[test]
 fn boot_records_rollback_baseline_checkpoint() {
-    let rt = OsRuntime::boot().expect("boot");
-    assert!(
-        rt.audit
-            .has_kind(AuditEventKind::RollbackCheckpoint)
-            .unwrap()
-    );
+    let rt = OsRuntime::boot_ephemeral().expect("boot");
+    assert!(rt
+        .audit
+        .has_kind(AuditEventKind::RollbackCheckpoint)
+        .unwrap());
 }
 
 #[test]
 fn revoke_blocks_active_capability() {
-    let rt = OsRuntime::boot().expect("boot");
+    let rt = OsRuntime::boot_ephemeral().expect("boot");
     let intent = Intent {
         actor: "trader".into(),
         resource: "file".into(),
@@ -42,7 +41,7 @@ fn revoke_blocks_active_capability() {
 
 #[test]
 fn revoke_by_handle_hex() {
-    let rt = OsRuntime::boot().expect("boot");
+    let rt = OsRuntime::boot_ephemeral().expect("boot");
     let intent = Intent {
         actor: "trader".into(),
         resource: "file".into(),
@@ -52,10 +51,7 @@ fn revoke_by_handle_hex() {
         metadata: Default::default(),
     };
     let handle = rt.kernel().intent_to_handle(intent).expect("handle");
-    let jti = rt
-        .kernel()
-        .jti_for_handle(handle)
-        .expect("jti");
+    let jti = rt.kernel().jti_for_handle(handle).expect("jti");
     assert!(rt.kernel().revoke_jti(&jti, "admin"));
     let _ = Handle::from_u64(handle.as_u64());
 }

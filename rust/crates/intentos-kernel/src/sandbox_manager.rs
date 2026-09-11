@@ -95,7 +95,9 @@ impl SandboxProcess {
     /// Returns `Ok(())` if the child was killed or was already gone.
     pub fn kill(&mut self) -> Result<(), SandboxError> {
         if let Some(child) = &mut self.child {
-            child.kill().map_err(|e| SandboxError::KillFailed(e.to_string()))?;
+            child
+                .kill()
+                .map_err(|e| SandboxError::KillFailed(e.to_string()))?;
         }
         Ok(())
     }
@@ -273,14 +275,14 @@ fn spawn_seccomp(
             .map_err(|e| SandboxError::SpawnFailed(e.to_string()))?;
 
         let pid = child.id();
-        return Ok(SandboxProcess {
+        Ok(SandboxProcess {
             pid,
             token_id: token.id,
             mode: SandboxMode::Seccomp,
             spawned_at: now,
             expires_at,
             child: Some(child),
-        });
+        })
     }
 
     // ── non-Linux fallback ──────────────────────────────────────────────────
@@ -319,9 +321,7 @@ fn spawn_seccomp(
 ///    `clock_gettime`(228), `getrandom`(318).
 #[cfg(target_os = "linux")]
 fn install_seccomp_filter() -> std::io::Result<()> {
-    use libc::{
-        PR_SET_NO_NEW_PRIVS, SECCOMP_MODE_FILTER, c_int, prctl, syscall, SYS_seccomp,
-    };
+    use libc::{c_int, prctl, syscall, SYS_seccomp, PR_SET_NO_NEW_PRIVS, SECCOMP_MODE_FILTER};
 
     // BPF instruction encoding constants
     const BPF_LD: u16 = 0x00;
@@ -501,7 +501,7 @@ fn spawn_container(
         let container_tool = find_container_tool()
             .ok_or_else(|| SandboxError::ContainerToolMissing("bwrap, nsjail, firejail".into()))?;
 
-        let child = build_container_command(&container_tool, token, program, args)
+        let child = build_container_command(container_tool, token, program, args)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -523,12 +523,10 @@ fn spawn_container(
 /// Find the first available container runtime on the PATH.
 #[cfg(target_os = "linux")]
 fn find_container_tool() -> Option<&'static str> {
-    for tool in &["bwrap", "nsjail", "firejail"] {
-        if tool_on_path(tool) {
-            return Some(tool);
-        }
-    }
-    None
+    ["bwrap", "nsjail", "firejail"]
+        .iter()
+        .find(|&tool| tool_on_path(tool))
+        .map(|v| v as _)
 }
 
 /// Returns `true` if `tool` is found in any directory listed in `$PATH`.
@@ -568,10 +566,16 @@ fn build_container_command(
             // `--dev /dev` creates bwrap's own minimal /dev (not a host bind-mount),
             // preventing direct access to sensitive host device files.
             cmd.args([
-                "--ro-bind", "/usr", "/usr",
-                "--ro-bind", "/lib", "/lib",
-                "--proc", "/proc",
-                "--dev", "/dev",
+                "--ro-bind",
+                "/usr",
+                "/usr",
+                "--ro-bind",
+                "/lib",
+                "/lib",
+                "--proc",
+                "/proc",
+                "--dev",
+                "/dev",
                 "--unshare-all",
                 "--die-with-parent",
                 "--",
@@ -583,10 +587,14 @@ fn build_container_command(
             // Mount a tmpfs as root and bind-mount only the essential read-only
             // paths, avoiding host filesystem exposure via a bare `--chroot /`.
             cmd.args([
-                "--mode", "o",
-                "--tmpfsmount", "/",
-                "--bindmount_ro", "/usr",
-                "--bindmount_ro", "/lib",
+                "--mode",
+                "o",
+                "--tmpfsmount",
+                "/",
+                "--bindmount_ro",
+                "/usr",
+                "--bindmount_ro",
+                "/lib",
                 "--proc_rw",
                 "--",
                 program,
@@ -594,13 +602,7 @@ fn build_container_command(
             cmd.args(args);
         }
         "firejail" => {
-            cmd.args([
-                "--quiet",
-                "--noprofile",
-                "--private",
-                "--net=none",
-                program,
-            ]);
+            cmd.args(["--quiet", "--noprofile", "--private", "--net=none", program]);
             cmd.args(args);
         }
         _ => {
@@ -650,7 +652,13 @@ mod tests {
         let mut mgr = SandboxManager::new();
         let token = make_token();
         let id = mgr
-            .spawn(&token, SandboxMode::Wasm, SandboxConfig::default(), "app.wasm", &[])
+            .spawn(
+                &token,
+                SandboxMode::Wasm,
+                SandboxConfig::default(),
+                "app.wasm",
+                &[],
+            )
             .unwrap();
         assert!(mgr.list().any(|(k, _)| k == &id));
     }
@@ -660,7 +668,13 @@ mod tests {
         let mut mgr = SandboxManager::new();
         let token = make_token();
         let err = mgr
-            .spawn(&token, SandboxMode::Wasm, SandboxConfig::default(), "app.exe", &[])
+            .spawn(
+                &token,
+                SandboxMode::Wasm,
+                SandboxConfig::default(),
+                "app.exe",
+                &[],
+            )
             .unwrap_err();
         assert!(matches!(err, SandboxError::SpawnFailed(_)));
     }
@@ -670,7 +684,13 @@ mod tests {
         let mut mgr = SandboxManager::new();
         let token = expired_token();
         let err = mgr
-            .spawn(&token, SandboxMode::Wasm, SandboxConfig::default(), "a.wasm", &[])
+            .spawn(
+                &token,
+                SandboxMode::Wasm,
+                SandboxConfig::default(),
+                "a.wasm",
+                &[],
+            )
             .unwrap_err();
         assert!(matches!(err, SandboxError::TokenExpired));
     }

@@ -71,10 +71,7 @@ impl EnterpriseHardeningAssessor {
                 name: "identity_bridge".into(),
                 met: actor_ok,
                 threshold: "identity whoami resolves principal".into(),
-                evidence: format!(
-                    "backend={:?} upn={}",
-                    principal.backend, principal.upn
-                ),
+                evidence: format!("backend={:?} upn={}", principal.backend, principal.upn),
             },
             HardeningGate {
                 name: "rollback_checkpoint".into(),
@@ -158,6 +155,9 @@ mod tests {
         RollbackCheckpoint::record(&audit, "admin", "pre-pilot", "v0.1.0-baseline").unwrap();
         let identity = IdentityBridge::from_env();
         let report = EnterpriseHardeningAssessor::assess(&platform, &audit, &identity);
-        assert!(report.gates.iter().any(|g| g.name == "rollback_checkpoint" && g.met));
+        assert!(report
+            .gates
+            .iter()
+            .any(|g| g.name == "rollback_checkpoint" && g.met));
     }
 }

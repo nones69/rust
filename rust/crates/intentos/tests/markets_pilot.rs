@@ -11,7 +11,7 @@ fn markets_mapper_fix_order() {
 
 #[test]
 fn markets_assessor_not_pilot_ready() {
-    let rt = OsRuntime::boot().expect("boot");
+    let rt = OsRuntime::boot_ephemeral().expect("boot");
     let report = MarketsAssessor::assess(&rt.platform);
     assert_eq!(report.sector, "financial_markets");
     assert!(!report.pilot_ready);
@@ -20,7 +20,7 @@ fn markets_assessor_not_pilot_ready() {
 
 #[test]
 fn markets_map_and_audit() {
-    let rt = OsRuntime::boot().expect("boot");
+    let rt = OsRuntime::boot_ephemeral().expect("boot");
     let intent = MarketsMapper::map_and_audit("Risk.killswitch", "trader", &rt.audit).expect("map");
     assert_eq!(intent.resource, "risk");
     assert_eq!(

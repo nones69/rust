@@ -2,8 +2,8 @@
 
 use intentos_audit::{AuditEventKind, AuditLog};
 use intentos_kernel::{
-    evaluate_ip, verdict_from_threat_score, Intent, PolicyDecision, PolicyEngine, TrustAnchor,
-    wall_ms,
+    evaluate_ip, verdict_from_threat_score, wall_ms, Intent, PolicyDecision, PolicyEngine,
+    TrustAnchor,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -90,7 +90,11 @@ impl IpDiscramblerBridge {
         self.run_bridge("subnet", cidr)
     }
 
-    pub fn policy_check(&self, ip: &str, actor: &str) -> Result<IpPolicyVerdict, IpDiscramblerError> {
+    pub fn policy_check(
+        &self,
+        ip: &str,
+        actor: &str,
+    ) -> Result<IpPolicyVerdict, IpDiscramblerError> {
         let local = evaluate_ip(ip);
         let enrichment = self.lookup(ip).ok();
 
@@ -184,7 +188,12 @@ impl IpDiscramblerBridge {
         Ok(child)
     }
 
-    pub fn audit_lookup(&self, ip: &str, actor: &str, audit: &AuditLog) -> Result<IpLookupResult, IpDiscramblerError> {
+    pub fn audit_lookup(
+        &self,
+        ip: &str,
+        actor: &str,
+        audit: &AuditLog,
+    ) -> Result<IpLookupResult, IpDiscramblerError> {
         let result = self.lookup(ip)?;
         let _ = audit.record(
             AuditEventKind::SectorMap,

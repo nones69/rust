@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 #[test]
 fn runtime_boots_with_identity_bridge() {
-    let rt = OsRuntime::boot().expect("boot");
+    let rt = OsRuntime::boot_ephemeral().expect("boot");
     assert_eq!(rt.identity.domain(), "corp.local");
 }
 
@@ -27,7 +27,7 @@ fn whoami_sets_resolvable_actor() {
 
 #[test]
 fn shell_boot_wires_identity_actor() {
-    let rt = Arc::new(OsRuntime::boot().expect("boot"));
+    let rt = Arc::new(OsRuntime::boot_ephemeral().expect("boot"));
     let expected = rt.boot_actor();
     let session = ShellSession::new(rt);
     assert_eq!(session.actor(), expected);

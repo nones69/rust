@@ -4,12 +4,12 @@ use crate::parser::ParsedLine;
 use crate::tier::OsTier;
 use anyhow::{Context, Result};
 use intentos_bench::{run_bench, run_markets_latency_bench};
-use intentos_kernel::{Handle, Intent, SyscallOp, SyscallRequest, TrustAnchor, wall_ms};
+use intentos_kernel::{wall_ms, Handle, Intent, SyscallOp, SyscallRequest, TrustAnchor};
 use intentos_utilities::{
     AiGateway, BankingAssessor, BankingMapper, CompatibilityMatrix, EnterpriseHardeningAssessor,
-    EnterpriseMapper, HealthcareAssessor, HealthcareMapper, IotAssessor, IotMapper, MarketsAssessor,
-    MarketsMapper, MarketDeploymentReporter, MigrationAssessor, OsRuntime, PublicSafetyAssessor,
-    PublicSafetyMapper, RollbackCheckpoint, SysTools,
+    EnterpriseMapper, HealthcareAssessor, HealthcareMapper, IotAssessor, IotMapper,
+    MarketDeploymentReporter, MarketsAssessor, MarketsMapper, MigrationAssessor, OsRuntime,
+    PublicSafetyAssessor, PublicSafetyMapper, RollbackCheckpoint, SysTools,
 };
 use std::sync::Arc;
 
@@ -45,7 +45,7 @@ impl BuiltinContext<'_> {
         let sub = parsed.arg(0).unwrap_or("tail");
         match sub {
             "tail" => {
-                let redact = parsed.args.iter().any(|a| *a == "--redact");
+                let redact = parsed.args.contains(&"--redact");
                 let n: usize = parsed
                     .args
                     .iter()
@@ -54,10 +54,7 @@ impl BuiltinContext<'_> {
                     .and_then(|s| s.parse().ok())
                     .unwrap_or(10);
                 for entry in self.runtime.audit.tail(n)? {
-                    println!(
-                        "{}",
-                        intentos_audit::AuditLog::format_entry(&entry, redact)
-                    );
+                    println!("{}", intentos_audit::AuditLog::format_entry(&entry, redact));
                 }
                 let ok = self.runtime.audit.verify_chain()?;
                 let total = self.runtime.audit.len()?;
@@ -183,9 +180,7 @@ impl BuiltinContext<'_> {
                 println!("shell actor set to {}", self.state.actor);
             }
             "lookup" => {
-                let user = parsed
-                    .arg(1)
-                    .context("usage: identity lookup <username>")?;
+                let user = parsed.arg(1).context("usage: identity lookup <username>")?;
                 let p = bridge
                     .lookup(user)
                     .with_context(|| format!("principal not found in stub directory: {user}"))?;
@@ -199,13 +194,11 @@ impl BuiltinContext<'_> {
                 );
             }
             "domain" => {
-                println!(
-                    "domain={} backend={:?}",
-                    bridge.domain(),
-                    bridge.backend()
-                );
+                println!("domain={} backend={:?}", bridge.domain(), bridge.backend());
             }
-            other => anyhow::bail!("usage: identity whoami | lookup <user> | domain (got: {other})"),
+            other => {
+                anyhow::bail!("usage: identity whoami | lookup <user> | domain (got: {other})")
+            }
         }
         Ok(())
     }
@@ -307,7 +300,9 @@ impl BuiltinContext<'_> {
 
         let cmd = parsed.rest_from(0);
         if cmd.is_empty() {
-            anyhow::bail!("usage: markets list | assess | bench [iterations] | <trading-operation>");
+            anyhow::bail!(
+                "usage: markets list | assess | bench [iterations] | <trading-operation>"
+            );
         }
         let intent = MarketsMapper::map_and_audit(&cmd, &self.state.actor, &self.runtime.audit)
             .context("unknown financial markets operation")?;
@@ -387,9 +382,8 @@ impl BuiltinContext<'_> {
         if cmd.is_empty() {
             anyhow::bail!("usage: healthcare list | assess | <fhir-operation>");
         }
-        let intent =
-            HealthcareMapper::map_and_audit(&cmd, &self.state.actor, &self.runtime.audit)
-                .context("unknown healthcare operation")?;
+        let intent = HealthcareMapper::map_and_audit(&cmd, &self.state.actor, &self.runtime.audit)
+            .context("unknown healthcare operation")?;
         let decision = self.runtime.kernel().submit_intent(intent.clone());
         println!(
             "clinical {}/{} allowed={} — {}",
@@ -480,8 +474,7 @@ impl BuiltinContext<'_> {
                     .arg(1)
                     .context("usage: kernel revoke <jti|0xHANDLE>")?;
                 let jti = if arg.starts_with("0x") || arg.starts_with("0X") {
-                    let raw = u64::from_str_radix(&arg[2..], 16)
-                        .context("invalid handle hex")?;
+                    let raw = u64::from_str_radix(&arg[2..], 16).context("invalid handle hex")?;
                     let handle = Handle::from_u64(raw);
                     self.runtime
                         .kernel()
@@ -490,10 +483,7 @@ impl BuiltinContext<'_> {
                 } else {
                     arg.to_string()
                 };
-                let fresh = self
-                    .runtime
-                    .kernel()
-                    .revoke_jti(&jti, &self.state.actor);
+                let fresh = self.runtime.kernel().revoke_jti(&jti, &self.state.actor);
                 println!(
                     "revoked={} jti={jti}",
                     if fresh { "new" } else { "already" }
@@ -540,9 +530,9 @@ impl BuiltinContext<'_> {
                     ),
                 }
             }
-            other => anyhow::bail!(
-                "usage: kernel stats | revoke <jti|0xHANDLE> | crypto (got: {other})"
-            ),
+            other => {
+                anyhow::bail!("usage: kernel stats | revoke <jti|0xHANDLE> | crypto (got: {other})")
+            }
         }
         Ok(())
     }
@@ -689,10 +679,7 @@ impl BuiltinContext<'_> {
         );
         println!("ai_enabled={ai} telemetry_enabled={telemetry}");
         match &self.runtime.ip_discrambler {
-            Some(bridge) => println!(
-                "ip-discrambler=online root={}",
-                bridge.root().display()
-            ),
+            Some(bridge) => println!("ip-discrambler=online root={}", bridge.root().display()),
             None => println!("ip-discrambler=offline"),
         }
         println!("try: hal | ai status | audit tail | ipdis status");
@@ -712,10 +699,10 @@ impl BuiltinContext<'_> {
     }
 
     fn tier_kernel(&self) -> Result<()> {
-        use intentos_kernel::TOKEN_SIG_V2_PQC_HYBRID;
+        use intentos_kernel::TOKEN_SIG_V2_PQC_SIMULATION;
         let stats = self.runtime.kernel().stats();
         let ver = self.runtime.kernel().token_sig_version();
-        let crypto = if ver == TOKEN_SIG_V2_PQC_HYBRID {
+        let crypto = if ver == TOKEN_SIG_V2_PQC_SIMULATION {
             "pqc_hybrid"
         } else {
             "ed25519_dev"
@@ -819,9 +806,7 @@ impl BuiltinContext<'_> {
 
     pub fn ai_status(&self) -> Result<()> {
         let enabled = self.runtime.loom.is_ai_enabled();
-        println!(
-            "ai_enabled={enabled} (run `ai enable` for this session profile)"
-        );
+        println!("ai_enabled={enabled} (run `ai enable` for this session profile)");
         Ok(())
     }
 
@@ -931,9 +916,7 @@ fn parse_tier_target(target: &str) -> Result<OsTier> {
         "1" | "utilities" | "util" | "utils" => Ok(OsTier::Utilities),
         "2" | "shell" => Ok(OsTier::Shell),
         "3" | "kernel" | "kern" => Ok(OsTier::Kernel),
-        other => anyhow::bail!(
-            "unknown tier: {other} (use 1|2|3 or utilities|shell|kernel)"
-        ),
+        other => anyhow::bail!("unknown tier: {other} (use 1|2|3 or utilities|shell|kernel)"),
     }
 }
 

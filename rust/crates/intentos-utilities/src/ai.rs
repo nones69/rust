@@ -41,7 +41,7 @@ impl AiGateway {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use intentos_kernel::{Intent, TrustAnchor, wall_ms};
+    use intentos_kernel::{wall_ms, Intent, TrustAnchor};
 
     fn intent(resource: &str, action: &str) -> Intent {
         Intent {

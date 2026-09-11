@@ -1,6 +1,6 @@
 //! Pluggable intent recognition — stub today, Ollama/cloud backends later.
 
-use crate::types::{Intent, TrustAnchor, wall_ms};
+use crate::types::{wall_ms, Intent, TrustAnchor};
 use std::collections::BTreeMap;
 
 /// Output of an intent recognizer before policy evaluation.
@@ -46,9 +46,7 @@ impl IntentRecognizer for StubRecognizer {
             || lower.contains("open")
         {
             ("file", "read", 0.75)
-        } else if lower.contains("write")
-            || lower.contains("save")
-            || lower.contains("set-content")
+        } else if lower.contains("write") || lower.contains("save") || lower.contains("set-content")
         {
             ("file", "write", 0.75)
         } else if lower.contains("list") || lower.contains("ls") || lower.contains("dir") {

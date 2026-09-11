@@ -14,23 +14,20 @@ mod broker_tcp;
 mod broker_wire;
 mod capability_schema;
 mod federation;
+pub mod host_vfs;
 mod ip_discrambler;
 mod loom_export;
 mod loom_store;
+mod market_status;
 mod net_gateway;
 mod oobe_hooks;
-mod market_status;
 mod recognizer;
 mod sectors;
 mod syscall_envelope;
-pub mod host_vfs;
 mod tools;
 mod vfs;
 
 pub use ai::{AiError, AiGateway};
-pub use ip_discrambler::{
-    IpDiscramblerBridge, IpDiscramblerError, IpLookupResult, IpPolicyVerdict,
-};
 pub use broker_tcp::{BrokerTcpTransport, TcpListenManifest};
 pub use broker_wire::{
     decode_payload_hex, BrokerWireError, BrokerWireHub, BrokerWireKind, BrokerWireMessage,
@@ -38,37 +35,42 @@ pub use broker_wire::{
 };
 pub use capability_schema::NetScope;
 pub use federation::{FederationError, FederationHub};
-pub use market_status::{MarketDeploymentReporter, MarketDeploymentStatus, SectorStatus};
-pub use net_gateway::{NetGateway, NetGatewayError, NetGatewayResponse};
+pub use host_vfs::{vfs_open, vfs_read, vfs_write};
 pub use intentos_audit::{AuditEntry, AuditEventKind, AuditLog};
 pub use intentos_hal::{
     native_hal, CpuArch, DevicePosture, HardwareAbstraction, HostOs, PlatformInfo,
 };
+pub use ip_discrambler::{
+    IpDiscramblerBridge, IpDiscramblerError, IpLookupResult, IpPolicyVerdict,
+};
+pub use loom_export::{LoomExportPayload, LoomSignedExport, LOOM_EXPORT_VERSION};
+pub use loom_store::{CardPreview, LoomError, LoomStore};
+pub use market_status::{MarketDeploymentReporter, MarketDeploymentStatus, SectorStatus};
+pub use net_gateway::{NetGateway, NetGatewayError, NetGatewayResponse};
 pub use oobe_hooks::{emit_oobe_hook, OobeHookManifest};
 pub use recognizer::{OllamaClient, PilotRecognizer};
+pub use sectors::banking::{BankingAssessor, BankingMapper, BankingPilotReport};
 pub use sectors::enterprise::{
     CompatReport, CompatibilityMatrix, EnterpriseHardeningAssessor, EnterpriseHardeningReport,
     EnterpriseMapper, HardeningGate, IdentityBackend, IdentityBridge, LdapConfig,
     MigrationAssessor, MigrationReport, Principal, RollbackCheckpoint, TARGET_COMPAT_PASS_PCT,
     TARGET_MIGRATION_READINESS,
 };
-pub use sectors::banking::{BankingAssessor, BankingMapper, BankingPilotReport};
+pub use sectors::financial_markets::{MarketsAssessor, MarketsMapper, MarketsPilotReport};
 pub use sectors::healthcare::{
     ClinicalMapping, HealthcareAssessor, HealthcareMapper, HealthcarePilotReport,
 };
-pub use sectors::financial_markets::{MarketsAssessor, MarketsMapper, MarketsPilotReport};
 pub use sectors::iot::{IotAssessor, IotMapper, IotPilotReport};
 pub use sectors::public_safety::{
     PublicSafetyAssessor, PublicSafetyMapper, PublicSafetyPilotReport,
 };
-pub use loom_export::{LoomExportPayload, LoomSignedExport, LOOM_EXPORT_VERSION};
-pub use loom_store::{CardPreview, LoomError, LoomStore};
-pub use host_vfs::{vfs_open, vfs_read, vfs_write};
 pub use syscall_envelope::HttpMethod;
 pub use tools::SysTools;
 pub use vfs::{VfsError, VirtualFs};
 
 use intentos_kernel::{Kernel, KernelConfig};
+use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 /// IntentOS tier number for utilities.
@@ -111,12 +113,36 @@ pub struct OsRuntime {
 
 impl OsRuntime {
     pub fn boot() -> Result<Self, intentos_kernel::KernelError> {
-        let audit = Arc::new(
-            AuditLog::open_default().map_err(|e| {
+        let audit =
+            Arc::new(AuditLog::open_default().map_err(|e| {
                 intentos_kernel::KernelError::Serialize(format!("audit open: {e}"))
-            })?,
-        );
+            })?);
         Self::boot_with_audit(audit)
+    }
+
+    /// Boot with audit + loom isolated under `dir` (safe for parallel tests).
+    pub fn boot_in(dir: impl AsRef<Path>) -> Result<Self, intentos_kernel::KernelError> {
+        let dir = dir.as_ref();
+        std::fs::create_dir_all(dir)
+            .map_err(|e| intentos_kernel::KernelError::Serialize(format!("state dir: {e}")))?;
+        let audit = Arc::new(
+            AuditLog::open_persisted(dir.join("audit.jsonl"))
+                .map_err(|e| intentos_kernel::KernelError::Serialize(format!("audit open: {e}")))?,
+        );
+        let loom = Arc::new(
+            LoomStore::open_in(dir)
+                .map_err(|e| intentos_kernel::KernelError::Serialize(format!("loom open: {e}")))?,
+        );
+        Self::boot_with_loom(audit, loom)
+    }
+
+    /// Ephemeral boot for tests — unique temp state directory per call.
+    pub fn boot_ephemeral() -> Result<Self, intentos_kernel::KernelError> {
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let n = COUNTER.fetch_add(1, Ordering::Relaxed);
+        let dir =
+            std::env::temp_dir().join(format!("intentos-ephemeral-{}-{}", std::process::id(), n));
+        Self::boot_in(dir)
     }
 
     pub fn boot_with_audit(audit: Arc<AuditLog>) -> Result<Self, intentos_kernel::KernelError> {
@@ -162,9 +188,10 @@ impl OsRuntime {
             );
         }
 
-        let loom = Arc::new(LoomStore::open().map_err(|e| {
-            intentos_kernel::KernelError::Serialize(format!("loom open: {e}"))
-        })?);
+        let loom = Arc::new(
+            LoomStore::open()
+                .map_err(|e| intentos_kernel::KernelError::Serialize(format!("loom open: {e}")))?,
+        );
         if loom.corruption_recovered() {
             let _ = audit.record(
                 AuditEventKind::LoomRecovery,
@@ -267,10 +294,8 @@ impl OsRuntime {
     pub fn sync_federation_from_loom(&self) {
         let session = self.loom.session();
         let mut utils = self.utilities.lock().unwrap();
-        utils.federation = FederationHub::from_peers(
-            &session.profile_id,
-            session.broker_peers.clone(),
-        );
+        utils.federation =
+            FederationHub::from_peers(&session.profile_id, session.broker_peers.clone());
     }
 
     pub fn kernel(&self) -> Arc<Kernel> {

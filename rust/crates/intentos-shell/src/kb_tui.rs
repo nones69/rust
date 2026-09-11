@@ -48,9 +48,15 @@ pub fn run_kb_tui(ctx: &mut BuiltinContext<'_>) -> Result<()> {
                 }
             }
             "create" | "c" => {
-                let title = parts.get(1).context("usage: create <title> <resource> <action>")?;
-                let resource = parts.get(2).context("usage: create <title> <resource> <action>")?;
-                let action = parts.get(3).context("usage: create <title> <resource> <action>")?;
+                let title = parts
+                    .get(1)
+                    .context("usage: create <title> <resource> <action>")?;
+                let resource = parts
+                    .get(2)
+                    .context("usage: create <title> <resource> <action>")?;
+                let action = parts
+                    .get(3)
+                    .context("usage: create <title> <resource> <action>")?;
                 let card = ctx.runtime.loom.create_card(title, resource, action)?;
                 println!(
                     "created {} caps={} risk={:?}",
@@ -74,7 +80,7 @@ pub fn run_kb_tui(ctx: &mut BuiltinContext<'_>) -> Result<()> {
                 preview_card(ctx, &card_id)?;
             }
             "run" | "r" => {
-                let confirmed = parts.iter().any(|a| *a == "--confirm");
+                let confirmed = parts.contains(&"--confirm");
                 let idx_pos = if parts.get(1) == Some(&"--confirm") {
                     2
                 } else {
@@ -194,7 +200,9 @@ fn card_index(parts: &[&str], pos: usize) -> Result<usize> {
     let raw = parts
         .get(pos)
         .context("usage: <n> | p <n> | r <n> [--confirm]")?;
-    let idx: usize = raw.parse().context("card index must be a positive integer")?;
+    let idx: usize = raw
+        .parse()
+        .context("card index must be a positive integer")?;
     if idx == 0 {
         anyhow::bail!("card index starts at 1");
     }
@@ -212,10 +220,7 @@ fn card_id_at(ctx: &BuiltinContext<'_>, idx: usize) -> Result<String> {
 
 fn preview_card(ctx: &BuiltinContext<'_>, card_id: &str) -> Result<()> {
     let signals = LoomStore::threshold_signals(&ctx.runtime.platform);
-    let preview = ctx
-        .runtime
-        .loom
-        .preview_card(card_id, Some(&signals))?;
+    let preview = ctx.runtime.loom.preview_card(card_id, Some(&signals))?;
     println!(
         "preview {} title={} caps={} outcome={} confirm={} reason={}",
         preview.card_id,

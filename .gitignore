@@ -48,7 +48,7 @@ desktop.ini
 
 # Rust
 rust/target/
-Cargo.lock
+/Cargo.lock
 
 # Python
 __pycache__/
@@ -86,3 +86,11 @@ IP-Discrambler-mirror/
 # Demo / bench artifacts
 rust/demo_victim*/
 demo_victim*/
+
+# Accidental agent / MCP tool dumps (do not commit)
+mcps/
+terminals/
+.jarvis/
+aws___*.json
+name*.txt
+newthesis*.txt

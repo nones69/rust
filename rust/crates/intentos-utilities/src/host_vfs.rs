@@ -1,10 +1,10 @@
-use uuid::Uuid;
-use std::collections::HashMap;
-use std::sync::Mutex;
+use crate::syscall_envelope::OpenMode;
 use lazy_static::lazy_static;
+use std::collections::HashMap;
 use std::fs::OpenOptions;
 use std::io::{Read, Write};
-use crate::syscall_envelope::OpenMode;
+use std::sync::Mutex;
+use uuid::Uuid;
 
 lazy_static! {
     static ref HANDLE_TABLE: Mutex<HashMap<Uuid, std::fs::File>> = Mutex::new(HashMap::new());
@@ -17,7 +17,11 @@ fn governed_root_for_token(_token_id: &Uuid) -> String {
 
 pub fn vfs_open(token_id: &Uuid, path: &str, mode: OpenMode) -> Result<Uuid, String> {
     let root = governed_root_for_token(token_id);
-    let full = format!("{}/{}", root.trim_end_matches('/'), path.trim_start_matches('/'));
+    let full = format!(
+        "{}/{}",
+        root.trim_end_matches('/'),
+        path.trim_start_matches('/')
+    );
 
     // Prevent path traversal by canonicalizing and ensuring prefix matches root
     let canonical = std::path::Path::new(&full)

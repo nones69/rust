@@ -57,6 +57,9 @@ The demo shows:
 - The token is burned after one use and cannot be replayed.
 - Result: **0 bytes encrypted** by unauthorized code.
 
+> Note: this is an **in-process reference demo** of the capability flow, not a
+> host-wide ransomware immunity proof. See the root README “What remains unproven”.
+
 ### Run the Daemon Stack
 
 The easiest way to start the stack is with `ikrl-init`:

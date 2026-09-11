@@ -5,13 +5,10 @@ use intentos_utilities::{AuditEventKind, EnterpriseMapper, MigrationAssessor, Os
 
 #[test]
 fn enterprise_command_maps_to_gated_handle() {
-    let rt = OsRuntime::boot().expect("boot");
-    let intent = EnterpriseMapper::map_and_audit(
-        "Get-Content C:\\logs\\app.log",
-        "pilot-user",
-        &rt.audit,
-    )
-    .expect("map");
+    let rt = OsRuntime::boot_ephemeral().expect("boot");
+    let intent =
+        EnterpriseMapper::map_and_audit("Get-Content C:\\logs\\app.log", "pilot-user", &rt.audit)
+            .expect("map");
 
     assert_eq!(intent.resource, "file");
     assert_eq!(intent.action, "read");
@@ -28,12 +25,15 @@ fn enterprise_command_maps_to_gated_handle() {
             payload: vec![],
         },
     );
-    assert!(matches!(result, intentos_kernel::SyscallResult::Allowed { .. }));
+    assert!(matches!(
+        result,
+        intentos_kernel::SyscallResult::Allowed { .. }
+    ));
 }
 
 #[test]
 fn composite_recognizer_names_enterprise_backend() {
-    let rt = OsRuntime::boot().expect("boot");
+    let rt = OsRuntime::boot_ephemeral().expect("boot");
     assert_eq!(rt.kernel().recognizer_name(), "enterprise+stub");
     let out = rt.kernel().recognize("docker ps");
     assert_eq!(out.resource, "dir");
@@ -42,7 +42,7 @@ fn composite_recognizer_names_enterprise_backend() {
 
 #[test]
 fn migration_assessor_reports_pilot_blockers() {
-    let rt = OsRuntime::boot().expect("boot");
+    let rt = OsRuntime::boot_ephemeral().expect("boot");
     let report = MigrationAssessor::assess(&rt.platform);
     assert_eq!(report.sector, "enterprise");
     assert!(report.readiness_score > 0);
@@ -51,7 +51,7 @@ fn migration_assessor_reports_pilot_blockers() {
 
 #[test]
 fn enterprise_flow_leaves_audit_trail() {
-    let rt = OsRuntime::boot().expect("boot");
+    let rt = OsRuntime::boot_ephemeral().expect("boot");
     let before = rt.audit.len().unwrap();
     let _ = EnterpriseMapper::map_and_audit("ls /var/log", "pilot", &rt.audit);
     let entries = rt.audit.tail(5).unwrap();

@@ -54,7 +54,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             None => {
                 if !line.trim().is_empty() {
-                    println!("Unknown command. Try: open <file>, read, write <text>, ai <prompt>, quit");
+                    println!(
+                        "Unknown command. Try: open <file>, read, write <text>, ai <prompt>, quit"
+                    );
                 }
             }
         }

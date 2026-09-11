@@ -1,6 +1,8 @@
 //! Phase 2 banking/ATM sector scaffold tests.
 
-use intentos_utilities::{BankingAssessor, BankingMapper, OsRuntime};
+use intentos_audit::AuditLog;
+use intentos_hal::native_hal;
+use intentos_utilities::{BankingAssessor, BankingMapper};
 
 #[test]
 fn banking_mapper_emv_authorize() {
@@ -11,8 +13,9 @@ fn banking_mapper_emv_authorize() {
 
 #[test]
 fn banking_assessor_not_pilot_ready() {
-    let rt = OsRuntime::boot().expect("boot");
-    let report = BankingAssessor::assess(&rt.platform);
+    // Avoid OsRuntime::boot_ephemeral(): it shares ~/.intentos loom state across parallel tests.
+    let platform = native_hal().probe();
+    let report = BankingAssessor::assess(&platform);
     assert_eq!(report.sector, "banking");
     assert!(!report.pilot_ready);
     assert!(report.blockers.iter().any(|b| b.contains("PCI")));
@@ -20,8 +23,8 @@ fn banking_assessor_not_pilot_ready() {
 
 #[test]
 fn banking_map_and_audit() {
-    let rt = OsRuntime::boot().expect("boot");
-    let intent = BankingMapper::map_and_audit("ATM.withdraw", "teller", &rt.audit).expect("map");
+    let audit = AuditLog::new();
+    let intent = BankingMapper::map_and_audit("ATM.withdraw", "teller", &audit).expect("map");
     assert_eq!(intent.resource, "atm");
     assert_eq!(
         intent.metadata.get("sector").map(String::as_str),

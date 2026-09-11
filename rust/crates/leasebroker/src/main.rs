@@ -23,6 +23,7 @@ struct Args {
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "method", content = "params")]
+#[allow(clippy::enum_variant_names)]
 enum Request {
     RequestLease { pid: u32, duration_ms: u64 },
     RenewLease { lease_id: String },

@@ -223,7 +223,7 @@ pub fn apply_ip_policy(intent: &Intent, mut base: PolicyDecision) -> PolicyDecis
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{Intent, TrustAnchor, wall_ms};
+    use crate::types::{wall_ms, Intent, TrustAnchor};
     use std::collections::BTreeMap;
 
     #[test]
