@@ -1181,6 +1181,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "ik-overlay-stage1"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+]
+
+[[package]]
+name = "ik-overlay-stage2"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "intentos-kernel",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "ikrl-ai"
 version = "0.1.0"
 dependencies = [

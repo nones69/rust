@@ -28,6 +28,7 @@ spec, reference, or clearly marked experimental research.
 | `tools/vm/` | Host VM helper scripts (Windows-oriented) |
 | `scripts/` | Host build helpers (non-prototype) |
 | Legacy IKRL daemons in `rust/crates/{capd,intentd,...}` | Multi-process experiments; not the happy path |
+| `docs/overlay/`, `rust/crates/ik-overlay-stage{1,2}`, `overlay/` | Stage 1/2 host overlay **foundations** (not shipping drivers) |
 
 ## Removed in cleanup (do not reintroduce casually)
 

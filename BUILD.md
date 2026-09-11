@@ -27,6 +27,8 @@ Or from repo root: `bash scripts/verify-prototype.sh`
 
 Layout map: [`docs/REPO_LAYOUT.md`](docs/REPO_LAYOUT.md).
 
+Stage 1/2 overlay foundations (scaffolds): [`docs/overlay/`](docs/overlay/) — `cargo test -p ik-overlay-stage1 -p ik-overlay-stage2`.
+
 ---
 
 

@@ -16,6 +16,7 @@ cargo clippy --workspace --all-targets -- -D warnings
 echo "== test (core prototype crates) =="
 cargo test -p intentos-kernel -p intentos -p intentos-shell -p intentos-utilities --tests --lib
 cargo test -p ikrl-sdk --lib
+cargo test -p ik-overlay-stage1 -p ik-overlay-stage2 --lib
 
 echo "== release demos =="
 cargo build --release -p intentos -p ransomware-demo -p ikrl-sim

@@ -1,0 +1,17 @@
+[package]
+name = "ik-overlay-stage2"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Stage 2 Linux LSM/eBPF overlay foundations (userspace gate + hooks model)"
+
+[dependencies]
+intentos-kernel = { path = "../intentos-kernel" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+[lib]
+name = "ik_overlay_stage2"

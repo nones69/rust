@@ -1,0 +1,16 @@
+[package]
+name = "ik-overlay-stage1"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Stage 1 Windows VBS/Micro-VM overlay foundations (interfaces + harness)"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+[lib]
+name = "ik_overlay_stage1"
