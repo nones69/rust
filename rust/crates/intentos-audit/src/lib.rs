@@ -49,6 +49,11 @@ pub enum AuditEventKind {
     PqcTokensDisabled,
     OobeHookEmitted,
     AuditRecovery,
+    RemoteConnected,
+    RemoteRejected,
+    RemoteTokenMinted,
+    RemoteHandleRegistered,
+    RemoteSyscall,
 }
 
 /// Single immutable audit record.

@@ -12,6 +12,26 @@
 //! All transports carry length-prefixed JSON messages so every daemon can
 //! speak the same protocol regardless of the underlying socket type.
 
+//!
+//! # Security modules
+//!
+//! - [`replay`] — [`ReplayGuard`] for timestamp-and-nonce replay protection
+//! - [`peer_creds`] — OS-level Unix peer credential extraction (Unix only)
+//! - [`tls`] (feature) — mTLS-backed [`SecureListener`] / [`SecureChannel`]
+
+pub mod replay;
+
+#[cfg(unix)]
+pub mod peer_creds;
+
+#[cfg(feature = "tls")]
+pub mod tls;
+
+pub use replay::{ReplayError, ReplayGuard};
+
+#[cfg(feature = "tls")]
+pub use tls::{PeerIdentity, SecureChannel, SecureListener, TlsConfig, TlsMode};
+
 use anyhow::{Context, Result};
 use serde::{de::DeserializeOwned, Serialize};
 use std::fmt::Debug;
@@ -72,6 +92,11 @@ impl Channel {
         }
 
         Err(TransportError::UnsupportedAddress(addr.to_string()).into())
+    }
+
+    /// Plain channels never carry a TLS peer certificate.
+    pub fn peer_cert_fingerprint(&self) -> Option<&str> {
+        None
     }
 
     pub async fn send_json(&mut self, msg: &impl Serialize) -> Result<()> {

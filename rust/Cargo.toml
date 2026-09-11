@@ -18,6 +18,8 @@ members = [
     "crates/ikrl-sim",
     "crates/ransomware-demo",
     "crates/ikrl-transport",
+    "crates/ikrl-remote",
+    "crates/intentkernel-server",
     "crates/ikrl-linux",
     "crates/ikrl-windows",
     "crates/ikrl-ai",
@@ -46,6 +48,8 @@ repository = "https://github.com/nones69/rust"
 intentkernel-core = { path = "crates/intentkernel-core" }
 intentkernel-crypto = { path = "crates/intentkernel-crypto" }
 ikrl-transport = { path = "crates/ikrl-transport" }
+ikrl-remote = { path = "crates/ikrl-remote" }
+intentkernel-server = { path = "crates/intentkernel-server" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1.44", features = ["full"] }
@@ -70,6 +74,10 @@ prost = "0.13"
 futures = "0.3"
 mdns-sd = "0.13"
 tempfile = "3.14"
+rustls = { version = "0.23.25", default-features = false, features = ["ring", "logging", "std", "tls12"] }
+tokio-rustls = { version = "0.26.2", default-features = false, features = ["ring", "tls12"] }
+rustls-pemfile = "2.2"
+rcgen = "0.13.1"
 walkdir = "2.5"
 
 [profile.dev]
