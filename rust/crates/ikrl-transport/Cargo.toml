@@ -5,6 +5,10 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 
+[features]
+default = ["tls"]
+tls = ["dep:rustls", "dep:tokio-rustls", "dep:rustls-pemfile", "dep:sha3", "dep:hex"]
+
 [dependencies]
 tokio = { workspace = true }
 serde = { workspace = true }
@@ -12,9 +16,16 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 tracing = { workspace = true }
+sha3 = { workspace = true, optional = true }
+hex = { workspace = true, optional = true }
+rustls = { workspace = true, optional = true }
+tokio-rustls = { workspace = true, optional = true }
+rustls-pemfile = { workspace = true, optional = true }
 
 [target.'cfg(unix)'.dependencies]
 libc = { workspace = true }
 
 [dev-dependencies]
 tokio-test = "0.4"
+rcgen = { workspace = true }
+tempfile = { workspace = true }
