@@ -14,7 +14,7 @@ fn kernel_blocks_bogon_network_dest() {
 
 #[test]
 fn runtime_discovers_ip_discrambler_when_present() {
-    let rt = OsRuntime::boot().expect("boot");
+    let rt = OsRuntime::boot_ephemeral().expect("boot");
     if IpDiscramblerBridge::discover().is_ok() {
         assert!(rt.ip_discrambler.is_some());
     }
@@ -29,7 +29,7 @@ fn local_policy_verdict_blocks_reserved() {
 
 #[test]
 fn descramble_intent_uses_ip_policy() {
-    let rt = OsRuntime::boot().expect("boot");
+    let rt = OsRuntime::boot_ephemeral().expect("boot");
     let mut meta = BTreeMap::new();
     meta.insert("dest_ip".into(), "192.0.2.10".into());
     let intent = intentos_kernel::Intent {

@@ -69,6 +69,8 @@ pub use tools::SysTools;
 pub use vfs::{VfsError, VirtualFs};
 
 use intentos_kernel::{Kernel, KernelConfig};
+use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 /// IntentOS tier number for utilities.
@@ -116,6 +118,31 @@ impl OsRuntime {
                 intentos_kernel::KernelError::Serialize(format!("audit open: {e}"))
             })?);
         Self::boot_with_audit(audit)
+    }
+
+    /// Boot with audit + loom isolated under `dir` (safe for parallel tests).
+    pub fn boot_in(dir: impl AsRef<Path>) -> Result<Self, intentos_kernel::KernelError> {
+        let dir = dir.as_ref();
+        std::fs::create_dir_all(dir)
+            .map_err(|e| intentos_kernel::KernelError::Serialize(format!("state dir: {e}")))?;
+        let audit = Arc::new(
+            AuditLog::open_persisted(dir.join("audit.jsonl"))
+                .map_err(|e| intentos_kernel::KernelError::Serialize(format!("audit open: {e}")))?,
+        );
+        let loom = Arc::new(
+            LoomStore::open_in(dir)
+                .map_err(|e| intentos_kernel::KernelError::Serialize(format!("loom open: {e}")))?,
+        );
+        Self::boot_with_loom(audit, loom)
+    }
+
+    /// Ephemeral boot for tests — unique temp state directory per call.
+    pub fn boot_ephemeral() -> Result<Self, intentos_kernel::KernelError> {
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let n = COUNTER.fetch_add(1, Ordering::Relaxed);
+        let dir =
+            std::env::temp_dir().join(format!("intentos-ephemeral-{}-{}", std::process::id(), n));
+        Self::boot_in(dir)
     }
 
     pub fn boot_with_audit(audit: Arc<AuditLog>) -> Result<Self, intentos_kernel::KernelError> {

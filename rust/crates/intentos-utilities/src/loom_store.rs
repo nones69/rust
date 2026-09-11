@@ -55,16 +55,25 @@ pub struct LoomStore {
 impl LoomStore {
     pub fn open() -> Result<Self, LoomError> {
         let path = state_file_path();
+        // Retry once: parallel tests sharing ~/.intentos can race on first create.
+        match Self::open_once(&path) {
+            Ok(store) => Ok(store),
+            Err(LoomError::Io(_)) => Self::open_once(&path),
+            Err(err) => Err(err),
+        }
+    }
+
+    fn open_once(path: &Path) -> Result<Self, LoomError> {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }
         if path.exists() {
-            match Self::load_from(&path) {
+            match Self::load_from(path) {
                 Ok(store) => Ok(store),
                 // Concurrent writers can rename/replace the file mid-open; recover with defaults.
-                Err(LoomError::Io(_)) => {
+                Err(LoomError::Io(_)) | Err(LoomError::Json(_)) => {
                     let store = Self {
-                        path,
+                        path: path.to_path_buf(),
                         inner: Mutex::new(LoomSession::default()),
                         corruption_recovered: Mutex::new(true),
                     };
@@ -75,7 +84,7 @@ impl LoomStore {
             }
         } else {
             let store = Self {
-                path,
+                path: path.to_path_buf(),
                 inner: Mutex::new(LoomSession::default()),
                 corruption_recovered: Mutex::new(false),
             };

@@ -11,7 +11,7 @@ fn healthcare_mapper_patient_read() {
 
 #[test]
 fn healthcare_assessor_not_pilot_ready() {
-    let rt = OsRuntime::boot().expect("boot");
+    let rt = OsRuntime::boot_ephemeral().expect("boot");
     let report = HealthcareAssessor::assess(&rt.platform);
     assert_eq!(report.sector, "healthcare");
     assert!(!report.pilot_ready);
@@ -20,7 +20,7 @@ fn healthcare_assessor_not_pilot_ready() {
 
 #[test]
 fn healthcare_map_and_audit() {
-    let rt = OsRuntime::boot().expect("boot");
+    let rt = OsRuntime::boot_ephemeral().expect("boot");
     let intent =
         HealthcareMapper::map_and_audit("Observation.list", "clinician", &rt.audit).expect("map");
     assert_eq!(intent.resource, "observation");

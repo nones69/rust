@@ -13,7 +13,7 @@ fn banking_mapper_emv_authorize() {
 
 #[test]
 fn banking_assessor_not_pilot_ready() {
-    // Avoid OsRuntime::boot(): it shares ~/.intentos loom state across parallel tests.
+    // Avoid OsRuntime::boot_ephemeral(): it shares ~/.intentos loom state across parallel tests.
     let platform = native_hal().probe();
     let report = BankingAssessor::assess(&platform);
     assert_eq!(report.sector, "banking");

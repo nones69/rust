@@ -4,7 +4,7 @@ use intentos_utilities::{MarketDeploymentReporter, OsRuntime};
 
 #[test]
 fn market_status_lists_all_six_sectors() {
-    let rt = OsRuntime::boot().expect("boot");
+    let rt = OsRuntime::boot_ephemeral().expect("boot");
     let report = MarketDeploymentReporter::status(&rt.platform, &rt.audit, &rt.identity);
     assert!(report.phase2_scaffolds_complete);
     assert_eq!(report.sectors.len(), 6);

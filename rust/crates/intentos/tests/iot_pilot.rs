@@ -11,7 +11,7 @@ fn iot_mapper_ota_publish() {
 
 #[test]
 fn iot_assessor_not_pilot_ready() {
-    let rt = OsRuntime::boot().expect("boot");
+    let rt = OsRuntime::boot_ephemeral().expect("boot");
     let report = IotAssessor::assess(&rt.platform);
     assert_eq!(report.sector, "iot");
     assert!(!report.pilot_ready);
@@ -21,7 +21,7 @@ fn iot_assessor_not_pilot_ready() {
 
 #[test]
 fn iot_map_and_audit() {
-    let rt = OsRuntime::boot().expect("boot");
+    let rt = OsRuntime::boot_ephemeral().expect("boot");
     let intent = IotMapper::map_and_audit("Boot.verify", "fleet-admin", &rt.audit).expect("map");
     assert_eq!(intent.resource, "boot");
     assert_eq!(

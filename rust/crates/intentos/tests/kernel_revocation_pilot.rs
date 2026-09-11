@@ -6,7 +6,7 @@ use intentos_utilities::OsRuntime;
 
 #[test]
 fn boot_records_rollback_baseline_checkpoint() {
-    let rt = OsRuntime::boot().expect("boot");
+    let rt = OsRuntime::boot_ephemeral().expect("boot");
     assert!(rt
         .audit
         .has_kind(AuditEventKind::RollbackCheckpoint)
@@ -15,7 +15,7 @@ fn boot_records_rollback_baseline_checkpoint() {
 
 #[test]
 fn revoke_blocks_active_capability() {
-    let rt = OsRuntime::boot().expect("boot");
+    let rt = OsRuntime::boot_ephemeral().expect("boot");
     let intent = Intent {
         actor: "trader".into(),
         resource: "file".into(),
@@ -41,7 +41,7 @@ fn revoke_blocks_active_capability() {
 
 #[test]
 fn revoke_by_handle_hex() {
-    let rt = OsRuntime::boot().expect("boot");
+    let rt = OsRuntime::boot_ephemeral().expect("boot");
     let intent = Intent {
         actor: "trader".into(),
         resource: "file".into(),
