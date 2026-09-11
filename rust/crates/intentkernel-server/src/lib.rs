@@ -35,7 +35,7 @@ use ikrl_transport::{Channel, Listener};
 use intentos_audit::AuditEventKind;
 use intentos_kernel::{
     Handle, Intent, Kernel, KernelError, SyscallOp as KernelSyscallOp, SyscallRequest,
-    SyscallResult, TrustAnchor,
+    SyscallResult, Token, TrustAnchor,
 };
 use tracing::{info, warn};
 
@@ -298,20 +298,44 @@ async fn dispatch(
             }
         }
 
-        RegisterToken { token_jti, .. } => {
-            if let Some(audit) = kernel.audit_ref() {
-                let _ = audit.record(
-                    if peer.is_remote() {
-                        AuditEventKind::RemoteHandleRegistered
-                    } else {
-                        AuditEventKind::HandleRegistered
-                    },
-                    &peer.principal,
-                    format!("jti={token_jti}"),
-                );
+        RegisterToken {
+            token_jti,
+            token_cbor,
+            ..
+        } => match decode_token_cbor(&token_cbor) {
+            Ok(token) => {
+                if token.jti != token_jti && !token_jti.is_empty() {
+                    return KernelRpcResponse::denied(format!(
+                        "token_jti mismatch: envelope={token_jti} token={}",
+                        token.jti
+                    ));
+                }
+                match kernel.register_token(token) {
+                    Ok(handle) => {
+                        if let Some(audit) = kernel.audit_ref() {
+                            let _ = audit.record(
+                                if peer.is_remote() {
+                                    AuditEventKind::RemoteHandleRegistered
+                                } else {
+                                    AuditEventKind::HandleRegistered
+                                },
+                                &peer.principal,
+                                format!("jti={} handle=0x{:X}", token_jti, handle.as_u64()),
+                            );
+                        }
+                        KernelRpcResponse::ok(serde_json::json!({
+                            "registered": true,
+                            "handle": handle.as_u64(),
+                            "jti": token_jti,
+                        }))
+                    }
+                    Err(KernelError::Revoked) => KernelRpcResponse::denied("token revoked"),
+                    Err(KernelError::PolicyDenied(r)) => KernelRpcResponse::denied(r),
+                    Err(e) => KernelRpcResponse::error(e.to_string()),
+                }
             }
-            KernelRpcResponse::ok(serde_json::json!({ "registered": true }))
-        }
+            Err(e) => KernelRpcResponse::error(format!("token decode failed: {e}")),
+        },
 
         RevokeToken { jti, actor, .. } => {
             let revoked = kernel.revoke_jti(&jti, &actor);
@@ -418,6 +442,113 @@ fn map_op(op: SyscallOp) -> KernelSyscallOp {
     }
 }
 
+fn decode_token_cbor(bytes: &[u8]) -> Result<Token, String> {
+    ciborium::de::from_reader(bytes).map_err(|e| e.to_string())
+}
+
+/// Serve a kernel over an mTLS [`SecureListener`] indefinitely.
+///
+/// Prototype entry-point for remote IntentKernel IPC. Pair with
+/// [`ikrl_transport::DevPki`] for local/dev certificate material — not a
+/// production PKI claim.
+pub async fn serve_mtls(kernel: Arc<Kernel>, listener: ikrl_transport::SecureListener) {
+    let state = Arc::new(StdMutex::new(ServerState::new()));
+    let local_addr = listener.local_addr().unwrap_or_else(|_| "?".into());
+    info!("kernel IPC mTLS server listening on {local_addr}");
+
+    if let Some(audit) = kernel.audit_ref() {
+        let _ = audit.record(
+            AuditEventKind::BrokerTcpListening,
+            "ipc_server_mtls",
+            format!("addr={local_addr}"),
+        );
+    }
+
+    loop {
+        match listener.accept().await {
+            Ok(ch) => {
+                let kernel = Arc::clone(&kernel);
+                let state = Arc::clone(&state);
+                tokio::spawn(async move {
+                    handle_secure_connection(kernel, state, ch).await;
+                });
+            }
+            Err(e) => {
+                warn!("mtls accept error: {e}");
+            }
+        }
+    }
+}
+
+async fn handle_secure_connection(
+    kernel: Arc<Kernel>,
+    state: Arc<StdMutex<ServerState>>,
+    mut ch: ikrl_transport::SecureChannel,
+) {
+    // Adapt SecureChannel framing to the same handshake/RPC loop by using its
+    // send_json/recv_json API (compatible with Channel framing).
+    let fingerprint = ch.peer_cert_fingerprint().unwrap_or("unknown").to_string();
+
+    let handshake: Handshake = match ch.recv_json().await {
+        Ok(h) => h,
+        Err(e) => {
+            warn!("mtls handshake recv error: {e}");
+            return;
+        }
+    };
+
+    if handshake.protocol_version != PROTOCOL_VERSION {
+        let _ = ch
+            .send_json(&HandshakeAck::VersionMismatch {
+                supported: PROTOCOL_VERSION,
+                requested: handshake.protocol_version,
+            })
+            .await;
+        return;
+    }
+
+    let peer = PeerIdentity {
+        principal: handshake.client_id.clone(),
+        cert_fingerprint: fingerprint,
+        transport: TransportKind::Tls,
+    };
+
+    let ack = HandshakeAck::Ok {
+        server_id: "intentos-kernel".into(),
+        protocol_version: PROTOCOL_VERSION,
+    };
+    if ch.send_json(&ack).await.is_err() {
+        return;
+    }
+
+    let admitted = { state.lock().unwrap().admit(&peer.principal) };
+    if !admitted {
+        let _ = ch
+            .send_json(&KernelRpcResponse::denied("quota exceeded"))
+            .await;
+        return;
+    }
+
+    loop {
+        let req: KernelRpcRequest = match ch.recv_json().await {
+            Ok(r) => r,
+            Err(_) => break,
+        };
+        {
+            let mut s = state.lock().unwrap();
+            s.increment(&peer.principal);
+        }
+        let resp = dispatch(&kernel, &peer, req).await;
+        if ch.send_json(&resp).await.is_err() {
+            break;
+        }
+    }
+
+    {
+        state.lock().unwrap().release(&peer.principal);
+    }
+}
+
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -506,5 +637,116 @@ mod tests {
         ch.send_json(&bad_hs).await.unwrap();
         let ack: HandshakeAck = ch.recv_json().await.unwrap();
         assert!(matches!(ack, HandshakeAck::VersionMismatch { .. }));
+    }
+
+    #[tokio::test]
+    async fn register_token_rpc_returns_handle() {
+        let (kernel, addr) = boot_test_server().await;
+        let mut ch = Channel::connect(&addr).await.unwrap();
+        do_handshake(&mut ch).await;
+
+        // Mint on the same kernel instance the server holds, then register via RPC.
+        let token = kernel
+            .mint_token_confirmed(
+                intentos_kernel::Intent {
+                    actor: "reg-app".into(),
+                    resource: "file".into(),
+                    action: "read".into(),
+                    anchor: intentos_kernel::TrustAnchor::UiEvent,
+                    timestamp_ms: wall_ms(),
+                    metadata: Default::default(),
+                },
+                false,
+            )
+            .unwrap();
+        let mut cbor = Vec::new();
+        ciborium::ser::into_writer(&token, &mut cbor).unwrap();
+
+        let req = KernelRpcRequest::RegisterToken {
+            call_id: uuid::Uuid::new_v4(),
+            token_jti: token.jti.clone(),
+            token_cbor: cbor,
+        };
+        ch.send_json(&req).await.unwrap();
+        let resp: KernelRpcResponse = ch.recv_json().await.unwrap();
+        match resp {
+            KernelRpcResponse::Ok(v) => {
+                assert_eq!(v["registered"], true);
+                assert!(v["handle"].as_u64().is_some());
+                assert_eq!(v["jti"], token.jti);
+            }
+            other => panic!("register failed: {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn serve_mtls_health_roundtrip() {
+        use ikrl_transport::{dev_pki::DevPki, SecureChannel, SecureListener};
+
+        let dir = tempfile::tempdir().unwrap();
+        let paths = DevPki::generate().unwrap().materialize(dir.path()).unwrap();
+        let kernel = Arc::new(Kernel::boot().unwrap());
+        let listener = SecureListener::bind("tcp://127.0.0.1:0", &paths.server_mtls_config())
+            .await
+            .unwrap();
+        let local = listener.local_addr().unwrap();
+        let addr = format!("tcp://{local}");
+        let k2 = Arc::clone(&kernel);
+        tokio::spawn(async move { serve_mtls(k2, listener).await });
+        tokio::time::sleep(std::time::Duration::from_millis(30)).await;
+
+        let mut ch = SecureChannel::connect(&addr, &paths.client_mtls_config())
+            .await
+            .unwrap();
+        // Client-side fingerprint population is best-effort in the prototype TLS wrapper.
+        let _ = ch.peer_cert_fingerprint();
+        do_handshake_secure(&mut ch).await;
+        ch.send_json(&KernelRpcRequest::Health).await.unwrap();
+        let resp: KernelRpcResponse = ch.recv_json().await.unwrap();
+        assert!(resp.is_ok(), "{resp:?}");
+    }
+
+    async fn do_handshake_secure(ch: &mut ikrl_transport::SecureChannel) {
+        let hs = Handshake {
+            protocol_version: PROTOCOL_VERSION,
+            client_id: "mtls-test".into(),
+        };
+        ch.send_json(&hs).await.unwrap();
+        let _ack: HandshakeAck = ch.recv_json().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn federation_hello_over_tcp_framing() {
+        use intentos_kernel::{FederationCluster, FederationRole, HelloMessage, WelcomeMessage};
+
+        let leader = FederationCluster::new(FederationRole::Leader, vec!["file:read".into()]);
+        let worker = FederationCluster::new(FederationRole::Worker, vec!["file:read".into()]);
+
+        let listener = Listener::bind("tcp://127.0.0.1:0").await.unwrap();
+        let local = listener.local_addr().unwrap();
+        let addr = format!("tcp://{local}");
+
+        let server = tokio::spawn(async move {
+            let mut ch = listener.accept().await.unwrap();
+            let hello: HelloMessage = ch.recv_json().await.unwrap();
+            let welcome = leader.process_hello(hello);
+            ch.send_json(&welcome).await.unwrap();
+            leader.cluster_id()
+        });
+
+        let hello = worker.build_hello();
+        let client = tokio::spawn(async move {
+            let mut ch = Channel::connect(&addr).await.unwrap();
+            ch.send_json(&hello).await.unwrap();
+            let welcome: WelcomeMessage = ch.recv_json().await.unwrap();
+            welcome
+        });
+
+        let (leader_cluster, welcome) = tokio::join!(server, client);
+        let leader_cid = leader_cluster.unwrap();
+        let welcome = welcome.unwrap();
+        worker.process_welcome(welcome);
+        assert!(worker.cluster_id().is_some());
+        assert_eq!(worker.cluster_id(), leader_cid);
     }
 }

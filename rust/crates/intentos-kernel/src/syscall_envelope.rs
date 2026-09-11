@@ -52,6 +52,31 @@ pub enum IkSyscall {
         headers: Vec<(String, String)>,
         body: Vec<u8>,
     },
+    /// Federation hello — advertise this kernel into a mesh.
+    IkFederationHello {
+        kernel_id: uuid::Uuid,
+        capabilities: Vec<String>,
+        version: String,
+    },
+    /// Federation welcome — cluster assignment + peer list.
+    IkFederationWelcome {
+        cluster_id: uuid::Uuid,
+        peers: Vec<String>,
+        policy_hash: String,
+    },
+    /// Forward an opaque syscall JSON payload to a remote kernel id.
+    IkForward {
+        target_kernel: uuid::Uuid,
+        syscall_json: serde_json::Value,
+    },
+    /// Delegate a sandboxed task to a remote worker.
+    IkTaskDelegate {
+        target_kernel: uuid::Uuid,
+        program: String,
+        args: Vec<String>,
+        mode: String,
+        priority: String,
+    },
 }
 
 /// Wire envelope wrapping a token ID and a syscall.

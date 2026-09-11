@@ -236,7 +236,6 @@ mod tests {
 
 #[cfg(test)]
 mod kernel_policy_tests {
-    use super::PolicyEngine;
     use crate::types::{wall_ms, Intent, TrustAnchor};
     use crate::{Kernel, KernelError};
     use std::collections::BTreeMap;

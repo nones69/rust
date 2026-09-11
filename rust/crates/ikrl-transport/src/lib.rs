@@ -27,10 +27,16 @@ pub mod peer_creds;
 #[cfg(feature = "tls")]
 pub mod tls;
 
+#[cfg(feature = "tls")]
+pub mod dev_pki;
+
 pub use replay::{ReplayError, ReplayGuard};
 
 #[cfg(feature = "tls")]
 pub use tls::{PeerIdentity, SecureChannel, SecureListener, TlsConfig, TlsMode};
+
+#[cfg(feature = "tls")]
+pub use dev_pki::{DevPki, DevPkiPaths};
 
 use anyhow::{Context, Result};
 use serde::{de::DeserializeOwned, Serialize};
