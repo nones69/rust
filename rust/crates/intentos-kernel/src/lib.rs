@@ -48,9 +48,9 @@ pub use crypto::{
 };
 pub use error::KernelError;
 pub use federation::{
-    FedSandboxMode, FedTaskPriority, FederatedAuditEntry, FederationCluster, FederationPeer,
-    FederationRole, FederationStatus, ForwardedSyscall, HeartbeatMessage, HelloMessage,
-    PolicyUpdate, TaskDelegation, TaskResult, WelcomeMessage,
+    dispatch_federation_syscall, FedSandboxMode, FedTaskPriority, FederatedAuditEntry,
+    FederationCluster, FederationPeer, FederationRole, FederationStatus, ForwardedSyscall,
+    HeartbeatMessage, HelloMessage, PolicyUpdate, TaskDelegation, TaskResult, WelcomeMessage,
 };
 pub use field::Field;
 pub use ip_policy::{
