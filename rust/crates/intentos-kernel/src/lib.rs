@@ -30,6 +30,7 @@ mod types;
 
 mod quota;
 pub mod sandbox_manager;
+pub mod scheduler;
 pub mod syscall;
 mod syscall_envelope;
 mod token_verifier;
@@ -58,6 +59,10 @@ pub use recognizer::{IntentRecognizer, RecognizedIntent, StubRecognizer};
 pub use revocation::RevocationList;
 pub use sandbox_manager::{
     SandboxConfig, SandboxError, SandboxManager, SandboxMode, SandboxProcess,
+};
+pub use scheduler::{
+    RemoteTask, SchedProcess, SchedProcessState, Scheduler, SchedulerStats, Task, TaskPriority,
+    TaskState,
 };
 pub use signals::ThresholdSignals;
 pub use syscall::{dispatch_call, dispatch_with_table};
