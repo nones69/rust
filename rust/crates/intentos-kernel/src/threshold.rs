@@ -53,9 +53,13 @@ impl PolicyOutcome {
 /// Map resource/action pairs to intrinsic risk level.
 pub fn risk_for(resource: &str, action: &str) -> ThresholdLevel {
     match (resource, action) {
-        ("file", "read") | ("dir", "list") | ("file", "list") => ThresholdLevel::Low,
+        ("file", "read")
+        | ("dir", "list")
+        | ("file", "list")
+        | ("display", "draw")
+        | ("display", "notification") => ThresholdLevel::Low,
         ("file", "write") | ("network", "descramble") => ThresholdLevel::Medium,
-        ("network", "send") | ("ai", "infer") => ThresholdLevel::High,
+        ("network", "send") | ("network", "connect") | ("ai", "infer") => ThresholdLevel::High,
         _ => ThresholdLevel::Medium,
     }
 }

@@ -168,6 +168,8 @@ fn op_matches_kind(op: &SyscallOp, kind: CapabilityKind) -> bool {
             | (SyscallOp::List, CapabilityKind::DirList)
             | (SyscallOp::Send, CapabilityKind::NetSend)
             | (SyscallOp::Infer, CapabilityKind::AiInfer)
+            | (SyscallOp::Draw, CapabilityKind::DisplayDraw)
+            | (SyscallOp::Notify, CapabilityKind::DisplayNotify)
     )
 }
 

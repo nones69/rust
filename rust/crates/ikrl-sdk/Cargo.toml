@@ -4,16 +4,28 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
+description = "IntentKernel Relief Layer SDK — nine primitives (IntentOS in-process primary path)"
+
+[features]
+default = ["intentos"]
+# Primary: wire primitives to intentos-kernel (in-process).
+intentos = ["dep:intentos-kernel"]
+# Legacy: JSON-RPC to intentd/eventscope daemons.
+remote = ["dep:intentkernel-core", "dep:intentkernel-crypto", "dep:ikrl-transport"]
 
 [dependencies]
-intentkernel-core = { workspace = true }
-intentkernel-crypto = { workspace = true }
-ikrl-transport = { workspace = true }
+intentos-kernel = { workspace = true, optional = true }
+intentkernel-core = { workspace = true, optional = true }
+intentkernel-crypto = { workspace = true, optional = true }
+ikrl-transport = { workspace = true, optional = true }
 tokio = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
 
 [lib]
 name = "ikrl_sdk"

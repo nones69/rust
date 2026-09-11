@@ -132,7 +132,9 @@ The long-term developer surface aims for a tiny set of primitives (names illustr
 | `exit` | End the execution context |
 
 The Rust prototype exposes a **richer** internal API (policy engine, tables, leases, demos).
-Convergence toward a minimal public SDK is a goal, not a claim that only nine syscalls exist today.
+The `ikrl-sdk` crate now implements these nine primitives against the **IntentOS in-process**
+kernel (mint / register / dispatch / default-deny). That is a prototype SDK surface — not a
+claim that only nine syscalls exist, nor that host overlays are complete.
 
 ---
 
