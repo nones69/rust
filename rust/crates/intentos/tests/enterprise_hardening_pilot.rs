@@ -15,7 +15,9 @@ fn hardening_gates_include_compat_threshold() {
         .iter()
         .find(|g| g.name == "tier1_compat")
         .expect("compat gate");
-    assert!(compat.threshold.contains(&TARGET_COMPAT_PASS_PCT.to_string()));
+    assert!(compat
+        .threshold
+        .contains(&TARGET_COMPAT_PASS_PCT.to_string()));
 }
 
 #[test]
@@ -23,10 +25,8 @@ fn rollback_checkpoint_enables_pilot_exit_when_other_gates_met() {
     let rt = OsRuntime::boot().expect("boot");
     RollbackCheckpoint::record(&rt.audit, "admin", "wave1-baseline", "intentos-0.1.0").unwrap();
     let report = EnterpriseHardeningAssessor::assess(&rt.platform, &rt.audit, &rt.identity);
-    assert!(
-        report
-            .gates
-            .iter()
-            .any(|g| g.name == "rollback_checkpoint" && g.met)
-    );
+    assert!(report
+        .gates
+        .iter()
+        .any(|g| g.name == "rollback_checkpoint" && g.met));
 }

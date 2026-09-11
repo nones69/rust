@@ -13,8 +13,8 @@ mod ai_os;
 mod broker_cmd;
 mod builtins;
 mod kb_tui;
-mod policy_cmd;
 mod parser;
+mod policy_cmd;
 mod session;
 mod tier;
 
@@ -42,4 +42,3 @@ impl Shell {
         self.session.eval(line)
     }
 }
-

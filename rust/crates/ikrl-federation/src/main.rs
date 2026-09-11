@@ -87,22 +87,19 @@ async fn main() -> Result<()> {
     let peers_clone = Arc::clone(&peers);
     tokio::spawn(async move {
         while let Ok(event) = receiver.recv() {
-            match event {
-                ServiceEvent::ServiceResolved(info) => {
-                    let id = info
-                        .get_fullname()
-                        .split('.')
-                        .next()
-                        .unwrap_or("unknown")
-                        .to_string();
-                    if let Some(addr) = info.get_addresses().iter().next() {
-                        let port = info.get_port();
-                        let listen = format!("{}:{}", addr, port);
-                        info!("discovered peer {} at {}", id, listen);
-                        peers_clone.lock().await.insert(id, listen);
-                    }
+            if let ServiceEvent::ServiceResolved(info) = event {
+                let id = info
+                    .get_fullname()
+                    .split('.')
+                    .next()
+                    .unwrap_or("unknown")
+                    .to_string();
+                if let Some(addr) = info.get_addresses().iter().next() {
+                    let port = info.get_port();
+                    let listen = format!("{}:{}", addr, port);
+                    info!("discovered peer {} at {}", id, listen);
+                    peers_clone.lock().await.insert(id, listen);
                 }
-                _ => {}
             }
         }
     });

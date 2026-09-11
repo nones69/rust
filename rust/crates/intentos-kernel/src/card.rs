@@ -1,7 +1,7 @@
 //! Intent Card — typed, scoped user intent with explicit capability request.
 
 use crate::threshold::ThresholdLevel;
-use crate::types::{CapabilityScope, wall_ms};
+use crate::types::{wall_ms, CapabilityScope};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 

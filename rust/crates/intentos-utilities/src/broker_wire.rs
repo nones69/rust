@@ -94,7 +94,11 @@ impl BrokerWireHub {
         }
     }
 
-    pub fn build_ack(request: &BrokerWireMessage, body: &[u8], sent_at_ms: u64) -> BrokerWireMessage {
+    pub fn build_ack(
+        request: &BrokerWireMessage,
+        body: &[u8],
+        sent_at_ms: u64,
+    ) -> BrokerWireMessage {
         BrokerWireMessage {
             wire_version: BROKER_WIRE_VERSION,
             kind: BrokerWireKind::DelegateAck,
@@ -129,11 +133,14 @@ impl BrokerWireHub {
         let public = decode_public_key(peer_public_key_hex)?;
         let signature = decode_signature(sig_hex)?;
         let bytes = unsigned_bytes(msg)?;
-        verify(&public, &bytes, &signature)
-            .map_err(|e| BrokerWireError::Crypto(e.to_string()))
+        verify(&public, &bytes, &signature).map_err(|e| BrokerWireError::Crypto(e.to_string()))
     }
 
-    pub fn enqueue_to_peer(&self, peer: &BrokerPeer, msg: &BrokerWireMessage) -> Result<(), BrokerWireError> {
+    pub fn enqueue_to_peer(
+        &self,
+        peer: &BrokerPeer,
+        msg: &BrokerWireMessage,
+    ) -> Result<(), BrokerWireError> {
         if msg.wire_version != BROKER_WIRE_VERSION {
             return Err(BrokerWireError::Protocol(format!(
                 "unsupported wire version {}",
@@ -164,7 +171,11 @@ impl BrokerWireHub {
         self.append_message(path, msg)
     }
 
-    pub fn recv_inbox(&self, device_id: &str, max: usize) -> Result<Vec<BrokerWireMessage>, BrokerWireError> {
+    pub fn recv_inbox(
+        &self,
+        device_id: &str,
+        max: usize,
+    ) -> Result<Vec<BrokerWireMessage>, BrokerWireError> {
         let path = self.inbox_path(device_id);
         if !path.exists() {
             return Ok(Vec::new());
@@ -209,10 +220,7 @@ impl BrokerWireHub {
             fs::create_dir_all(parent)?;
         }
         let line = serde_json::to_string(msg)?;
-        let mut file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(path)?;
+        let mut file = OpenOptions::new().create(true).append(true).open(path)?;
         writeln!(file, "{line}")?;
         file.flush()?;
         Ok(())
@@ -230,7 +238,7 @@ fn base64_payload(data: &[u8]) -> String {
 }
 
 pub fn decode_payload_hex(payload_b64: &str) -> Result<Vec<u8>, BrokerWireError> {
-    if payload_b64.len() % 2 != 0 {
+    if !payload_b64.len().is_multiple_of(2) {
         return Err(BrokerWireError::Protocol("invalid payload hex".into()));
     }
     (0..payload_b64.len())
@@ -267,7 +275,7 @@ fn decode_signature(hex_str: &str) -> Result<[u8; SIGNATURE_LEN], BrokerWireErro
 }
 
 fn hex_decode(hex_str: &str) -> Result<Vec<u8>, BrokerWireError> {
-    if hex_str.len() % 2 != 0 {
+    if !hex_str.len().is_multiple_of(2) {
         return Err(BrokerWireError::Crypto("invalid hex length".into()));
     }
     (0..hex_str.len())
@@ -310,7 +318,11 @@ mod tests {
     #[test]
     fn signed_delegate_round_trip_on_file_transport() {
         let keys = generate_broker_keys().unwrap();
-        let secret_hex: String = keys.secret_key_bytes().iter().map(|b| format!("{b:02x}")).collect();
+        let secret_hex: String = keys
+            .secret_key_bytes()
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect();
         let public_hex: String = keys.public_key_bytes()[..32]
             .iter()
             .map(|b| format!("{b:02x}"))

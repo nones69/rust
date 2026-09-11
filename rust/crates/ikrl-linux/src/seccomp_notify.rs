@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! Seccomp user-notification supervisor scaffold.
 //!
 //! This module is a **design placeholder** for the production Linux

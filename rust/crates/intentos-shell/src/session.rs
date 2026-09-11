@@ -135,33 +135,33 @@ impl ShellSession {
                 Ok(true)
             }
             "intent" => {
-                ctx.intent(&parsed)?;
+                ctx.intent(parsed)?;
                 Ok(true)
             }
             "flow" => {
-                ctx.flow(&parsed)?;
+                ctx.flow(parsed)?;
                 Ok(true)
             }
             "syscall" => {
-                ctx.syscall(&parsed)?;
+                ctx.syscall(parsed)?;
                 Ok(true)
             }
             "ls" => {
-                ctx.ls(&parsed)?;
+                ctx.ls(parsed)?;
                 Ok(true)
             }
             "cat" => {
-                ctx.cat(&parsed)?;
+                ctx.cat(parsed)?;
                 Ok(true)
             }
             "write" => {
-                ctx.write(&parsed)?;
+                ctx.write(parsed)?;
                 Ok(true)
             }
             "ai" => {
                 match parsed.arg(0) {
                     Some("infer") => {
-                        ctx.ai_infer(&parsed)?;
+                        ctx.ai_infer(parsed)?;
                     }
                     Some("enable") => {
                         ctx.ai_enable()?;
@@ -177,11 +177,11 @@ impl ShellSession {
                 Ok(true)
             }
             "loom" => {
-                ctx.loom_cmd(&parsed)?;
+                ctx.loom_cmd(parsed)?;
                 Ok(true)
             }
             "policy" => {
-                ctx.policy_cmd(&parsed)?;
+                ctx.policy_cmd(parsed)?;
                 Ok(true)
             }
             "hal" => {
@@ -189,7 +189,7 @@ impl ShellSession {
                 Ok(true)
             }
             "audit" => {
-                ctx.audit(&parsed)?;
+                ctx.audit(parsed)?;
                 Ok(true)
             }
             "telemetry" => {
@@ -213,11 +213,11 @@ impl ShellSession {
                 Ok(true)
             }
             "recognize" => {
-                ctx.recognize(&parsed)?;
+                ctx.recognize(parsed)?;
                 Ok(true)
             }
             "enterprise" | "ent" => {
-                ctx.enterprise(&parsed)?;
+                ctx.enterprise(parsed)?;
                 Ok(true)
             }
             "migrate" => {
@@ -228,59 +228,59 @@ impl ShellSession {
                 Ok(true)
             }
             "market" | "deploy" => {
-                ctx.market(&parsed)?;
+                ctx.market(parsed)?;
                 Ok(true)
             }
             "identity" | "id" => {
-                ctx.identity(&parsed)?;
+                ctx.identity(parsed)?;
                 Ok(true)
             }
             "healthcare" | "hc" => {
-                ctx.healthcare(&parsed)?;
+                ctx.healthcare(parsed)?;
                 Ok(true)
             }
             "safety" | "psafe" => {
-                ctx.public_safety(&parsed)?;
+                ctx.public_safety(parsed)?;
                 Ok(true)
             }
             "banking" | "bank" | "atm" => {
-                ctx.banking(&parsed)?;
+                ctx.banking(parsed)?;
                 Ok(true)
             }
             "iot" | "embedded" => {
-                ctx.iot(&parsed)?;
+                ctx.iot(parsed)?;
                 Ok(true)
             }
             "markets" | "trading" | "exchange" | "fm" => {
-                ctx.markets(&parsed)?;
+                ctx.markets(parsed)?;
                 Ok(true)
             }
             "kernel" => {
-                ctx.kernel_cmd(&parsed)?;
+                ctx.kernel_cmd(parsed)?;
                 Ok(true)
             }
             "field" => {
-                ctx.field_cmd(&parsed)?;
+                ctx.field_cmd(parsed)?;
                 Ok(true)
             }
             "kb" | "kernelbar" => {
-                ctx.kb_cmd(&parsed)?;
+                ctx.kb_cmd(parsed)?;
                 Ok(true)
             }
             "oobe" => {
-                ctx.oobe_cmd(&parsed)?;
+                ctx.oobe_cmd(parsed)?;
                 Ok(true)
             }
             "bench" => {
-                ctx.bench(&parsed)?;
+                ctx.bench(parsed)?;
                 Ok(true)
             }
             "ipdis" | "ip" => {
-                ctx.ipdis(&parsed)?;
+                ctx.ipdis(parsed)?;
                 Ok(true)
             }
             "lease" => {
-                ctx.lease(&parsed)?;
+                ctx.lease(parsed)?;
                 Ok(true)
             }
             "actor" => {

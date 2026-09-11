@@ -1,7 +1,7 @@
 //! Healthcare sector plugin scaffold — FHIR-shaped intent mapping (Phase 2).
 
 use intentos_audit::{AuditEventKind, AuditLog};
-use intentos_kernel::{Intent, TrustAnchor, wall_ms};
+use intentos_kernel::{wall_ms, Intent, TrustAnchor};
 use std::collections::BTreeMap;
 
 /// FHIR-oriented command → capability intent mapper (rule-based pilot).

@@ -37,7 +37,8 @@ impl LdapConfig {
         let url = std::env::var("INTENTOS_LDAP_URL").ok()?;
         let base_dn = std::env::var("INTENTOS_LDAP_BASE_DN")
             .unwrap_or_else(|_| "dc=corp,dc=local".to_string());
-        let domain = std::env::var("INTENTOS_AD_DOMAIN").unwrap_or_else(|_| "corp.local".to_string());
+        let domain =
+            std::env::var("INTENTOS_AD_DOMAIN").unwrap_or_else(|_| "corp.local".to_string());
         let bind_dn = std::env::var("INTENTOS_LDAP_BIND_DN").ok();
         let bind_password = std::env::var("INTENTOS_LDAP_BIND_PW").ok();
 
@@ -58,9 +59,8 @@ pub struct LiveLdap {
 
 impl LiveLdap {
     pub fn try_connect() -> Result<Self, LdapError> {
-        let config = LdapConfig::from_env().ok_or_else(|| {
-            LdapError::Connect("INTENTOS_LDAP_URL not set".into())
-        })?;
+        let config = LdapConfig::from_env()
+            .ok_or_else(|| LdapError::Connect("INTENTOS_LDAP_URL not set".into()))?;
         // Validate connection + bind up front so IdentityBridge can fall back cleanly.
         let mut conn = Self::open_conn(&config)?;
         if let (Some(dn), Some(pw)) = (&config.bind_dn, &config.bind_password) {
@@ -76,7 +76,9 @@ impl LiveLdap {
     pub fn lookup(&self, user: &str) -> Result<Principal, LdapError> {
         let local = user.split('@').next().unwrap_or(user).trim();
         let filter = std::env::var("INTENTOS_LDAP_USER_FILTER")
-            .unwrap_or_else(|_| "(|(uid={user})(sAMAccountName={user})(userPrincipalName={user}@*))".into())
+            .unwrap_or_else(|_| {
+                "(|(uid={user})(sAMAccountName={user})(userPrincipalName={user}@*))".into()
+            })
             .replace("{user}", local);
 
         let mut conn = Self::open_conn(&self.config)?;
@@ -92,7 +94,13 @@ impl LiveLdap {
                 &self.config.base_dn,
                 Scope::Subtree,
                 &filter,
-                vec!["cn", "uid", "sAMAccountName", "userPrincipalName", "memberOf"],
+                vec![
+                    "cn",
+                    "uid",
+                    "sAMAccountName",
+                    "userPrincipalName",
+                    "memberOf",
+                ],
             )
             .map_err(|e| LdapError::Search(e.to_string()))?
             .success()
@@ -117,12 +125,21 @@ impl LiveLdap {
             .iter()
             .filter(|(k, _)| k.eq_ignore_ascii_case("memberOf"))
             .flat_map(|(_, vals)| vals.iter())
-            .filter_map(|dn| dn.split(',').next().map(|cn| cn.trim_start_matches("CN=").to_string()))
+            .filter_map(|dn| {
+                dn.split(',')
+                    .next()
+                    .map(|cn| cn.trim_start_matches("CN=").to_string())
+            })
             .collect();
 
         let actor_id = format!(
             "{}\\{}",
-            self.config.domain.split('.').next().unwrap_or("CORP").to_uppercase(),
+            self.config
+                .domain
+                .split('.')
+                .next()
+                .unwrap_or("CORP")
+                .to_uppercase(),
             display.replace(' ', "-")
         );
 
@@ -136,8 +153,7 @@ impl LiveLdap {
     }
 
     fn open_conn(config: &LdapConfig) -> Result<LdapConn, LdapError> {
-        let mut conn = LdapConn::new(&config.url)
-            .map_err(|e| LdapError::Connect(e.to_string()))?;
+        let mut conn = LdapConn::new(&config.url).map_err(|e| LdapError::Connect(e.to_string()))?;
         conn.with_timeout(Duration::from_secs(TIMEOUT_SECS));
         Ok(conn)
     }

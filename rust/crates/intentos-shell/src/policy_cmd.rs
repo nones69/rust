@@ -23,7 +23,9 @@ impl BuiltinContext<'_> {
                 println!("active={:?}", session.policy_pack);
             }
             "use" => {
-                let name = parsed.arg(1).context("usage: policy use <personal|enterprise>")?;
+                let name = parsed
+                    .arg(1)
+                    .context("usage: policy use <personal|enterprise>")?;
                 let pack = PolicyPack::parse(name)
                     .with_context(|| format!("unknown policy pack: {name}"))?;
                 self.runtime.loom.set_policy_pack(pack)?;

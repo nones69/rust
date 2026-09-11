@@ -11,9 +11,7 @@ impl BuiltinContext<'_> {
         let sub = parsed.arg(0).unwrap_or("list");
         match sub {
             "create" => {
-                let name = parsed
-                    .arg(1)
-                    .context("usage: field create <name>")?;
+                let name = parsed.arg(1).context("usage: field create <name>")?;
                 let field = self.runtime.loom.create_field(name)?;
                 let _ = self.runtime.audit.record(
                     AuditEventKind::FieldSwitched,
@@ -96,9 +94,15 @@ impl BuiltinContext<'_> {
                 }
             }
             "create" => {
-                let title = parsed.arg(1).context("usage: kb create <title> <resource> <action>")?;
-                let resource = parsed.arg(2).context("usage: kb create <title> <resource> <action>")?;
-                let action = parsed.arg(3).context("usage: kb create <title> <resource> <action>")?;
+                let title = parsed
+                    .arg(1)
+                    .context("usage: kb create <title> <resource> <action>")?;
+                let resource = parsed
+                    .arg(2)
+                    .context("usage: kb create <title> <resource> <action>")?;
+                let action = parsed
+                    .arg(3)
+                    .context("usage: kb create <title> <resource> <action>")?;
                 let card = self.runtime.loom.create_card(title, resource, action)?;
                 let _ = self.runtime.audit.record(
                     AuditEventKind::CardCreated,
@@ -127,21 +131,19 @@ impl BuiltinContext<'_> {
                     platform.logical_cpus,
                     platform.backend,
                 );
-                let preview = self
-                    .runtime
-                    .loom
-                    .preview_card(card_id, Some(&signals))?;
+                let preview = self.runtime.loom.preview_card(card_id, Some(&signals))?;
                 println!("{}", serde_json::to_string_pretty(&preview)?);
                 if preview.requires_confirmation {
                     println!("confirmation required — run: kb run {card_id} --confirm");
                 }
             }
             "run" => {
-                let card_id = parsed.arg(1).context("usage: kb run <card_id> [--confirm]")?;
-                let confirmed = parsed.args.iter().any(|a| *a == "--confirm");
-                let signals = intentos_utilities::LoomStore::threshold_signals(
-                    &self.runtime.platform,
-                );
+                let card_id = parsed
+                    .arg(1)
+                    .context("usage: kb run <card_id> [--confirm]")?;
+                let confirmed = parsed.args.contains(&"--confirm");
+                let signals =
+                    intentos_utilities::LoomStore::threshold_signals(&self.runtime.platform);
                 let (handle, decision) = self
                     .runtime
                     .loom
@@ -179,9 +181,9 @@ impl BuiltinContext<'_> {
             "tui" | "bar" => {
                 crate::kb_tui::run_kb_tui(self)?;
             }
-            other => anyhow::bail!(
-                "usage: kb open|suggest|create|preview|run|status|tui (got: {other})"
-            ),
+            other => {
+                anyhow::bail!("usage: kb open|suggest|create|preview|run|status|tui (got: {other})")
+            }
         }
         Ok(())
     }
@@ -233,8 +235,10 @@ impl BuiltinContext<'_> {
                 match sub {
                     "status" => {
                         let session = self.runtime.loom.session();
-                        let manifest =
-                            intentos_utilities::emit_oobe_hook(&self.runtime.platform, &session.profile_id);
+                        let manifest = intentos_utilities::emit_oobe_hook(
+                            &self.runtime.platform,
+                            &session.profile_id,
+                        );
                         println!(
                             "oobe_hook platform={} path={} profile={}",
                             manifest.platform, manifest.hook_path, manifest.profile_id
@@ -242,11 +246,11 @@ impl BuiltinContext<'_> {
                     }
                     "emit" => {
                         let session = self.runtime.loom.session();
-                        let path = parsed
-                            .arg(2)
-                            .context("usage: oobe hook emit <path>")?;
-                        let manifest =
-                            intentos_utilities::emit_oobe_hook(&self.runtime.platform, &session.profile_id);
+                        let path = parsed.arg(2).context("usage: oobe hook emit <path>")?;
+                        let manifest = intentos_utilities::emit_oobe_hook(
+                            &self.runtime.platform,
+                            &session.profile_id,
+                        );
                         std::fs::create_dir_all(
                             std::path::Path::new(path)
                                 .parent()
@@ -266,9 +270,9 @@ impl BuiltinContext<'_> {
                     other => anyhow::bail!("usage: oobe hook status|emit <path> (got: {other})"),
                 }
             }
-            other => anyhow::bail!(
-                "usage: oobe status|run [low|medium|high]|reset|hook (got: {other})"
-            ),
+            other => {
+                anyhow::bail!("usage: oobe status|run [low|medium|high]|reset|hook (got: {other})")
+            }
         }
         Ok(())
     }
@@ -277,9 +281,7 @@ impl BuiltinContext<'_> {
         let sub = parsed.arg(0).unwrap_or("status");
         match sub {
             "export" => {
-                let path = parsed
-                    .arg(1)
-                    .context("usage: loom export <path>")?;
+                let path = parsed.arg(1).context("usage: loom export <path>")?;
                 let bundle = self.runtime.loom.export_signed(path)?;
                 let _ = self.runtime.audit.record(
                     AuditEventKind::LoomExported,
@@ -300,9 +302,7 @@ impl BuiltinContext<'_> {
                 );
             }
             "import" => {
-                let path = parsed
-                    .arg(1)
-                    .context("usage: loom import <path>")?;
+                let path = parsed.arg(1).context("usage: loom import <path>")?;
                 let payload = self.runtime.loom.import_signed(path)?;
                 let _ = self.runtime.audit.record(
                     AuditEventKind::LoomImported,

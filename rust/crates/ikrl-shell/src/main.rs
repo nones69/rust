@@ -55,7 +55,10 @@ async fn main() -> Result<()> {
     let args = Args::parse();
 
     println!("{}", boot_banner());
-    println!("  Shell tier: {} — type `help` for commands\n", SHELL.binary);
+    println!(
+        "  Shell tier: {} — type `help` for commands\n",
+        SHELL.binary
+    );
 
     let mut state = ShellState {
         endpoints: OsEndpoints {
@@ -245,8 +248,8 @@ async fn intent_cmd(parts: &[&str], state: &mut ShellState) -> Result<()> {
         println!("denied: {}", resp["reason"].as_str().unwrap_or("policy"));
         return Ok(());
     }
-    let token: CapabilityToken = serde_json::from_value(resp["data"].clone())
-        .context("intentd did not return a token")?;
+    let token: CapabilityToken =
+        serde_json::from_value(resp["data"].clone()).context("intentd did not return a token")?;
     let cbor = token.to_cbor()?;
     let hex_token = hex::encode(&cbor);
     state.last_token_hex = Some(hex_token.clone());
@@ -323,7 +326,10 @@ async fn ai_cmd(parts: &[&str], state: &mut ShellState) -> Result<()> {
     while i < parts.len() {
         if parts[i] == "--model" {
             i += 1;
-            model = parts.get(i).context("--model requires a value")?.to_string();
+            model = parts
+                .get(i)
+                .context("--model requires a value")?
+                .to_string();
         } else {
             prompt_parts.push(parts[i]);
         }

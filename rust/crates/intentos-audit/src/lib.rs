@@ -156,7 +156,10 @@ impl AuditLog {
     }
 
     pub fn corruption_recovered(&self) -> Result<bool, AuditError> {
-        Ok(*self.recovered.lock().map_err(|_| AuditError::LockPoisoned)?)
+        Ok(*self
+            .recovered
+            .lock()
+            .map_err(|_| AuditError::LockPoisoned)?)
     }
 
     fn reload_from_disk(&mut self) -> Result<(), AuditError> {
@@ -217,10 +220,7 @@ impl AuditLog {
 
     fn append_to_disk(&self, path: &Path, entry: &AuditEntry) -> Result<(), AuditError> {
         let line = serde_json::to_string(entry)?;
-        let mut file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(path)?;
+        let mut file = OpenOptions::new().create(true).append(true).open(path)?;
         writeln!(file, "{line}")?;
         file.flush()?;
         Ok(())
@@ -229,6 +229,10 @@ impl AuditLog {
     pub fn len(&self) -> Result<usize, AuditError> {
         let state = self.inner.lock().map_err(|_| AuditError::LockPoisoned)?;
         Ok(state.entries.len())
+    }
+
+    pub fn is_empty(&self) -> Result<bool, AuditError> {
+        Ok(self.len()? == 0)
     }
 
     pub fn tail(&self, n: usize) -> Result<Vec<AuditEntry>, AuditError> {
@@ -288,10 +292,7 @@ impl AuditLog {
 /// Redact path-like segments, IPs, and resource/cap identifiers in audit detail strings.
 pub fn redact_detail(detail: &str) -> String {
     let mut out = detail.to_string();
-    let tokens: Vec<String> = detail
-        .split_whitespace()
-        .map(str::to_string)
-        .collect();
+    let tokens: Vec<String> = detail.split_whitespace().map(str::to_string).collect();
     for token in tokens {
         if looks_sensitive_token(&token) {
             let redacted = "[REDACTED]";
@@ -389,8 +390,10 @@ mod tests {
     #[test]
     fn chain_verifies_after_appends() {
         let log = AuditLog::new();
-        log.record(AuditEventKind::Boot, "kernel", "boot ok").unwrap();
-        log.record(AuditEventKind::Policy, "shell", "allowed file read").unwrap();
+        log.record(AuditEventKind::Boot, "kernel", "boot ok")
+            .unwrap();
+        log.record(AuditEventKind::Policy, "shell", "allowed file read")
+            .unwrap();
         assert!(log.verify_chain().unwrap());
         assert_eq!(log.len().unwrap(), 2);
     }
@@ -407,7 +410,9 @@ mod tests {
     fn records_link_seq_and_prev_hash() {
         let log = AuditLog::new();
         let first = log.record(AuditEventKind::Boot, "kernel", "boot").unwrap();
-        let second = log.record(AuditEventKind::Syscall, "kernel", "read").unwrap();
+        let second = log
+            .record(AuditEventKind::Syscall, "kernel", "read")
+            .unwrap();
         assert_eq!(first.seq, 1);
         assert_eq!(second.seq, 2);
         // genesis -> first -> second forms an unbroken chain.
@@ -450,23 +455,22 @@ mod tests {
         let log = AuditLog::open_persisted(&path).unwrap();
         assert!(log.corruption_recovered().unwrap());
         assert_eq!(log.len().unwrap(), 0);
-        log.record(AuditEventKind::Boot, "kernel", "after recovery").unwrap();
+        log.record(AuditEventKind::Boot, "kernel", "after recovery")
+            .unwrap();
         assert_eq!(log.len().unwrap(), 1);
         let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]
     fn persisted_log_survives_reload() {
-        let dir = std::env::temp_dir().join(format!(
-            "intentos-audit-{}",
-            Uuid::new_v4()
-        ));
+        let dir = std::env::temp_dir().join(format!("intentos-audit-{}", Uuid::new_v4()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("audit.jsonl");
         {
             let log = AuditLog::open_persisted(&path).unwrap();
             log.record(AuditEventKind::Boot, "kernel", "boot").unwrap();
-            log.record(AuditEventKind::Policy, "shell", "allow").unwrap();
+            log.record(AuditEventKind::Policy, "shell", "allow")
+                .unwrap();
         }
         let log2 = AuditLog::open_persisted(&path).unwrap();
         assert_eq!(log2.len().unwrap(), 2);

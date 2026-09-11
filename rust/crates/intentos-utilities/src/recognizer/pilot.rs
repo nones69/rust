@@ -10,6 +10,12 @@ pub struct PilotRecognizer {
     stub: StubRecognizer,
 }
 
+impl Default for PilotRecognizer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PilotRecognizer {
     pub fn boot() -> Self {
         Self {

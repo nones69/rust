@@ -73,24 +73,14 @@ impl PolicyEngine {
         };
 
         let (allowed, requires_confirmation, reason, reason_code) = match outcome {
-            PolicyOutcome::Allow => (
-                true,
-                false,
-                "intentos policy allow".into(),
-                "allow".into(),
-            ),
+            PolicyOutcome::Allow => (true, false, "intentos policy allow".into(), "allow".into()),
             PolicyOutcome::Confirm => (
                 true,
                 true,
                 format!("threshold {risk:?} requires explicit confirmation"),
                 "confirm_required".into(),
             ),
-            PolicyOutcome::Deny => (
-                false,
-                false,
-                "threshold policy deny".into(),
-                "deny".into(),
-            ),
+            PolicyOutcome::Deny => (false, false, "threshold policy deny".into(), "deny".into()),
         };
 
         apply_ip_policy(
@@ -170,7 +160,7 @@ mod tests {
 
 #[cfg(test)]
 mod kernel_policy_tests {
-    use crate::types::{Intent, TrustAnchor, wall_ms};
+    use crate::types::{wall_ms, Intent, TrustAnchor};
     use crate::{Kernel, KernelError};
     use std::collections::BTreeMap;
 

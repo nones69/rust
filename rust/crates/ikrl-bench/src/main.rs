@@ -148,7 +148,7 @@ fn addr_port(addr: &str) -> Result<u16> {
     let stripped = addr.strip_prefix("tcp://").unwrap_or(addr);
     stripped
         .split(':')
-        .last()
+        .next_back()
         .and_then(|s| s.parse().ok())
         .context("invalid address")
 }

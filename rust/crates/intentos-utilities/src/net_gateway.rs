@@ -45,6 +45,12 @@ pub enum NetGatewayError {
     ResponseHeaderEncoding { name: String },
 }
 
+impl Default for NetGateway {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NetGateway {
     pub fn new() -> Self {
         Self::new_with_timeout(Duration::from_secs(10))
@@ -99,16 +105,20 @@ impl NetGateway {
             .map_err(|e| NetGatewayError::Http(e.to_string()))?;
 
         let status = resp.status().as_u16();
-        let response_headers = resp
-            .headers()
-            .iter()
-            .map(|(name, value)| -> Result<(String, String), NetGatewayError> {
-                let value = value.to_str().map_err(|_| NetGatewayError::ResponseHeaderEncoding {
-                    name: name.as_str().to_string(),
-                })?;
-                Ok((name.as_str().to_string(), value.to_string()))
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+        let response_headers =
+            resp.headers()
+                .iter()
+                .map(
+                    |(name, value)| -> Result<(String, String), NetGatewayError> {
+                        let value = value.to_str().map_err(|_| {
+                            NetGatewayError::ResponseHeaderEncoding {
+                                name: name.as_str().to_string(),
+                            }
+                        })?;
+                        Ok((name.as_str().to_string(), value.to_string()))
+                    },
+                )
+                .collect::<Result<Vec<_>, _>>()?;
         let body = resp
             .bytes()
             .map_err(|e| NetGatewayError::Http(e.to_string()))?
@@ -135,7 +145,11 @@ fn enforce_scope(
             reason: format!("method {method:?} not in token scope"),
         });
     }
-    if !scope.hosts.iter().any(|allowed| host_matches(host, allowed)) {
+    if !scope
+        .hosts
+        .iter()
+        .any(|allowed| host_matches(host, allowed))
+    {
         return Err(NetGatewayError::ScopeDenied {
             token_id: *token_id,
             reason: format!("host {host} not in token scope"),
@@ -207,13 +221,8 @@ mod tests {
             hosts: vec!["example.com".into()],
             methods: vec![HttpMethod::GET],
         };
-        let err = enforce_scope(
-            &Uuid::nil(),
-            &scope,
-            &HttpMethod::POST,
-            "api.example.com",
-        )
-        .unwrap_err();
+        let err =
+            enforce_scope(&Uuid::nil(), &scope, &HttpMethod::POST, "api.example.com").unwrap_err();
         assert!(matches!(err, NetGatewayError::ScopeDenied { .. }));
     }
 
@@ -223,13 +232,8 @@ mod tests {
             hosts: vec!["example.com".into()],
             methods: vec![HttpMethod::GET],
         };
-        let err = enforce_scope(
-            &Uuid::nil(),
-            &scope,
-            &HttpMethod::GET,
-            "api.evil.com",
-        )
-        .unwrap_err();
+        let err =
+            enforce_scope(&Uuid::nil(), &scope, &HttpMethod::GET, "api.evil.com").unwrap_err();
         assert!(matches!(err, NetGatewayError::ScopeDenied { .. }));
     }
 }

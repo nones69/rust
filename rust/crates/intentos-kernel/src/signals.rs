@@ -24,6 +24,7 @@ impl ThresholdSignals {
     }
 
     /// Full posture-aware signal derivation.
+    #[allow(clippy::too_many_arguments)]
     pub fn from_platform_and_posture(
         arch: &str,
         os: &str,
