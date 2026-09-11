@@ -35,7 +35,7 @@ pub use broker_wire::{
 };
 pub use capability_schema::NetScope;
 pub use federation::{FederationError, FederationHub};
-pub use host_vfs::{vfs_open, vfs_read, vfs_write};
+pub use host_vfs::{vfs_close, vfs_open, vfs_read, vfs_write};
 pub use intentos_audit::{AuditEntry, AuditEventKind, AuditLog};
 pub use intentos_hal::{
     native_hal, CpuArch, DevicePosture, HardwareAbstraction, HostOs, PlatformInfo,

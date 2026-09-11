@@ -61,6 +61,34 @@ impl PolicyEngine {
 
         let risk = risk_for(&intent.resource, &intent.action);
         let outcome = gate_outcome(risk, profile);
+        let known = matches!(
+            (intent.action.as_str(), intent.resource.as_str()),
+            ("read", "file")
+                | ("write", "file")
+                | ("list", "dir")
+                | ("list", "file")
+                | ("send", "network")
+                | ("descramble", "network")
+                | ("infer", "ai")
+                | ("background", "lease")
+        );
+        if !known {
+            return PolicyDecision {
+                outcome: PolicyOutcome::Deny,
+                allowed: false,
+                requires_confirmation: false,
+                threshold_level: profile,
+                reason: format!(
+                    "default-deny: unknown intent {}/{}",
+                    intent.resource, intent.action
+                ),
+                reason_code: "unknown_intent".into(),
+                cap_summary,
+                ttl_ms: 0,
+                max_uses: 0,
+            };
+        }
+
         let (ttl_ms, max_uses) = match (intent.action.as_str(), intent.resource.as_str()) {
             ("read", "file") => (5_000, 1),
             ("write", "file") => (10_000, 1),
@@ -69,8 +97,26 @@ impl PolicyEngine {
             ("descramble", "network") => (15_000, 1),
             ("infer", "ai") => (60_000, 1),
             ("background", "lease") => (30_000, 1),
-            _ => (5_000, 1),
+            _ => unreachable!("unknown intents denied above"),
         };
+
+        // Empty actor / resource / action is never ambiently allowed.
+        if intent.actor.trim().is_empty()
+            || intent.resource.trim().is_empty()
+            || intent.action.trim().is_empty()
+        {
+            return PolicyDecision {
+                outcome: PolicyOutcome::Deny,
+                allowed: false,
+                requires_confirmation: false,
+                threshold_level: profile,
+                reason: "default-deny: malformed intent fields".into(),
+                reason_code: "malformed_intent".into(),
+                cap_summary,
+                ttl_ms: 0,
+                max_uses: 0,
+            };
+        }
 
         let (allowed, requires_confirmation, reason, reason_code) = match outcome {
             PolicyOutcome::Allow => (true, false, "intentos policy allow".into(), "allow".into()),
@@ -160,6 +206,7 @@ mod tests {
 
 #[cfg(test)]
 mod kernel_policy_tests {
+    use super::PolicyEngine;
     use crate::types::{wall_ms, Intent, TrustAnchor};
     use crate::{Kernel, KernelError};
     use std::collections::BTreeMap;
@@ -198,5 +245,35 @@ mod kernel_policy_tests {
         };
         let err = k.mint_token(intent).unwrap_err();
         assert!(matches!(err, KernelError::PolicyDenied(_)));
+    }
+
+    #[test]
+    fn unknown_intent_is_default_denied() {
+        let intent = Intent {
+            actor: "user".into(),
+            resource: "camera".into(),
+            action: "stream".into(),
+            anchor: TrustAnchor::UiEvent,
+            timestamp_ms: wall_ms(),
+            metadata: BTreeMap::new(),
+        };
+        let d = PolicyEngine::evaluate(&intent);
+        assert!(!d.allowed);
+        assert_eq!(d.reason_code, "unknown_intent");
+    }
+
+    #[test]
+    fn empty_actor_is_default_denied() {
+        let intent = Intent {
+            actor: "  ".into(),
+            resource: "file".into(),
+            action: "read".into(),
+            anchor: TrustAnchor::UiEvent,
+            timestamp_ms: wall_ms(),
+            metadata: BTreeMap::new(),
+        };
+        let d = PolicyEngine::evaluate(&intent);
+        assert!(!d.allowed);
+        assert_eq!(d.reason_code, "malformed_intent");
     }
 }

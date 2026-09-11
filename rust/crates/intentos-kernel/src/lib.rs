@@ -28,6 +28,7 @@ mod threshold;
 mod token;
 mod types;
 
+mod quota;
 pub mod sandbox_manager;
 pub mod syscall;
 mod syscall_envelope;
@@ -52,17 +53,21 @@ pub use lease::LeaseManager;
 pub use loom::LoomSession;
 pub use policy::PolicyEngine;
 pub use policy_pack::PolicyPack;
+pub use quota::{apply_quota, enforce_quota};
 pub use recognizer::{IntentRecognizer, RecognizedIntent, StubRecognizer};
 pub use revocation::RevocationList;
 pub use sandbox_manager::{
     SandboxConfig, SandboxError, SandboxManager, SandboxMode, SandboxProcess,
 };
 pub use signals::ThresholdSignals;
+pub use syscall::{dispatch_call, dispatch_with_table};
 pub use syscall_envelope::{IkCallEnvelope, IkSyscall, OpenMode};
 pub use table::CapabilityTable;
 pub use threshold::{gate_outcome, risk_for, PolicyOutcome, ThresholdLevel};
 pub use token::TokenBroker;
-pub use token_verifier::{verify_token, verify_token_scope, VerifiedToken};
+pub use token_verifier::{
+    verify_token, verify_token_scope, verify_with_table, TokenQuota, VerifiedToken,
+};
 pub use types::*;
 
 use intentos_audit::{AuditEventKind, AuditLog};
@@ -297,6 +302,25 @@ impl Kernel {
         drop(state);
         self.audit_record(AuditEventKind::Syscall, "syscall", detail);
         result
+    }
+
+    /// Verify `env.token_id` against the capability table and dispatch the syscall.
+    ///
+    /// This is the table-backed path for `IkOpen`/`IkRead`/`IkWrite`/`IkClose`/`IkAiInfer`.
+    /// Unknown or exhausted tokens are denied before any utility runs.
+    pub fn dispatch(
+        &self,
+        env: crate::syscall_envelope::IkCallEnvelope,
+    ) -> Result<serde_json::Value, String> {
+        let mut token = {
+            let state = self.inner.lock().unwrap();
+            if state.revocations.is_revoked(&env.token_id.to_string()) {
+                return Err("token revoked".into());
+            }
+            crate::token_verifier::verify_with_table(&state.table, &env.token_id)
+                .map_err(|e| format!("token verification failed: {e}"))?
+        };
+        crate::syscall::dispatch_call(env, &mut token, self.audit.as_deref())
     }
 
     pub fn grant_lease(&self, pid: u32, ttl_ms: u64) -> ProcessLease {

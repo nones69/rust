@@ -621,6 +621,7 @@ fn build_container_command(
 mod tests {
     use super::*;
     use crate::capability_schema::{FsOp, FsScope, TokenScope};
+    use crate::token_verifier::{TokenQuota, VerifiedToken};
     use std::time::{Duration, SystemTime};
 
     fn make_token() -> VerifiedToken {
@@ -632,6 +633,7 @@ mod tests {
                 path_prefix: "/tmp/sandbox_test".into(),
                 ops: vec![FsOp::Read],
             }),
+            quota: TokenQuota::unlimited_now(),
         }
     }
 
@@ -644,6 +646,7 @@ mod tests {
                 path_prefix: "/tmp".into(),
                 ops: vec![FsOp::Read],
             }),
+            quota: TokenQuota::unlimited_now(),
         }
     }
 

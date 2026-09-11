@@ -144,10 +144,12 @@ impl Handle {
 pub struct SlotEntry {
     pub generation: u16,
     pub expires_ns: u64,
+    pub expires_wall_ms: u64,
     pub uses_left: u32,
     pub kind: CapabilityKind,
     pub scope: CapabilityScope,
     pub token_jti: String,
+    pub subject: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

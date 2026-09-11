@@ -55,10 +55,12 @@ impl CapabilityTable {
             *slot = Some(SlotEntry {
                 generation,
                 expires_ns: now + ttl_ns,
+                expires_wall_ms: token.exp,
                 uses_left: token.uses,
                 kind,
                 scope: token.scope.clone(),
                 token_jti: token.jti.clone(),
+                subject: token.sub.clone(),
             });
 
             let checksum = handle_checksum(idx as u32, generation);
@@ -134,6 +136,20 @@ impl CapabilityTable {
             slot.as_ref()
                 .filter(|e| e.generation == handle.generation)
                 .map(|e| e.token_jti.clone())
+        })
+    }
+
+    /// Returns true if this JTI was ever accepted by `register` (anti-replay set).
+    pub fn jti_was_registered(&self, jti: &str) -> bool {
+        self.seen_jtis.contains(jti)
+    }
+
+    /// Look up an active capability by JTI.
+    pub fn lookup_active_by_jti(&self, jti: &str) -> Option<&SlotEntry> {
+        let now = mono_ns();
+        self.slots.iter().find_map(|slot| {
+            slot.as_ref()
+                .filter(|e| e.token_jti == jti && e.expires_ns >= now && e.uses_left > 0)
         })
     }
 }
