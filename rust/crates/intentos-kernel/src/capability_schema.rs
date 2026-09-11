@@ -85,7 +85,13 @@ fn permits_net(scope: &NetScope, syscall: &IkSyscall) -> bool {
 
 fn permits_ai(scope: &AiScope, syscall: &IkSyscall) -> bool {
     match syscall {
-        IkSyscall::IkAiInfer { max_tokens, .. } => {
+        IkSyscall::IkAiInfer {
+            model, max_tokens, ..
+        } => {
+            let model_ok = scope.model == "*" || scope.model.eq_ignore_ascii_case(model);
+            if !model_ok {
+                return false;
+            }
             if let Some(limit) = scope.max_tokens {
                 if let Some(req) = max_tokens {
                     return *req <= limit;
@@ -165,6 +171,9 @@ fn host_matches(host: &str, allowed: &str) -> bool {
     let allowed = allowed.trim().to_ascii_lowercase();
     if allowed.is_empty() {
         return false;
+    }
+    if allowed == "*" {
+        return true;
     }
     host == allowed || host.ends_with(&format!(".{allowed}"))
 }

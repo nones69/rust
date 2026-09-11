@@ -30,6 +30,7 @@ pub mod syscall_types_impl {
             handle: Uuid,
         },
         IkAiInfer {
+            model: String,
             prompt: String,
             max_tokens: Option<u64>,
         },
@@ -217,12 +218,14 @@ impl IkClient {
     pub fn ai_infer(
         &mut self,
         token_id: Uuid,
+        model: &str,
         prompt: &str,
         max_tokens: Option<u64>,
     ) -> Result<serde_json::Value, IkError> {
         let envelope = types::IkCallEnvelope {
             token_id,
             call: syscall_types_impl::IkSyscall::IkAiInfer {
+                model: model.to_string(),
                 prompt: prompt.to_string(),
                 max_tokens,
             },

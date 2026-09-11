@@ -63,7 +63,7 @@ impl Editor {
     pub fn ai_assist(&mut self, prompt: &str) -> Result<(), String> {
         let resp = self
             .client
-            .ai_infer(self.token, prompt, Some(128))
+            .ai_infer(self.token, "stub", prompt, Some(128))
             .map_err(|e| format!("ai error: {e}"))?;
 
         let text = resp["text"]
