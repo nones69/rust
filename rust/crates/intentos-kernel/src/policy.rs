@@ -186,6 +186,36 @@ mod tests {
     }
 
     #[test]
+    fn unknown_intent_is_default_denied() {
+        let intent = Intent {
+            actor: "app".into(),
+            resource: "weird".into(),
+            action: "do-stuff".into(),
+            anchor: TrustAnchor::UiEvent,
+            timestamp_ms: wall_ms(),
+            metadata: BTreeMap::new(),
+        };
+        let d = PolicyEngine::evaluate(&intent);
+        assert!(!d.allowed);
+        assert_eq!(d.reason_code, "unknown_intent");
+    }
+
+    #[test]
+    fn empty_actor_is_default_denied() {
+        let intent = Intent {
+            actor: "  ".into(),
+            resource: "file".into(),
+            action: "read".into(),
+            anchor: TrustAnchor::UiEvent,
+            timestamp_ms: wall_ms(),
+            metadata: BTreeMap::new(),
+        };
+        let d = PolicyEngine::evaluate(&intent);
+        assert!(!d.allowed);
+        assert_eq!(d.reason_code, "malformed_intent");
+    }
+
+    #[test]
     fn high_threat_score_denies_otherwise_public_ip() {
         // Public IP (8.8.8.8) would normally pass, but a threat score >= 75
         // from IP-Discrambler must flip the decision to denied.
@@ -245,35 +275,5 @@ mod kernel_policy_tests {
         };
         let err = k.mint_token(intent).unwrap_err();
         assert!(matches!(err, KernelError::PolicyDenied(_)));
-    }
-
-    #[test]
-    fn unknown_intent_is_default_denied() {
-        let intent = Intent {
-            actor: "user".into(),
-            resource: "camera".into(),
-            action: "stream".into(),
-            anchor: TrustAnchor::UiEvent,
-            timestamp_ms: wall_ms(),
-            metadata: BTreeMap::new(),
-        };
-        let d = PolicyEngine::evaluate(&intent);
-        assert!(!d.allowed);
-        assert_eq!(d.reason_code, "unknown_intent");
-    }
-
-    #[test]
-    fn empty_actor_is_default_denied() {
-        let intent = Intent {
-            actor: "  ".into(),
-            resource: "file".into(),
-            action: "read".into(),
-            anchor: TrustAnchor::UiEvent,
-            timestamp_ms: wall_ms(),
-            metadata: BTreeMap::new(),
-        };
-        let d = PolicyEngine::evaluate(&intent);
-        assert!(!d.allowed);
-        assert_eq!(d.reason_code, "malformed_intent");
     }
 }
