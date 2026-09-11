@@ -4,7 +4,10 @@ import ipaddress
 from abc import ABC, abstractmethod
 from typing import Any, Optional
 
-import httpx
+try:
+    import httpx
+except ImportError:  # pragma: no cover - optional dependency for online lookups
+    httpx = None  # type: ignore[assignment]
 
 from ..config import Config
 
@@ -24,6 +27,8 @@ class IPWhoisGeoProvider(GeolocationProvider):
     """Free geolocation lookup via ipwho.is public API."""
 
     async def lookup(self, ip: str) -> dict[str, Any]:
+        if httpx is None:
+            return {"error": "httpx not installed"}
         try:
             async with httpx.AsyncClient(timeout=self.config.request_timeout) as client:
                 resp = await client.get(f"https://ipwho.is/{ip}")

@@ -94,3 +94,8 @@ terminals/
 aws___*.json
 name*.txt
 newthesis*.txt
+
+# C reference harness build products
+/test_harness
+/capability_core.o
+/secure_random.o

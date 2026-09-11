@@ -12,7 +12,10 @@ DEBUG_FLAGS = -g -DDEBUG
 INCLUDES = -Isrc
 
 # Main targets
-all: kernel test_harness
+all: test_harness
+
+# Cross-compiled bare-metal kernel (requires x86_64-elf-gcc + nasm)
+all-with-kernel: kernel test_harness
 
 KERNEL_OBJS = src/arch/x86_64/boot/boot.o src/kernel/console/console.o src/kernel/init/main.o
 
@@ -43,7 +46,7 @@ secure_random.o: src/reference/secure_random.c src/reference/secure_random.h
 
 # Build the test harness
 test_harness: src/test_harness.c capability_core.o secure_random.o
-	$(HOST_CC) $(HOST_CFLAGS) $(INCLUDES) -o test_harness src/test_harness.c capability_core.o secure_random.o -lrt
+	$(HOST_CC) $(HOST_CFLAGS) $(INCLUDES) -o test_harness src/test_harness.c capability_core.o secure_random.o
 
 # Emulation
 run: kernel
@@ -54,3 +57,11 @@ clean:
 	rm -f test_harness *.o *.elf *.bin *.iso src/arch/x86_64/boot/*.o src/kernel/init/*.o src/kernel/console/*.o
 
 .PHONY: all debug clean kernel run
+.PHONY: help
+help:
+	@echo "Host reference targets:"
+	@echo "  make test_harness   # build+link C capability harness (gcc)"
+	@echo "  make clean"
+	@echo "Bare-metal (optional, needs x86_64-elf-gcc + nasm):"
+	@echo "  make kernel"
+	@echo "  make run            # qemu-system-x86_64 -kernel IntentKernel.bin"

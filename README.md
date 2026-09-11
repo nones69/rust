@@ -78,9 +78,22 @@ Treat security language in older thesis drafts as **design goals**, not shipping
 ## Install / ISO / platform trees
 
 Directories such as [`install/`](install/), [`iso-build/`](iso-build/), and
-[`platform/`](platform/) contain experimental packaging and live-ISO work. They are
-**not** the primary verification path for the Rust prototype. Prefer `rust/` + `BUILD.md`
-unless you are deliberately working on those trees.
+[`platform/`](platform/) contain **experimental** packaging and live-ISO work.
+Each directory includes an `EXPERIMENTAL.md` (or README banner) describing status.
+They are **not** the primary verification path for the Rust prototype.
+
+Quarantined incomplete root bare-metal stubs live under
+[`experimental/baremetal-root-stubs/`](experimental/baremetal-root-stubs/).
+The intentional ISO/bare-metal pipeline is [`iso-build/`](iso-build/).
+
+Prefer `rust/` + `BUILD.md` unless you are deliberately working on those trees.
+
+### C reference harness
+
+```bash
+make test_harness
+./test_harness
+```
 
 ---
 
