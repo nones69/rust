@@ -1,23 +1,53 @@
 use serde_json::json;
 
 use crate::capability_schema::{AiScope, TokenScope};
+use crate::policy_engine::{build_default_registry, evaluate, RuleRegistry};
 use crate::quota::{apply_quota, enforce_quota};
 use crate::syscall_envelope::{IkCallEnvelope, IkSyscall};
 use crate::table::CapabilityTable;
-use crate::token_verifier::{verify_token_scope, verify_with_table, VerifiedToken};
+use crate::token_verifier::{verify_with_table, VerifiedToken};
 use crate::utilities;
 
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine as _;
 use intentos_audit::{AuditEventKind, AuditLog};
 
-/// Dispatch using an already-verified token (scope + quota enforced).
+/// Dispatch using an already-verified token after IKPE + quota enforcement.
+///
+/// When `registry` is `None`, the default IKPE rule stack is used (fail-closed
+/// if empty). Quota counters from capability-hardening still apply after IKPE.
 pub fn dispatch_call(
     env: IkCallEnvelope,
     token: &mut VerifiedToken,
     audit: Option<&AuditLog>,
+    registry: Option<&RuleRegistry>,
 ) -> Result<serde_json::Value, String> {
-    verify_token_scope(token, &env.call)?;
+    let owned;
+    let reg = match registry {
+        Some(r) => r,
+        None => {
+            owned = build_default_registry();
+            &owned
+        }
+    };
+
+    let decision = evaluate(reg, token, &env.call);
+    if !decision.allow {
+        if let Some(log) = audit {
+            let _ = log.record(
+                AuditEventKind::Syscall,
+                &token.issued_to,
+                format!(
+                    "syscall={} token={} outcome=ikpe_deny reason={}",
+                    syscall_name(&env.call),
+                    token.id,
+                    decision.deny_reason
+                ),
+            );
+        }
+        return Err(format!("ikpe deny: {}", decision.deny_reason));
+    }
+
     enforce_quota(token, &env.call)?;
 
     let syscall_name = syscall_name(&env.call);
@@ -66,12 +96,14 @@ pub fn dispatch_call(
             Ok(_) => "ok".to_string(),
             Err(e) => format!("err: {e}"),
         };
+        // Audit failures are intentionally non-fatal.
         let _ = log.record(
             AuditEventKind::Syscall,
             &token.issued_to,
             format!(
-                "syscall={syscall_name} token={} outcome={outcome}",
-                token.id
+                "syscall={syscall_name} token={} outcome={outcome} ikpe={}",
+                token.id,
+                decision.summary()
             ),
         );
     }
@@ -87,7 +119,7 @@ pub fn dispatch_with_table(
 ) -> Result<serde_json::Value, String> {
     let mut token = verify_with_table(table, &env.token_id)
         .map_err(|e| format!("token verification failed: {e}"))?;
-    dispatch_call(env, &mut token, audit)
+    dispatch_call(env, &mut token, audit, None)
 }
 
 fn ai_scope_for_model<'a>(scope: &'a TokenScope, model: &str) -> Option<&'a AiScope> {
@@ -160,10 +192,35 @@ mod tests {
             call_id: Uuid::new_v4(),
             timestamp_ms: 0,
         };
-        let err = dispatch_call(env, &mut token, None).unwrap_err();
+        let err = dispatch_call(env, &mut token, None, None).unwrap_err();
         assert!(
-            err.contains("scope") || err.contains("path"),
+            err.contains("ikpe deny") || err.contains("scope") || err.contains("path"),
             "unexpected: {err}"
         );
+    }
+
+    #[test]
+    fn ikpe_blocks_out_of_scope_before_vfs() {
+        let mut token = VerifiedToken {
+            id: Uuid::new_v4(),
+            issued_to: "app".into(),
+            expires_at: SystemTime::now() + Duration::from_secs(3600),
+            scope: TokenScope::Fs(FsScope {
+                path_prefix: "/tmp".into(),
+                ops: vec![FsOp::Read],
+            }),
+            quota: TokenQuota::unlimited_now(),
+        };
+        let env = IkCallEnvelope {
+            token_id: token.id,
+            call: IkSyscall::IkOpen {
+                path: "/etc/passwd".into(),
+                mode: OpenMode::Read,
+            },
+            call_id: Uuid::new_v4(),
+            timestamp_ms: 0,
+        };
+        let err = dispatch_call(env, &mut token, None, None).unwrap_err();
+        assert!(err.contains("ikpe deny"), "{err}");
     }
 }

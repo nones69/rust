@@ -19,6 +19,7 @@ mod ip_policy;
 mod lease;
 mod loom;
 mod policy;
+pub mod policy_engine;
 mod policy_pack;
 mod recognizer;
 mod revocation;
@@ -53,6 +54,10 @@ pub use ip_policy::{
 pub use lease::LeaseManager;
 pub use loom::LoomSession;
 pub use policy::PolicyEngine;
+pub use policy_engine::{
+    build_default_registry, evaluate as ikpe_evaluate, Evidence, IkpeDecision, PolicyResult,
+    PolicyRule, RuleRegistry,
+};
 pub use policy_pack::PolicyPack;
 pub use quota::{apply_quota, enforce_quota};
 pub use recognizer::{IntentRecognizer, RecognizedIntent, StubRecognizer};
@@ -325,7 +330,7 @@ impl Kernel {
             crate::token_verifier::verify_with_table(&state.table, &env.token_id)
                 .map_err(|e| format!("token verification failed: {e}"))?
         };
-        crate::syscall::dispatch_call(env, &mut token, self.audit.as_deref())
+        crate::syscall::dispatch_call(env, &mut token, self.audit.as_deref(), None)
     }
 
     pub fn grant_lease(&self, pid: u32, ttl_ms: u64) -> ProcessLease {
