@@ -10,6 +10,25 @@ This repository now contains two buildable implementations:
     compiler on Linux/macOS.
 
 ---
+## Happy path (primary)
+
+```bash
+cd rust
+cargo build --release -p intentos -p ransomware-demo -p ikrl-sim
+cargo test -p intentos --test happy_path
+cargo run -p intentos --release -- -c "status"
+cargo run -p intentos --release -- -c "intent file read"
+cargo run -p intentos --release -- -c "flow file write"
+cargo run -p ransomware-demo --release
+cargo run -p ikrl-sim --release
+```
+
+Or from repo root: `bash scripts/verify-prototype.sh`
+
+Layout map: [`docs/REPO_LAYOUT.md`](docs/REPO_LAYOUT.md).
+
+---
+
 
 ## Rust Implementation
 
@@ -44,21 +63,20 @@ cargo run -p ikrl-sim
 This exercises the full capability flow: intent → policy → token issuance →
 kernel handle → single-use enforcement.
 
-### Run the Ransomware Immunity Demo
+### Run the in-process ransomware capability demo
 
 ```bash
 cd rust
 cargo run -p ransomware-demo
 ```
 
-The demo shows:
-- A ransomware-like process is blocked from writing files with no capability.
+The demo shows (in-process only):
+- A ransomware-like actor is blocked from writing without a capability.
 - A legitimate user action issues a single-use write token.
 - The token is burned after one use and cannot be replayed.
-- Result: **0 bytes encrypted** by unauthorized code.
 
-> Note: this is an **in-process reference demo** of the capability flow, not a
-> host-wide ransomware immunity proof. See the root README “What remains unproven”.
+> **Not** a host-wide ransomware immunity proof. See the root README
+> “What remains unproven” and [`docs/vision.md`](docs/vision.md).
 
 ### Run the Daemon Stack
 
@@ -106,24 +124,6 @@ cargo run -p ikrl-bench --release -- --spawn-daemons --iterations 100
 Output reports mean, p50, p95, p99, min, and max latency in nanoseconds for
 `capd IssueToken`, `intentd SubmitIntent`, `capd VerifyToken`, and core table
 operations.
-
-### IP-Discrambler (Python tooling)
-
-The `tools/ip-discrambler/` directory contains a Python package for IP
-enrichment and threat intelligence. Install and run:
-
-```bash
-cd tools/ip-discrambler
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -e ".[dev]"
-cp .env.example .env
-ipdis lookup 8.8.8.8
-ipdis subnet 192.168.1.0/24 --expand
-```
-
-IP-Discrambler results can feed into IntentKernel policy decisions (e.g.,
-deny network capabilities to high-threat IPs).
 
 ### SDK
 
@@ -215,7 +215,7 @@ rust/crates/leasebroker/                 # Lease watchdog daemon
 rust/crates/eventscope/                  # Runtime wrapper / syscall shim
 rust/crates/ikrl-sdk/                    # Nine-primitive SDK
 rust/crates/ikrl-sim/                    # In-process simulator
-rust/crates/ransomware-demo/             # Ransomware immunity demo
+rust/crates/ransomware-demo/             # In-process ransomware capability demo
 rust/crates/ikrl-transport/              # Cross-platform IPC
 rust/crates/ikrl-cli/                    # Command-line interface
 rust/crates/ikrl-init/                   # Init / orchestrator
@@ -225,7 +225,6 @@ rust/crates/ikrl-ai/                     # AI capability gateway
 rust/crates/ikrl-fs/                     # Filesystem capability mediator
 rust/crates/ikrl-bench/                    # Benchmark harness
 rust/crates/ikrl-federation/             # Cross-device federation
-tools/ip-discrambler/                    # Python IP enrichment tooling
 ```
 
 ## Notes

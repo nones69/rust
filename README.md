@@ -44,6 +44,8 @@ cargo run -p intentos --release
 ```
 
 See [`BUILD.md`](BUILD.md) for the daemon stack, benchmarks, and C harness notes.
+Repository keep/quarantine map: [`docs/REPO_LAYOUT.md`](docs/REPO_LAYOUT.md).
+One-shot verify: `bash scripts/verify-prototype.sh`.
 CI workflows exercise `cargo fmt` / `clippy -D warnings` / tests on the pinned nightly
 toolchain (`rust-toolchain.toml`).
 
@@ -116,6 +118,8 @@ Quarantined incomplete root bare-metal stubs live under
 The intentional ISO/bare-metal pipeline is [`iso-build/`](iso-build/).
 
 Prefer `rust/` + `BUILD.md` unless you are deliberately working on those trees.
+
+See also [`src/README.md`](src/README.md) (reference harness vs experimental bare-metal stubs).
 
 ### C reference harness
 

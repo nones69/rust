@@ -70,10 +70,18 @@ impl DevPki {
     /// keys are discarded from this struct; files on disk are only updated when
     /// you call [`materialize`](Self::materialize) again. The CA PEM is unchanged.
     pub fn rotate_leaves(&mut self) -> Result<()> {
-        let (server_cert_pem, server_key_pem) =
-            make_leaf(&self.ca_cert, &self.ca_key, "intentkernel-dev-server", &self.server_name)?;
-        let (client_cert_pem, client_key_pem) =
-            make_leaf(&self.ca_cert, &self.ca_key, "intentkernel-dev-client", "client.local")?;
+        let (server_cert_pem, server_key_pem) = make_leaf(
+            &self.ca_cert,
+            &self.ca_key,
+            "intentkernel-dev-server",
+            &self.server_name,
+        )?;
+        let (client_cert_pem, client_key_pem) = make_leaf(
+            &self.ca_cert,
+            &self.ca_key,
+            "intentkernel-dev-client",
+            "client.local",
+        )?;
 
         self.server_cert_pem = server_cert_pem;
         self.server_key_pem = server_key_pem;
