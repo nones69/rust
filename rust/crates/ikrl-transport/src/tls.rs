@@ -191,6 +191,20 @@ fn extract_server_peer_identity<IO>(stream: &tokio_rustls::server::TlsStream<IO>
     }
 }
 
+fn extract_client_peer_identity<IO>(stream: &tokio_rustls::client::TlsStream<IO>) -> PeerIdentity {
+    let (_, conn) = stream.get_ref();
+    let certs = conn.peer_certificates();
+    // On the client, peer certificates are the server's chain (verified against CA).
+    let mtls_verified = certs.is_some_and(|c| !c.is_empty());
+    let cert_fingerprint = certs.and_then(|c| c.first()).map(fingerprint);
+    PeerIdentity {
+        mtls_verified,
+        cert_fingerprint,
+        pid: None,
+        uid: None,
+    }
+}
+
 // ─────────────────────────────── Channels ─────────────────────────────────
 
 /// A TLS-encrypted, optionally mutually-authenticated channel.
@@ -275,6 +289,18 @@ impl SecureChannel {
         self.peer.cert_fingerprint.as_deref()
     }
 
+    /// Enforce that the peer leaf fingerprint matches `expected` (hex, case-insensitive).
+    ///
+    /// Prototype pinning helper for labs/CI — not a substitute for a production
+    /// trust store / CRL / CT logs.
+    pub fn require_peer_fingerprint(&self, expected: &str) -> Result<()> {
+        match self.peer.cert_fingerprint.as_deref() {
+            Some(fp) if fp.eq_ignore_ascii_case(expected) => Ok(()),
+            Some(fp) => bail!("peer fingerprint mismatch: got {fp}, expected {expected}"),
+            None => bail!("peer fingerprint missing — cannot enforce pin"),
+        }
+    }
+
     /// Connect to a secure listener at `addr` using the provided TLS
     /// configuration.
     ///
@@ -301,9 +327,10 @@ impl SecureChannel {
                 .connect(server_name, stream)
                 .await
                 .context("TLS client handshake")?;
+            let peer = extract_client_peer_identity(&tls_stream);
             return Ok(SecureChannel {
                 inner: SecureChannelInner::TcpClient(tls_stream),
-                peer: PeerIdentity::default(),
+                peer,
             });
         }
 
@@ -318,11 +345,9 @@ impl SecureChannel {
                 .connect(server_name, stream)
                 .await
                 .context("TLS client handshake")?;
-            let peer = PeerIdentity {
-                pid: creds.pid,
-                uid: creds.uid,
-                ..Default::default()
-            };
+            let mut peer = extract_client_peer_identity(&tls_stream);
+            peer.pid = creds.pid;
+            peer.uid = creds.uid;
             return Ok(SecureChannel {
                 inner: SecureChannelInner::UnixClient(tls_stream),
                 peer,

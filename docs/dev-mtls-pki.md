@@ -27,3 +27,9 @@ let listener = SecureListener::bind("tcp://127.0.0.1:0", &paths.server_mtls_conf
 
 `intentkernel_server::serve_mtls` accepts a `SecureListener` and speaks the same
 RPC framing as the plain TCP server.
+
+## Lab helpers (prototype)
+
+- `DevPki::rotate_leaves` re-issues server/client leaves under the **same** throwaway CA (generation counter + fingerprints change; CA PEM does not).
+- `SecureChannel::require_peer_fingerprint` is a lab pin check after handshake — not a production trust store / CRL / CT substitute.
+- Client connections now populate `peer.cert_fingerprint` from the verified server leaf (SHA3-256 hex), matching the server-side peer leaf fingerprint path.
