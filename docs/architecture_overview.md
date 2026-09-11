@@ -1,3 +1,5 @@
+> Claim posture: see [`vision.md`](vision.md) and the root README. Specs here are design docs.
+
 # IntentKernel Architecture v1.1
 ## A Capability-Secure Execution Model for Event-Scoped Computing
 
