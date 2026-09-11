@@ -125,10 +125,16 @@ Output reports mean, p50, p95, p99, min, and max latency in nanoseconds for
 `capd IssueToken`, `intentd SubmitIntent`, `capd VerifyToken`, and core table
 operations.
 
-### SDK
+### SDK (nine primitives)
 
-The nine primitive APIs are provided by the `ikrl-sdk` crate. See
-`rust/crates/ikrl-sdk/src/lib.rs` for usage.
+Primary path is the IntentOS in-process backend:
+
+```bash
+cargo test -p ikrl-sdk
+cargo test -p ikrl-sdk --features remote   # legacy daemon client (optional)
+```
+
+See `rust/crates/ikrl-sdk/README.md`.
 
 ### Cross-platform notes
 

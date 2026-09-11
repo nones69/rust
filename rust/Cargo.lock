@@ -1332,6 +1332,7 @@ dependencies = [
  "ikrl-transport",
  "intentkernel-core",
  "intentkernel-crypto",
+ "intentos-kernel",
  "serde",
  "serde_json",
  "thiserror 2.0.20",

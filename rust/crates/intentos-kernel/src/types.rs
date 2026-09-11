@@ -53,6 +53,8 @@ pub enum CapabilityKind {
     DirList = 0x0004,
     NetSend = 0x0102,
     AiInfer = 0x0502,
+    DisplayDraw = 0x0201,
+    DisplayNotify = 0x0202,
     LeaseBackground = 0x0C01,
     Unknown = 0xFFFF,
 }
@@ -63,8 +65,12 @@ impl CapabilityKind {
             ("file", "read") => Self::FileRead,
             ("file", "write") => Self::FileWrite,
             ("dir", "list") | ("file", "list") => Self::DirList,
-            ("network", "send") | ("network", "descramble") => Self::NetSend,
+            ("network", "send") | ("network", "descramble") | ("network", "connect") => {
+                Self::NetSend
+            }
             ("ai", "infer") => Self::AiInfer,
+            ("display", "draw") => Self::DisplayDraw,
+            ("display", "notification") => Self::DisplayNotify,
             ("lease", "background") => Self::LeaseBackground,
             _ => Self::Unknown,
         }
@@ -168,6 +174,8 @@ pub enum SyscallOp {
     List,
     Send,
     Infer,
+    Draw,
+    Notify,
     Unknown(String),
 }
 
@@ -179,6 +187,8 @@ impl SyscallOp {
             "list" => Self::List,
             "send" => Self::Send,
             "infer" => Self::Infer,
+            "draw" => Self::Draw,
+            "notify" | "notification" => Self::Notify,
             other => Self::Unknown(other.to_string()),
         }
     }

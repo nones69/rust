@@ -71,6 +71,9 @@ impl PolicyEngine {
                 | ("descramble", "network")
                 | ("infer", "ai")
                 | ("background", "lease")
+                | ("draw", "display")
+                | ("notification", "display")
+                | ("connect", "network")
         );
         if !known {
             return PolicyDecision {
@@ -97,6 +100,9 @@ impl PolicyEngine {
             ("descramble", "network") => (15_000, 1),
             ("infer", "ai") => (60_000, 1),
             ("background", "lease") => (30_000, 1),
+            ("draw", "display") => (5_000, 1),
+            ("notification", "display") => (10_000, 1),
+            ("connect", "network") => (30_000, 1),
             _ => unreachable!("unknown intents denied above"),
         };
 
