@@ -235,6 +235,8 @@ struct ClusterState {
     pub audit_chain: Vec<FederatedAuditEntry>,
     /// Pending outbound task delegations.
     pub pending_tasks: HashMap<Uuid, TaskDelegation>,
+    /// Optional leader verifying key bytes (PUBLIC_KEY_LEN).
+    pub leader_verifying_key: Option<Vec<u8>>,
 }
 
 impl FederationCluster {
@@ -256,6 +258,7 @@ impl FederationCluster {
                 policy_hash: String::new(),
                 audit_chain: Vec::new(),
                 pending_tasks: HashMap::new(),
+                leader_verifying_key: None,
             })),
         }
     }
@@ -404,14 +407,51 @@ impl FederationCluster {
     /// Returns `Err` if the update is unsigned (signature field empty).
     pub fn apply_policy_update(&self, update: &PolicyUpdate) -> Result<(), String> {
         if update.signature.is_empty() {
-            return Err("policy update rejected: missing leader signature — \
-                 apply_policy_update requires a signed PolicyUpdate"
-                .to_string());
+            return Err("policy update rejected: missing leader signature".into());
         }
-        // TODO: verify update.signature over update.policy_hash with the
-        // cluster leader's public key stored in cluster state before accepting.
+        let key = self.inner.lock().unwrap().leader_verifying_key.clone();
+        if let Some(vk) = key {
+            let pk: [u8; crate::crypto::PUBLIC_KEY_LEN] =
+                vk.as_slice().try_into().map_err(|_| {
+                    "policy update rejected: malformed leader verifying key".to_string()
+                })?;
+            let sig_bytes = hex::decode(update.signature.trim())
+                .map_err(|e| format!("policy update rejected: signature not hex ({e})"))?;
+            let sig: [u8; crate::crypto::SIGNATURE_LEN] =
+                sig_bytes.as_slice().try_into().map_err(|_| {
+                    format!(
+                        "policy update rejected: signature length {} != {}",
+                        sig_bytes.len(),
+                        crate::crypto::SIGNATURE_LEN
+                    )
+                })?;
+            crate::crypto::verify(&pk, update.policy_hash.as_bytes(), &sig)
+                .map_err(|e| format!("policy update rejected: bad signature ({e})"))?;
+        }
         self.inner.lock().unwrap().policy_hash = update.policy_hash.clone();
         Ok(())
+    }
+
+    /// Install the cluster leader verifying key (`PUBLIC_KEY_LEN` bytes).
+    pub fn set_leader_verifying_key(&self, key: &[u8]) -> Result<(), String> {
+        if key.len() != crate::crypto::PUBLIC_KEY_LEN {
+            return Err(format!(
+                "expected {}-byte verifying key, got {}",
+                crate::crypto::PUBLIC_KEY_LEN,
+                key.len()
+            ));
+        }
+        self.inner.lock().unwrap().leader_verifying_key = Some(key.to_vec());
+        Ok(())
+    }
+
+    /// Sign a policy hash with a broker secret key; returns hex signature.
+    pub fn sign_policy_hash(secret_key: &[u8], policy_hash: &str) -> Result<String, String> {
+        let sk: [u8; crate::crypto::SECRET_KEY_LEN] = secret_key
+            .try_into()
+            .map_err(|_| "invalid secret key length".to_string())?;
+        let sig = crate::crypto::sign(&sk, policy_hash.as_bytes()).map_err(|e| e.to_string())?;
+        Ok(hex::encode(sig))
     }
 
     pub fn policy_hash(&self) -> String {
@@ -594,6 +634,91 @@ pub struct FederationStatus {
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
 
+/// Handle a federation syscall variant against cluster state.
+pub fn dispatch_federation_syscall(
+    cluster: &FederationCluster,
+    call: &crate::syscall_envelope::IkSyscall,
+) -> Result<serde_json::Value, String> {
+    use crate::syscall_envelope::IkSyscall;
+    match call {
+        IkSyscall::IkFederationHello {
+            kernel_id,
+            capabilities,
+            version,
+        } => {
+            let hello = HelloMessage {
+                kernel_id: *kernel_id,
+                role: FederationRole::Peer,
+                version: version.clone(),
+                capabilities: capabilities.clone(),
+                policy_hash: String::new(),
+            };
+            let welcome = cluster.process_hello(hello);
+            serde_json::to_value(&welcome).map_err(|e| e.to_string())
+        }
+        IkSyscall::IkFederationWelcome {
+            cluster_id,
+            peers,
+            policy_hash,
+        } => {
+            let welcome = WelcomeMessage {
+                cluster_id: *cluster_id,
+                kernel_id: cluster.kernel_id(),
+                role: cluster.role(),
+                peers: peers
+                    .iter()
+                    .map(|addr| FederationPeer {
+                        kernel_id: Uuid::nil(),
+                        addr: addr.clone(),
+                        role: FederationRole::Peer,
+                        version: String::new(),
+                        last_seen_ms: 0,
+                        capabilities: Vec::new(),
+                    })
+                    .collect(),
+                policy_hash: policy_hash.clone(),
+            };
+            cluster.process_welcome(welcome);
+            Ok(serde_json::json!({"ack": true}))
+        }
+        IkSyscall::IkForward {
+            target_kernel,
+            syscall_json,
+        } => {
+            let fwd = cluster.forward_syscall(*target_kernel, syscall_json.clone(), "");
+            serde_json::to_value(&fwd).map_err(|e| e.to_string())
+        }
+        IkSyscall::IkTaskDelegate {
+            target_kernel,
+            program,
+            args,
+            mode,
+            priority,
+        } => {
+            let mode = match mode.as_str() {
+                "permissive" => FedSandboxMode::Permissive,
+                "wasm" => FedSandboxMode::Wasm,
+                _ => FedSandboxMode::Strict,
+            };
+            let priority = match priority.as_str() {
+                "low" => FedTaskPriority::Low,
+                "high" => FedTaskPriority::High,
+                _ => FedTaskPriority::Normal,
+            };
+            let delegation = cluster.delegate_task(
+                *target_kernel,
+                program.clone(),
+                args.clone(),
+                mode,
+                priority,
+                "",
+            );
+            serde_json::to_value(&delegation).map_err(|e| e.to_string())
+        }
+        _ => Err("not a federation syscall".into()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -740,5 +865,62 @@ mod tests {
         assert_eq!(fwd.target_kernel, target);
         assert_eq!(fwd.token_jti, "jti-x");
         assert_eq!(fwd.syscall["op"], "IkOpen");
+    }
+
+    #[test]
+    fn policy_update_verifies_ed25519_when_key_configured() {
+        let keys = crate::crypto::generate_broker_keys().unwrap();
+        let node = make_node(FederationRole::Worker);
+        node.set_leader_verifying_key(keys.public_key_bytes())
+            .unwrap();
+        let policy_hash = "policy-v1-hash";
+        let signature =
+            FederationCluster::sign_policy_hash(keys.secret_key_bytes(), policy_hash).unwrap();
+        let update = PolicyUpdate {
+            cluster_id: Uuid::nil(),
+            policy_json: "{}".into(),
+            policy_hash: policy_hash.into(),
+            signature,
+            from: Uuid::new_v4(),
+        };
+        assert!(node.apply_policy_update(&update).is_ok());
+        assert_eq!(node.policy_hash(), policy_hash);
+
+        let bad = PolicyUpdate {
+            cluster_id: Uuid::nil(),
+            policy_json: "{}".into(),
+            policy_hash: policy_hash.into(),
+            signature: "00".repeat(crate::crypto::SIGNATURE_LEN),
+            from: Uuid::new_v4(),
+        };
+        assert!(node.apply_policy_update(&bad).is_err());
+    }
+
+    #[test]
+    fn dispatch_federation_hello_syscall() {
+        let leader = make_node(FederationRole::Leader);
+        let worker = make_node(FederationRole::Worker);
+        let call = crate::syscall_envelope::IkSyscall::IkFederationHello {
+            kernel_id: worker.kernel_id(),
+            capabilities: vec!["file:read".into()],
+            version: "0.1.0".into(),
+        };
+        let welcome = dispatch_federation_syscall(&leader, &call).unwrap();
+        assert!(welcome.get("cluster_id").is_some());
+        assert_eq!(leader.peer_count(), 1);
+    }
+
+    #[test]
+    fn mesh_hello_welcome_json_roundtrip() {
+        let leader = make_node(FederationRole::Leader);
+        let worker = make_node(FederationRole::Worker);
+        let hello = worker.build_hello();
+        let hello_bytes = serde_json::to_vec(&hello).unwrap();
+        let hello2: HelloMessage = serde_json::from_slice(&hello_bytes).unwrap();
+        let welcome = leader.process_hello(hello2);
+        let welcome_bytes = serde_json::to_vec(&welcome).unwrap();
+        let welcome2: WelcomeMessage = serde_json::from_slice(&welcome_bytes).unwrap();
+        worker.process_welcome(welcome2);
+        assert_eq!(worker.cluster_id(), leader.cluster_id());
     }
 }

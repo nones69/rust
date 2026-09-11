@@ -1487,11 +1487,14 @@ dependencies = [
 name = "intentkernel-server"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "ciborium",
  "ikrl-remote",
  "ikrl-transport",
  "intentos-audit",
  "intentos-kernel",
  "serde_json",
+ "tempfile",
  "tokio",
  "tracing",
  "uuid",

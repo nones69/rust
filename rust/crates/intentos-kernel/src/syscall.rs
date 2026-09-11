@@ -87,6 +87,12 @@ pub fn dispatch_call(
             }
         }
         IkSyscall::IkNetRequest { .. } => Err("network syscall not implemented in demo".into()),
+        IkSyscall::IkFederationHello { .. }
+        | IkSyscall::IkFederationWelcome { .. }
+        | IkSyscall::IkForward { .. }
+        | IkSyscall::IkTaskDelegate { .. } => {
+            Err("federation syscall requires FederationCluster context".into())
+        }
     };
 
     apply_quota(token, &env.call, &result);
@@ -144,6 +150,10 @@ fn syscall_name(call: &IkSyscall) -> &'static str {
         IkSyscall::IkClose { .. } => "IkClose",
         IkSyscall::IkAiInfer { .. } => "IkAiInfer",
         IkSyscall::IkNetRequest { .. } => "IkNetRequest",
+        IkSyscall::IkFederationHello { .. } => "IkFederationHello",
+        IkSyscall::IkFederationWelcome { .. } => "IkFederationWelcome",
+        IkSyscall::IkForward { .. } => "IkForward",
+        IkSyscall::IkTaskDelegate { .. } => "IkTaskDelegate",
     }
 }
 
