@@ -5,14 +5,16 @@ on:
     paths:
       - "rust/**"
       - ".github/workflows/rust.yml"
+      - "rust-toolchain.toml"
   pull_request:
     paths:
       - "rust/**"
       - ".github/workflows/rust.yml"
+      - "rust-toolchain.toml"
 
 jobs:
   test:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: rust
@@ -20,21 +22,28 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2025-12-01
+          components: rustfmt, clippy
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: rust
 
-      - name: Unit tests (core + crypto)
-        run: cargo test -p intentkernel-core -p intentkernel-crypto
+      - name: Format
+        run: cargo fmt --all -- --check
 
-      - name: Release build
-        run: cargo build --release
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
 
-      - name: Simulator smoke
-        run: cargo run -p ikrl-sim --release -- --resource file --action read
+      - name: Test workspace
+        run: cargo test --workspace
 
-      - name: Ransomware demo smoke
-        run: cargo run -p ransomware-demo --release -- --target-dir demo_victim_ci
+      - name: Release build + smoke demos
+        run: |
+          cargo build --release -p intentos -p ransomware-demo -p ikrl-sim
+          cargo run -p ikrl-sim --release
+          cargo run -p ransomware-demo --release -- --target-dir demo_victim_ci
+          cargo run -p intentos --release -- -c "status"

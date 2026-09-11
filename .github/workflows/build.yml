@@ -11,5 +11,23 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - name: Build
-        run: pwsh ./.github/workflows/build.ps1
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2025-12-01
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+
+      - name: Build primary Rust runtime
+        working-directory: rust
+        run: cargo build --release -p intentos
+
+      - name: Stage artifact
+        run: |
+          mkdir -p dist
+          cp rust/target/release/intentos dist/intentos
