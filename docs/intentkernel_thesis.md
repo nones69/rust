@@ -1,3 +1,12 @@
+> **Superseded for claim posture.** This file is a historical thesis draft (Oct 2025).
+> It contains absolute / formal language that does **not** describe the current repository.
+> For the credible north-star rewrite, read [`vision.md`](vision.md).
+> For what actually builds today, read the root [`README.md`](../README.md).
+>
+> Keep this draft for narrative archaeology; do not cite it as shipping guarantees.
+
+---
+
 # Master Thesis
 ## IntentKernel: A Universal Capability Architecture For All Computing
 ### Independent Security Research Group
