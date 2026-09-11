@@ -1,3 +1,7 @@
+#ifndef _WIN32
+#define _POSIX_C_SOURCE 200809L
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -17,9 +21,12 @@ uint64_t get_time(void) {
     QueryPerformanceCounter(&counter);
     return (uint64_t)(counter.QuadPart * 1000000000ULL / frequency.QuadPart);
     #else
-    /* POSIX implementation */
+    /* POSIX monotonic implementation */
     struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
+        perror("clock_gettime(CLOCK_MONOTONIC)");
+        exit(EXIT_FAILURE);
+    }
     return (uint64_t)ts.tv_sec * 1000000000ULL + (uint64_t)ts.tv_nsec;
     #endif
 }
@@ -72,8 +79,7 @@ int main() {
     result = capability_validate(&net_cap);
     printf("Validation after revocation: %d\n", result);
     
-    printf("\nPress Enter to exit...");
-    getchar();
-    
+    printf("\nTest harness completed successfully.\n");
+
     return 0;
 }

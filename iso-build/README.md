@@ -1,3 +1,8 @@
+> **Experimental.** This tree builds a custom live ISO / bare-metal demo pipeline.
+> It is **not** required for the IntentKernel Rust reference prototype (`../rust/`).
+> Host deps are heavy (`live-build`, `xorriso`, cross compilers). Treat failures here
+> as packaging issues, not core architecture regressions.
+
 # All-In-One ISO Build System
 
 Engineering Reference Manual v1.0.0 — multi-module pipeline producing `dist/custom-os.iso`.

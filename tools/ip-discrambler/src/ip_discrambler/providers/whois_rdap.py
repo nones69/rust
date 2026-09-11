@@ -2,7 +2,10 @@
 
 from typing import Any
 
-from ipwhois import IPWhois  # type: ignore
+try:
+    from ipwhois import IPWhois  # type: ignore
+except ImportError:  # pragma: no cover - optional dependency for RDAP enrichment
+    IPWhois = None  # type: ignore[assignment]
 
 from ..config import Config
 
@@ -14,6 +17,8 @@ class WhoisRdapProvider:
         self.config = config
 
     def lookup(self, ip: str) -> dict[str, Any]:
+        if IPWhois is None:
+            return {"error": "ipwhois not installed"}
         try:
             obj = IPWhois(ip)
             result = obj.lookup_rdap(depth=1)

@@ -3,7 +3,10 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
-import httpx
+try:
+    import httpx
+except ImportError:  # pragma: no cover - optional dependency for online lookups
+    httpx = None  # type: ignore[assignment]
 
 from ..config import Config
 
@@ -25,6 +28,8 @@ class AbuseIPDBProvider(ThreatIntelProvider):
     async def lookup(self, ip: str) -> dict[str, Any]:
         if not self.config.abuseipdb_api_key:
             return {"error": "ABUSEIPDB_API_KEY not configured"}
+        if httpx is None:
+            return {"error": "httpx not installed"}
         try:
             async with httpx.AsyncClient(timeout=self.config.request_timeout) as client:
                 resp = await client.get(
@@ -51,6 +56,8 @@ class VirusTotalProvider(ThreatIntelProvider):
     async def lookup(self, ip: str) -> dict[str, Any]:
         if not self.config.virustotal_api_key:
             return {"error": "VIRUSTOTAL_API_KEY not configured"}
+        if httpx is None:
+            return {"error": "httpx not installed"}
         try:
             async with httpx.AsyncClient(timeout=self.config.request_timeout) as client:
                 resp = await client.get(
@@ -82,6 +89,8 @@ class ShodanProvider(ThreatIntelProvider):
     async def lookup(self, ip: str) -> dict[str, Any]:
         if not self.config.shodan_api_key:
             return {"error": "SHODAN_API_KEY not configured"}
+        if httpx is None:
+            return {"error": "httpx not installed"}
         try:
             async with httpx.AsyncClient(timeout=self.config.request_timeout) as client:
                 resp = await client.get(
